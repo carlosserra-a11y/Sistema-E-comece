@@ -12,17 +12,20 @@ export const SENHA_INICIAL = 'inicial-fraca';
 export const SENHA_FORTE = 'Telhado!Verde#Lume47';
 const hex = () => crypto.randomBytes(32).toString('hex');
 
-export async function criarSistema() {
+export async function criarSistema(opts = {}) {
   const relogio = { t: Date.now() };
-  const cfg = loadConfig({ NODE_ENV: 'test', DB_PATH: ':memory:', PEPPER: hex(), HMAC_KEY: hex(), FIELD_KEY: hex(), SCRYPT_N: '1024', PORT: '0', LOG_LEVEL: 'error' });
+  const cfg = loadConfig({ NODE_ENV: 'test', DB_PATH: ':memory:', PEPPER: hex(), HMAC_KEY: hex(), FIELD_KEY: hex(), SCRYPT_N: '1024', PORT: '0', LOG_LEVEL: 'error', ML_POLL_MIN: '0', ...(process.env.TEST_DB === 'pg' ? { DATABASE_URL: 'pglite://memory' } : {}), ...(opts.env ?? {}), ...(opts.ml ? { ML_API_BASE: opts.ml.base } : {}) });
   cfg.agora = () => relogio.t;
-  const sis = montar(cfg, { log: criarLogger({ silencioso: true }) });
-  sis.db.prepare('INSERT INTO users (login_hmac, senha_hash, trocar_senha, criado_em) VALUES (?,?,1,?)').run(chaveLogin(cfg, LOGIN), await hashSenha(cfg, SENHA_INICIAL), relogio.t);
+  const atrasos = []; // esperas de recuo (backoff) pedidas ao adapter, sem esperar de verdade
+  cfg.ml.esperar = async (ms) => { atrasos.push(ms); };
+  cfg.ml.debounceMs = 0;
+  const sis = await montar(cfg, { log: criarLogger({ silencioso: true }) });
+  await sis.db.run("INSERT INTO users (login_hmac, senha_hash, trocar_senha, dono, papel, criado_em) VALUES (?,?,1,1,'admin',?)", chaveLogin(cfg, LOGIN), await hashSenha(cfg, SENHA_INICIAL), relogio.t);
   await new Promise((r) => sis.app.server.listen(0, '127.0.0.1', r));
   const porta = sis.app.server.address().port;
   cfg.hostsPermitidos.add(`127.0.0.1:${porta}`);
   cfg.origensPermitidas.add(`http://127.0.0.1:${porta}`);
-  return { ...sis, cfg, relogio, base: `http://127.0.0.1:${porta}`, cliente: () => new Cliente(`http://127.0.0.1:${porta}`) };
+  return { ...sis, cfg, relogio, atrasos, base: `http://127.0.0.1:${porta}`, cliente: () => new Cliente(`http://127.0.0.1:${porta}`) };
 }
 
 export class Cliente {

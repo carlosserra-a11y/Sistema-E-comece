@@ -2,18 +2,23 @@ import { h, limpar, api, estado, icone, modal, confirmar, campo, toast, tratar, 
 import { telaAcesso } from './acesso.js';
 
 const PAGINAS = [
-  ['painel', 'Início', 'home', () => import('./pg-painel.js')],
-  ['consulta', 'Consulta', 'scan', () => import('./pg-consulta.js')],
-  ['produtos', 'Produtos', 'box', () => import('./pg-produtos.js')],
-  ['estoque', 'Estoque', 'layers', () => import('./pg-estoque.js')],
-  ['enderecos', 'Endereços', 'map', () => import('./pg-enderecos.js')],
-  ['contagem', 'Contagem', 'clipboard', () => import('./pg-contagem.js')],
-  ['etiquetas', 'Etiquetas', 'tag', () => import('./pg-etiquetas.js')],
-  ['fornecedores', 'Fornecedores', 'truck', () => import('./pg-fornecedores.js')],
-  ['config', 'Configurações', 'settings', () => import('./pg-config.js')],
-  ['design', 'Design', 'sun', () => import('./pg-design.js')],
+  ['painel', 'Início', 'home', () => import('./pg-painel.js'), null],
+  ['consulta', 'Consulta', 'scan', () => import('./pg-consulta.js'), ['produtos.ver', 'estoque.ver', 'enderecos.ver', 'contagem.operar']],
+  ['produtos', 'Produtos', 'box', () => import('./pg-produtos.js'), ['produtos.ver']],
+  ['estoque', 'Estoque', 'layers', () => import('./pg-estoque.js'), ['estoque.ver', 'estoque.operar']],
+  ['enderecos', 'Endereços', 'map', () => import('./pg-enderecos.js'), ['enderecos.ver']],
+  ['integracoes', 'Integrações', 'arrows', () => import('./pg-integracoes.js'), ['integracoes.ver', 'pedidos.ver']],
+  ['contagem', 'Contagem', 'clipboard', () => import('./pg-contagem.js'), ['contagem.operar']],
+  ['etiquetas', 'Etiquetas', 'tag', () => import('./pg-etiquetas.js'), ['etiquetas.imprimir']],
+  ['fornecedores', 'Fornecedores', 'truck', () => import('./pg-fornecedores.js'), ['fornecedores.ver']],
+  ['equipe', 'Equipe', 'users', () => import('./pg-equipe.js'), ['usuarios.gerenciar']],
+  ['config', 'Configurações', 'settings', () => import('./pg-config.js'), null],
+  ['design', 'Design', 'sun', () => import('./pg-design.js'), null],
 ];
-const ABAS_CELULAR = ['painel', 'consulta', 'estoque', 'contagem'];
+// O servidor confere tudo de novo; aqui só escondemos o que a pessoa não pode usar.
+const permitida = (p) => !p[4] || p[4].some((x) => sessao?.usuario?.permissoes?.includes(x));
+const visiveis = () => PAGINAS.filter(permitida);
+const ABAS_CELULAR = ['painel', 'estoque', 'contagem'];
 const raiz = document.getElementById('raiz');
 let conteudo; let limparPagina = null; let sessao = null; let ultimaAtividade = Date.now(); let ultimoBatimento = 0;
 
@@ -33,21 +38,23 @@ async function iniciar() {
 }
 
 function montarShell() {
-  const navItens = PAGINAS.filter(([n]) => n !== 'design').map(([nome, rotulo, ic]) => h('a', { class: 'item', href: `#/${nome}`, dataset: undefined, 'data-rota': nome }, icone(ic), rotulo));
+  const navItens = visiveis().filter(([n]) => n !== 'design').map(([nome, rotulo, ic]) => h('a', { class: 'item', href: `#/${nome}`, dataset: undefined, 'data-rota': nome }, icone(ic), rotulo));
   const busca = h('input', { type: 'search', class: 'busca', placeholder: 'Ler código, SKU ou endereço   ( / )', 'aria-label': 'Busca global', id: 'busca-global', autocomplete: 'off',
     onkeydown: (e) => { if (e.key === 'Enter' && e.target.value.trim()) { ir(`consulta?c=${encodeURIComponent(e.target.value.trim())}`); e.target.value = ''; e.target.blur(); } } });
   const maisAba = h('button', { 'data-rota': 'mais', onclick: abrirMais }, icone('dots'), 'Mais');
-  const abasCel = ABAS_CELULAR.map((n) => { const [, rotulo, ic] = PAGINAS.find(([x]) => x === n); return h('a', { href: `#/${n}`, 'data-rota': n }, icone(ic, 22), rotulo); });
+  const abasCel = ABAS_CELULAR.map((n) => PAGINAS.find(([x]) => x === n)).filter(permitida).map(([n, rotulo, ic]) => h('a', { href: `#/${n}`, 'data-rota': n }, icone(ic, 22), rotulo));
+  const bipar = visiveis().some(([n]) => n === 'consulta') ? h('button', { class: 'tab-bipar', 'aria-label': 'Bipar com a câmera', onclick: biparAgora }, h('span', null, icone('scan', 26)), 'Bipar') : null;
+  abasCel.splice(Math.ceil(abasCel.length / 2), 0, bipar);
   conteudo = h('main', { class: 'content', id: 'conteudo', tabindex: '-1' });
   limpar(raiz).append(
     h('a', { class: 'skip', href: '#conteudo', onclick: (e) => { e.preventDefault(); conteudo.focus(); } }, 'Ir para o conteúdo'),
     h('div', { class: 'app' },
-      h('nav', { class: 'nav', 'aria-label': 'Principal' }, h('div', { class: 'brand' }, h('span', { class: 'logo' }, icone('box', 18)), sessao.appName), navItens, h('span', { class: 'grow' }),
+      h('nav', { class: 'nav', 'aria-label': 'Principal' }, h('div', { class: 'brand' }, h('img', { class: 'logo', src: '/icone.svg', alt: '', width: 34, height: 34 }), h('div', { class: 'brand-txt' }, h('strong', null, sessao.appName.split(' ')[0]), h('small', null, sessao.appName.split(' ').slice(1).join(' ')))), navItens, h('span', { class: 'grow' }),
         h('a', { class: 'item', href: '#/design' }, icone('sun'), 'Design'), h('button', { class: 'btn fantasma', onclick: sair }, icone('logout'), 'Sair')),
       h('div', { class: 'main' }, h('div', { id: 'faixa-offline', class: 'offline', role: 'status', hidden: true }, 'Sem conexão. As alterações não serão salvas até a internet voltar.'),
         h('header', { class: 'topbar' }, h('div', { class: 'busca' }, busca), h('button', { class: 'btn icone fantasma', 'aria-label': 'Paleta de comandos (Ctrl+K)', onclick: paleta }, icone('search')),
           h('button', { class: 'btn icone fantasma', 'aria-label': 'Alternar tema', onclick: alternarTema }, icone('moon'))), conteudo)),
-    h('nav', { class: 'tabbar', 'aria-label': 'Principal (celular)' }, abasCel, maisAba));
+    h('nav', { class: 'tabbar', 'aria-label': 'Principal (celular)' }, abasCel.filter(Boolean), maisAba));
 }
 
 function marcarNav(nome) {
@@ -58,6 +65,7 @@ async function desenharRota() {
   if (!conteudo) return;
   const { nome, params } = rotaAtual();
   const pagina = PAGINAS.find(([n]) => n === nome) ?? PAGINAS[0];
+  if (!permitida(pagina)) { marcarNav(''); limpar(conteudo).append(h('div', { class: 'vazio' }, icone('shield', 36), h('strong', null, 'Sem acesso a esta área'), h('p', null, 'Peça ao dono do sistema para liberar esta função para você.'), h('a', { class: 'btn', href: '#/painel' }, 'Voltar ao início'))); return; }
   marcarNav(pagina[0]);
   document.title = `${pagina[1]} · ${sessao.appName}`;
   limparPagina?.(); limparPagina = null;
@@ -92,15 +100,20 @@ function alternarTema() {
   definirTema(prox); toast(`Tema: ${prox}`, 'info', 1500);
 }
 
+async function biparAgora() {
+  const { abrirScanner } = await import('./scanner.js');
+  abrirScanner({ titulo: 'Bipar produto, endereço ou lote', aoLer: (codigo) => { ir(`consulta?c=${encodeURIComponent(codigo)}`); } });
+}
+
 function abrirMais() {
   let m;
-  m = modal('Mais', h('div', { class: 'stack' }, PAGINAS.filter(([n]) => !ABAS_CELULAR.includes(n)).map(([n, r, ic]) => h('a', { class: 'btn', href: `#/${n}`, onclick: () => m.fechar() }, icone(ic), r)),
+  m = modal('Mais', h('div', { class: 'stack' }, visiveis().filter(([n]) => !ABAS_CELULAR.includes(n)).map(([n, r, ic]) => h('a', { class: 'btn', href: `#/${n}`, onclick: () => m.fechar() }, icone(ic), r)),
     h('button', { class: 'btn', onclick: () => { m.fechar(); alternarTema(); } }, icone('moon'), 'Alternar tema'), h('button', { class: 'btn', onclick: () => { m.fechar(); sair(); } }, icone('logout'), 'Sair')));
 }
 
 function paleta() {
   const comandos = [
-    ...PAGINAS.map(([n, r, ic]) => ({ rotulo: `Ir para ${r}`, ic, acao: () => ir(n), atalho: '' })),
+    ...visiveis().map(([n, r, ic]) => ({ rotulo: `Ir para ${r}`, ic, acao: () => ir(n), atalho: '' })),
     { rotulo: 'Novo produto', ic: 'plus', acao: () => ir('produtos?novo=1'), atalho: 'N' },
     { rotulo: 'Receber mercadoria', ic: 'download', acao: () => ir('estoque?op=receber') },
     { rotulo: 'Transferir / guardar', ic: 'arrows', acao: () => ir('estoque?op=transferir') },
@@ -138,7 +151,7 @@ function atalhos() {
     linha('G depois E', 'Estoque'), linha('G depois A', 'Endereços'), linha('G depois C', 'Contagem'), linha('G depois T', 'Etiquetas'), linha('G depois Q', 'Consulta'), linha('N', 'Novo (na tela atual)'), linha('?', 'Esta lista'), linha('Esc', 'Fechar gaveta/janela')));
 }
 
-const IR_PARA = { i: 'painel', p: 'produtos', e: 'estoque', a: 'enderecos', c: 'contagem', t: 'etiquetas', q: 'consulta', f: 'fornecedores' };
+const IR_PARA = { m: 'integracoes', i: 'painel', p: 'produtos', e: 'estoque', a: 'enderecos', c: 'contagem', t: 'etiquetas', q: 'consulta', f: 'fornecedores' };
 let esperandoG = 0;
 document.addEventListener('keydown', (e) => {
   if (!sessao?.autenticado) return;

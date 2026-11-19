@@ -11,7 +11,7 @@ async function com(fn) {
 const receber = (c, produto_id, endereco_id, qtd, extra = {}) => c.idem('/api/estoque/receber', { produto_id, endereco_id, qtd, ...extra });
 const saldoTotal = async (c, id) => (await c.get(`/api/estoque/onde/${id}`)).data.total;
 
-test('saldo nunca fica negativo e o livro-razão é imutável', () => com(async (sis, c) => {
+test('saldo nunca fica negativo e o livro-razão é imutável', async () => await com(async (sis, c) => {
   const p = await novoProduto(c);
   const [e1, e2] = await criarEnderecos(c, 'PICKING');
   assert.equal((await receber(c, p.id, e1.id, 10)).status, 201);
@@ -21,14 +21,14 @@ test('saldo nunca fica negativo e o livro-razão é imutável', () => com(async 
   const tr = await c.idem('/api/estoque/transferir', { produto_id: p.id, origem_id: e1.id, destino_id: e2.id, qtd: 11 });
   assert.equal(tr.erro.code, 'ESTOQUE_INSUFICIENTE');
   assert.equal(await saldoTotal(c, p.id), 10, 'nada mudou após as falhas');
-  assert.throws(() => sis.db.exec('UPDATE movimentacoes_estoque SET delta = 99'), /imutavel/);
-  assert.throws(() => sis.db.exec('DELETE FROM movimentacoes_estoque'), /imutavel/);
+  await assert.rejects(() => sis.db.exec('UPDATE movimentacoes_estoque SET delta = 99'), /imutavel/);
+  await assert.rejects(() => sis.db.exec('DELETE FROM movimentacoes_estoque'), /imutavel/);
   // a última barreira é o banco: mesmo ignorando a aplicação, o saldo não aceita negativo
-  assert.throws(() => sis.db.prepare("INSERT INTO movimentacoes_estoque (ts, tipo, produto_id, endereco_id, delta) VALUES (1,'SAIDA',?,?,-999)").run(p.id, e1.id), /qtd >= 0/);
-  assert.equal(integridade(sis.db).ok, true);
+  await assert.rejects(() => sis.db.run("INSERT INTO movimentacoes_estoque (ts, tipo, produto_id, endereco_id, delta) VALUES (1,'SAIDA',?,?,-999)", p.id, e1.id), /qtd >= 0|saldos_por_endereco_qtd_check/); // mensagem do SQLite | do PostgreSQL
+  assert.equal((await integridade(sis.db)).ok, true);
 }));
 
-test('transferência move entre endereços em duas pernas e a soma bate com o razão', () => com(async (sis, c) => {
+test('transferência move entre endereços em duas pernas e a soma bate com o razão', async () => await com(async (sis, c) => {
   const p = await novoProduto(c);
   const [e1, e2] = await criarEnderecos(c, 'PICKING');
   await receber(c, p.id, e1.id, 10);
@@ -40,10 +40,10 @@ test('transferência move entre endereços em duas pernas e a soma bate com o ra
   assert.equal((await c.idem('/api/estoque/transferir', { produto_id: p.id, origem_id: e1.id, destino_id: e1.id, qtd: 1 })).status, 422);
   const mov = (await c.get(`/api/estoque/movimentos?produto_id=${p.id}`)).data;
   assert.equal(mov.itens.reduce((a, m) => a + m.delta, 0), 10);
-  assert.equal(integridade(sis.db).ok, true);
+  assert.equal((await integridade(sis.db)).ok, true);
 }));
 
-test('idempotência: duplo clique e reenvio não duplicam a entrada', () => com(async (sis, c) => {
+test('idempotência: duplo clique e reenvio não duplicam a entrada', async () => await com(async (sis, c) => {
   const p = await novoProduto(c);
   const [e1] = await criarEnderecos(c, 'PICKING');
   const chave = 'chave-teste-0123456789';
@@ -58,7 +58,7 @@ test('idempotência: duplo clique e reenvio não duplicam a entrada', () => com(
   assert.equal(await saldoTotal(c, p.id), 5);
 }));
 
-test('capacidade, bloqueio, inativo e validações de entrada', () => com(async (sis, c) => {
+test('capacidade, bloqueio, inativo e validações de entrada', async () => await com(async (sis, c) => {
   const p = await novoProduto(c);
   const [e1, e2] = await criarEnderecos(c, 'PICKING', { cap: 10 });
   assert.equal((await receber(c, p.id, e1.id, 8)).status, 201);
@@ -77,7 +77,7 @@ test('capacidade, bloqueio, inativo e validações de entrada', () => com(async 
   assert.equal((await c.post(`/api/produtos/${p.id}/inativar`)).erro.code, 'COM_ESTOQUE');
 }));
 
-test('lotes e validade: controle obrigatório, lote vencido e validade conflitante', () => com(async (sis, c) => {
+test('lotes e validade: controle obrigatório, lote vencido e validade conflitante', async () => await com(async (sis, c) => {
   const p = await novoProduto(c, { controla_lote: 1, controla_validade: 1 });
   const [e1, e2] = await criarEnderecos(c, 'PICKING');
   assert.equal((await receber(c, p.id, e1.id, 5)).status, 422, 'sem lote');
@@ -95,7 +95,7 @@ test('lotes e validade: controle obrigatório, lote vencido e validade conflitan
   assert.equal((await c.idem('/api/estoque/transferir', { produto_id: p.id, origem_id: e1.id, destino_id: e2.id, qtd: 2, lote_id: onde.locais[0].lote_id })).status, 201);
 }));
 
-test('ajuste exige reautenticação e motivo; avaria e baixa', () => com(async (sis, c) => {
+test('ajuste exige reautenticação e motivo; avaria e baixa', async () => await com(async (sis, c) => {
   const p = await novoProduto(c);
   const [e1] = await criarEnderecos(c, 'PICKING');
   await receber(c, p.id, e1.id, 10);
@@ -111,10 +111,10 @@ test('ajuste exige reautenticação e motivo; avaria e baixa', () => com(async (
   assert.equal((await c.get(`/api/estoque/onde/${p.id}`)).data.vendavel, 5, 'avaria não conta como disponível');
   assert.equal((await c.idem('/api/estoque/baixar', { produto_id: p.id, endereco_id: av.id, qtd: 2, motivo: 'descarte aprovado' })).status, 201);
   assert.equal(await saldoTotal(c, p.id), 5);
-  assert.equal(integridade(sis.db).ok, true);
+  assert.equal((await integridade(sis.db)).ok, true);
 }));
 
-test('sugestão de guarda, picking designado e reposição', () => com(async (sis, c) => {
+test('sugestão de guarda, picking designado e reposição', async () => await com(async (sis, c) => {
   const p = await novoProduto(c);
   const pick = await criarEnderecos(c, 'PICKING', { cap: 10 });
   const res = await criarEnderecos(c, 'RESERVA', { rua: 2 });
@@ -140,7 +140,7 @@ test('sugestão de guarda, picking designado e reposição', () => com(async (si
   assert.equal(rep[0].qtd, 10);
 }));
 
-test('endereços em massa: prévia, criação, repetição e limites', () => com(async (sis, c) => {
+test('endereços em massa: prévia, criação, repetição e limites', async () => await com(async (sis, c) => {
   const z = await zona(c, 'PICKING');
   const corpo = { zona_id: z.id, rua_de: 1, rua_ate: 1, predio_de: 1, predio_ate: 10, nivel_de: 1, nivel_ate: 4, pos_de: 1, pos_ate: 6 };
   const previa = (await c.post('/api/enderecos/lote', corpo)).data;
@@ -155,7 +155,7 @@ test('endereços em massa: prévia, criação, repetição e limites', () => com
   assert.equal((await c.post('/api/enderecos/lote', { ...corpo, zona_id: 9999 })).status, 404);
 }));
 
-test('código de barras: geração interna, validação GTIN e colisões', () => com(async (sis, c) => {
+test('código de barras: geração interna, validação GTIN e colisões', async () => await com(async (sis, c) => {
   const a = await novoProduto(c); const b = await novoProduto(c);
   const g1 = (await c.post(`/api/produtos/${a.id}/codigos/gerar`)).data;
   const g2 = (await c.post(`/api/produtos/${b.id}/codigos/gerar`)).data;
@@ -184,7 +184,7 @@ test('código de barras: geração interna, validação GTIN e colisões', () =>
   assert.equal(lista.total, 0); assert.ok(sem.id);
 }));
 
-test('leitura universal: produto, variantes UPC/EAN, endereço, lote, ruído de leitor', () => com(async (sis, c) => {
+test('leitura universal: produto, variantes UPC/EAN, endereço, lote, ruído de leitor', async () => await com(async (sis, c) => {
   const p = await novoProduto(c, { controla_lote: 1 });
   const [e1] = await criarEnderecos(c, 'PICKING');
   await c.post(`/api/produtos/${p.id}/codigos`, { codigo: '036000291452' });
@@ -207,7 +207,7 @@ test('leitura universal: produto, variantes UPC/EAN, endereço, lote, ruído de 
   assert.equal((await ler('')).tipo, 'VAZIO');
 }));
 
-test('etiquetas: SVG, ZPL, formatos e produto sem código', () => com(async (sis, c) => {
+test('etiquetas: SVG, ZPL, formatos e produto sem código', async () => await com(async (sis, c) => {
   const p = await novoProduto(c, { nome: 'Camiseta Algodão Premium Manga Longa Azul-Marinho GG' });
   const sem = await c.get(`/api/etiquetas/svg?tipo=produto&id=${p.id}&formato=50x30`);
   assert.equal(sem.status, 409); assert.equal(sem.erro.code, 'SEM_CODIGO');
@@ -242,7 +242,7 @@ test('etiquetas: SVG, ZPL, formatos e produto sem código', () => com(async (sis
   assert.equal((await c.post('/api/etiquetas/zpl', { formato: '50x30', itens: [] })).status, 422);
 }));
 
-test('inventário: contagem cega, divergência, conflito por movimento e aprovação', () => com(async (sis, c) => {
+test('inventário: contagem cega, divergência, conflito por movimento e aprovação', async () => await com(async (sis, c) => {
   const p = await novoProduto(c);
   const q = await novoProduto(c);
   const [e1, e2] = await criarEnderecos(c, 'PICKING');
@@ -276,11 +276,11 @@ test('inventário: contagem cega, divergência, conflito por movimento e aprova�
   assert.ok(fim.itens.every((i) => i.qtd_sistema !== null), 'depois de aprovado, o sistema aparece');
   assert.equal((await c.post(`/api/inventarios/${inv.id}/aprovar`, {})).erro.code, 'INVENTARIO_FECHADO');
   assert.equal((await c.post(`/api/inventarios/${inv.id}/contar`, { endereco_id: e1.id, produto_id: p.id, qtd: 1 })).erro.code, 'INVENTARIO_FECHADO');
-  assert.equal(integridade(sis.db).ok, true);
-  assert.ok(sis.db.prepare('SELECT ultima_contagem_em FROM enderecos WHERE id = ?').get(e1.id).ultima_contagem_em);
+  assert.equal((await integridade(sis.db)).ok, true);
+  assert.ok((await sis.db.get('SELECT ultima_contagem_em FROM enderecos WHERE id = ?', e1.id)).ultima_contagem_em);
 }));
 
-test('inventário: item achado fora do sistema, endereço vazio e cíclico por antiguidade', () => com(async (sis, c) => {
+test('inventário: item achado fora do sistema, endereço vazio e cíclico por antiguidade', async () => await com(async (sis, c) => {
   const p = await novoProduto(c); const q = await novoProduto(c);
   const lista = await criarEnderecos(c, 'PICKING', { predios: 3, pos: 1 });
   await receber(c, p.id, lista[0].id, 4);
@@ -297,14 +297,14 @@ test('inventário: item achado fora do sistema, endereço vazio e cíclico por a
   await c.post(`/api/inventarios/${inv.id}/contar`, { endereco_id: a.endereco_id, produto_id: p.id, qtd: 4 });
   const ap = await c.post(`/api/inventarios/${inv.id}/aprovar`, {});
   assert.equal(ap.status, 200);
-  assert.equal(integridade(sis.db).ok, true);
+  assert.equal((await integridade(sis.db)).ok, true);
   assert.equal((await c.post(`/api/inventarios/${inv.id}/cancelar`, {})).erro.code, 'INVENTARIO_FECHADO');
   const inv2 = (await c.post('/api/inventarios', { tipo: 'CICLICO', limite: 5 })).data;
   assert.ok(inv2.enderecos.length >= 1, 'o próximo ciclo pega o que não foi contado');
   assert.equal((await c.post(`/api/inventarios/${inv2.id}/cancelar`, {})).status, 200);
 }));
 
-test('importação CSV: prévia, validação, formato brasileiro e exportação segura', () => com(async (sis, c) => {
+test('importação CSV: prévia, validação, formato brasileiro e exportação segura', async () => await com(async (sis, c) => {
   const csv = 'sku;nome;marca;custo;preco;estoque_min;codigo_barras\r\nCSV-1;Caneca Azul;Loja;12,50;29,90;5;4006381333931\r\nCSV-2;;Loja;1;2;0;\r\nCSV-1;Repetido;Loja;1;2;0;\r\nCSV-3;=HYPERLINK("http://x");Loja;1;2;0;\r\nCSV-4;Prato;Loja;abc;2;0;';
   const previa = await c.req('POST', '/api/produtos/importar', csv, { texto: true });
   assert.equal(previa.status, 200);
@@ -322,7 +322,7 @@ test('importação CSV: prévia, validação, formato brasileiro e exportação 
   assert.equal((await c.req('POST', '/api/produtos/importar', 'sku;nome', { texto: true })).status, 422, 'planilha só com cabeçalho');
 }));
 
-test('produto: edição com controle de versão, inativação e busca sem acento', () => com(async (sis, c) => {
+test('produto: edição com controle de versão, inativação e busca sem acento', async () => await com(async (sis, c) => {
   const p = (await c.post('/api/produtos', { sku: 'pao-01', nome: 'Pão de Açúcar Integral', marca: 'Padaria Ção' })).data;
   assert.equal(p.sku, 'PAO-01', 'SKU normalizado');
   assert.equal((await c.post('/api/produtos', { sku: 'PAO-01', nome: 'Duplicado' })).status, 409);
@@ -340,19 +340,19 @@ test('produto: edição com controle de versão, inativação e busca sem acento
   assert.equal((await c.get('/api/produtos/abc')).status, 404);
 }));
 
-test('fornecedor: CNPJ validado, mascarado, cifrado e único', () => com(async (sis, c) => {
+test('fornecedor: CNPJ validado, mascarado, cifrado e único', async () => await com(async (sis, c) => {
   assert.equal((await c.post('/api/fornecedores', { nome: 'Fornecedor X', documento: '11.222.333/0001-82' })).status, 422, 'CNPJ inválido');
   const ok = await c.post('/api/fornecedores', { nome: 'Fornecedor Y', documento: '11.222.333/0001-81', email: 'compras@exemplo.com.br', prazo_dias: 7 });
   assert.equal(ok.status, 201);
   assert.equal(ok.data.documento_mascarado, '************81');
   assert.ok(!('documento_enc' in ok.data));
   assert.equal((await c.post('/api/fornecedores', { nome: 'Dup', documento: '11222333000181' })).status, 409);
-  assert.ok(!sis.db.prepare('SELECT documento_enc FROM fornecedores').get().documento_enc.includes('11222333000181'));
+  assert.ok(!(await sis.db.get('SELECT documento_enc FROM fornecedores')).documento_enc.includes('11222333000181'));
   assert.equal((await c.post('/api/fornecedores', { nome: 'Email ruim', email: 'nao-e-email' })).status, 422);
   assert.equal((await c.get('/api/fornecedores?q=forn')).data.total, 1);
 }));
 
-test('painel e verificações de integridade', () => com(async (sis, c) => {
+test('painel e verificações de integridade', async () => await com(async (sis, c) => {
   const p = await novoProduto(c, { estoque_min: 10 });
   const [e1] = await criarEnderecos(c, 'PICKING');
   await receber(c, p.id, e1.id, 3);
@@ -365,7 +365,7 @@ test('painel e verificações de integridade', () => com(async (sis, c) => {
   assert.ok(mapa.some((m) => m.codigo === e1.codigo && m.qtd === 3));
 }));
 
-test('regressão do gatilho: saída até zero é permitida; saída sem saldo prévio é bloqueada', () => com(async (sis, c) => {
+test('regressão do gatilho: saída até zero é permitida; saída sem saldo prévio é bloqueada', async () => await com(async (sis, c) => {
   const p = await novoProduto(c);
   const [e1, e2] = await criarEnderecos(c, 'PICKING');
   await receber(c, p.id, e1.id, 3);
@@ -373,8 +373,8 @@ test('regressão do gatilho: saída até zero é permitida; saída sem saldo pr�
   assert.equal(await saldoTotal(c, p.id), 0);
   assert.equal((await c.idem('/api/estoque/baixar', { produto_id: p.id, endereco_id: e1.id, qtd: 1, motivo: 'de novo' })).erro.code, 'ESTOQUE_INSUFICIENTE');
   assert.equal((await c.idem('/api/estoque/baixar', { produto_id: p.id, endereco_id: e2.id, qtd: 1, motivo: 'nunca teve' })).erro.code, 'ESTOQUE_INSUFICIENTE');
-  assert.equal(sis.db.prepare('SELECT COUNT(*) c FROM saldos_por_endereco WHERE endereco_id = ?').get(e2.id).c, 0, 'não cria linha de saldo para saída falha');
+  assert.equal((await sis.db.get('SELECT COUNT(*) c FROM saldos_por_endereco WHERE endereco_id = ?', e2.id)).c, 0, 'não cria linha de saldo para saída falha');
   assert.equal((await receber(c, p.id, e1.id, 2)).status, 201);
   assert.equal(await saldoTotal(c, p.id), 2);
-  assert.equal(integridade(sis.db).ok, true);
+  assert.equal((await integridade(sis.db)).ok, true);
 }));

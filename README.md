@@ -33,9 +33,21 @@ npm test               # testes de segurança, estoque, código de barras e cont
 | **Contagem** | inventário cíclico, geral ou por endereços; **contagem cega**; detecta movimento no meio da contagem; aprovação com reautenticação |
 | Design | tokens OKLCH, temas escuro/claro/automático/alto contraste (contraste ≥ 4,5:1 testado), navegação lateral + abas no celular, paleta Ctrl+K, atalhos, PWA, galeria em `/#/design` |
 
+## Fase 5: Mercado Livre
+
+| Área | Entregue |
+|---|---|
+| Conexão | OAuth 2.0 com `state` de uso único, tokens e chave do app cifrados, renovação serializada (refresh de uso único), reconexão guiada |
+| Pedidos | webhook `orders_v2` (segredo na URL; o pedido é sempre buscado na API) + polling de reconciliação; importação **idempotente**; cancelamento libera a reserva |
+| Estoque | reserva por pedido; envio para o anúncio de `disponível − reservas − margem`, só quando muda; pausa em zero e reativa; variações |
+| Mapeamento | SKU ↔ anúncio manual (valida o dono) ou automático pelo SKU do vendedor |
+| Saúde | verde/amarelo/vermelho, últimos erros, histórico de sincronizações, pedidos "com problema" (SKU não mapeado, venda acima do estoque) |
+
+> **Ainda não foi testado contra o Mercado Livre real** (só contra um servidor falso fiel à documentação). Valide com a sua conta antes de ligar a pausa automática. Detalhes e limites em [docs/INTEGRACOES.md](docs/INTEGRACOES.md).
+
 ## Próximas fases
 
-Veja [docs/INTEGRACOES.md](docs/INTEGRACOES.md) e a tabela de fases em [docs/ARQUITETURA.md](docs/ARQUITETURA.md). Mercado Livre, Shopee, NF-e (Bling/Tiny), fluxo do pedido, separação mobile, conferência, embalagem, expedição e devoluções **ainda não existem**.
+Shopee, NF-e (Bling/Tiny), fluxo do pedido (separação mobile, conferência, embalagem), expedição, devoluções e relatórios **ainda não existem**. Veja [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 
 ## Documentação
 

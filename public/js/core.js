@@ -46,6 +46,8 @@ const ICONES = {
   shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', logout: 'M9 4H4v16h5 M16 8l4 4-4 4 M20 12H9', dots: 'M5 12h.01 M12 12h.01 M19 12h.01',
   download: 'M12 3v12 M7 11l5 5 5-5 M4 21h16', upload: 'M12 16V4 M7 8l5-5 5 5 M4 21h16', list: 'M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01',
   arrows: 'M7 7h13l-4-4 M17 17H4l4 4', activity: 'M3 12h4l3-8 4 16 3-8h4',
+  users: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z M2 20c0-3.3 3-5.5 7-5.5s7 2.2 7 5.5 M16 4.2a3.5 3.5 0 0 1 0 6.6 M18 14.7c2.4.6 4 2.3 4 5.3',
+  barcode: 'M4 5v14 M7 5v14 M11 5v14 M14 5v14 M18 5v14 M20 5v14',
 };
 export function icone(nome, tam = 20) {
   const s = document.createElementNS(NS, 'svg');
@@ -248,7 +250,15 @@ export function combobox({ rotulo, buscar, aoEscolher, placeholder = '', valorIn
     } else if (e.key === 'Escape') { lista.hidden = true; }
   });
   input.addEventListener('blur', () => setTimeout(() => { lista.hidden = true; }, 150));
-  return { el: h('div', { class: 'campo' }, rotulo && h('label', null, rotulo), h('div', { class: 'sugestoes' }, input, lista)), input, limpar: () => { escolhido = null; input.value = ''; }, get escolhido() { return escolhido; } };
+  // Câmera do celular: lê o código e escolhe o primeiro resultado (mesma regra do Enter).
+  const botaoCamera = navigator.mediaDevices?.getUserMedia ? h('button', { class: 'btn icone com-camera', type: 'button', 'aria-label': 'Ler com a câmera', onclick: async () => {
+    const { abrirScanner } = await import('./scanner.js');
+    abrirScanner({ titulo: rotulo || 'Aponte para o código', aoLer: async (codigo) => {
+      try { const r = await buscar(codigo); if (r[0]) { escolher(r[0]); return true; } } catch { /* trata abaixo */ }
+      feedback('erro', 'Código não encontrado'); return false;
+    } });
+  } }, icone('camera')) : null;
+  return { el: h('div', { class: 'campo' }, rotulo && h('label', null, rotulo), h('div', { class: 'sugestoes' }, h('div', { class: 'com-linha' }, input, botaoCamera), lista)), input, limpar: () => { escolhido = null; input.value = ''; }, get escolhido() { return escolhido; } };
 }
 export const buscarProdutos = async (t) => (await api.get(`/api/produtos?${qs({ q: t, por_pagina: 8 })}`)).itens.map((p) => ({ id: p.id, rotulo: `${p.sku} — ${p.nome}`, detalhe: `${fmt.num(p.saldo_total)} un`, dados: p }));
 export const buscarEnderecos = async (t) => (await api.get(`/api/enderecos?${qs({ q: t, por_pagina: 8 })}`)).itens.map((e) => ({ id: e.id, rotulo: e.codigo, detalhe: `${e.zona_nome} · ${fmt.num(e.qtd_total)} un`, dados: e }));

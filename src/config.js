@@ -47,10 +47,12 @@ export function loadConfig(overrides = {}) {
       origensPermitidas.add(`http://${h}:${port}`);
     }
   }
+  const databaseUrl = env.DATABASE_URL || '';
   const dbPath = env.DB_PATH === ':memory:' ? ':memory:' : path.resolve(ROOT, env.DB_PATH || 'data/armazem.db');
   return {
-    prod, host, port, publicOrigin, origensPermitidas, hostsPermitidos, dbPath,
-    appName: env.APP_NAME || 'Armazém',
+    prod, host, port, publicOrigin, origensPermitidas, hostsPermitidos, dbPath, databaseUrl,
+    databaseSslCa: env.DATABASE_SSL_CA || '', dbPoolMax: Number(env.DB_POOL_MAX ?? 3),
+    appName: env.APP_NAME || 'Carlos Desenvolvedor de Sistema',
     trustProxy: env.TRUST_PROXY === 'true',
     pepper: chave('PEPPER', env.PEPPER),
     hmacKey: chave('HMAC_KEY', env.HMAC_KEY),
@@ -63,8 +65,15 @@ export function loadConfig(overrides = {}) {
     },
     reauthMs: 5 * 60_000,
     publicDir: path.join(ROOT, 'public'),
-    migrationsDir: path.join(ROOT, 'migrations'),
+    migrationsDir: path.join(ROOT, databaseUrl.startsWith('pglite:') ? 'supabase/migrations' : 'migrations'),
     logLevel: env.LOG_LEVEL || 'info',
+    // Mercado Livre: hosts fixos (proteção contra SSRF). Só fora de produção dá para apontar para um servidor falso nos testes.
+    ml: {
+      apiBase: (!prod && env.ML_API_BASE ? env.ML_API_BASE : 'https://api.mercadolibre.com').replace(/\/$/, ''),
+      authBase: (!prod && env.ML_AUTH_BASE ? env.ML_AUTH_BASE : 'https://auth.mercadolivre.com.br').replace(/\/$/, ''),
+      pollMin: Number(env.ML_POLL_MIN ?? 10),
+      esperar: null,
+    },
     adminLogin: env.ADMIN_LOGIN || '',
     adminSenha: env.ADMIN_INITIAL_PASSWORD || '',
     agora: () => Date.now(),

@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { EventEmitter } from 'node:events';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -6,6 +7,7 @@ import { HttpError, erro } from '../util.js';
 import { tx, traduzirErroSql } from '../db.js';
 import { criarLimitador } from '../security/ratelimit.js';
 import { sha256, aleatorio } from '../security/crypto.js';
+import { REGRAS, permissoesDe, semFinanceiro } from '../permissoes.js';
 import { carregarSessao, csrfValido, csrfPara, lerCookies, nomesCookie, cookie } from './sessao.js';
 
 const MIME = {
@@ -13,7 +15,7 @@ const MIME = {
   '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml',
   '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8',
 };
-const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; media-src 'self' blob:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'";
+export const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; media-src 'self' blob:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'";
 
 export function criarApp({ cfg, db, log }) {
   const limitador = criarLimitador(cfg.agora);
@@ -59,10 +61,11 @@ export function criarApp({ cfg, db, log }) {
 
   const lerCorpo = (req, limite) => new Promise((resolve, reject) => {
     const partes = [];
-    let total = 0;
+    let total = 0; let excedeu = false;
     req.on('data', (c) => {
       total += c.length;
-      if (total > limite) { reject(erro(413, 'CORPO_GRANDE', 'Conteúdo grande demais.')); req.destroy(); return; }
+      if (excedeu) { if (total > limite * 4 + 65_536) req.destroy(); return; } // descarta o excesso (nada em memória); corta quem insiste
+      if (total > limite) { excedeu = true; partes.length = 0; reject(erro(413, 'CORPO_GRANDE', 'Conteúdo grande demais.')); return; }
       partes.push(c);
     });
     req.on('end', () => resolve(Buffer.concat(partes).toString('utf8')));
@@ -78,8 +81,10 @@ export function criarApp({ cfg, db, log }) {
     ctx.params = Object.fromEntries(r.chaves.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
     ctx.query = Object.fromEntries(url.searchParams);
 
-    ctx.sessao = carregarSessao(cfg, db, ctx);
-    ctx.user = ctx.sessao ? { id: ctx.sessao.user_id, papel: ctx.sessao.papel, nome: ctx.sessao.nome } : null;
+    ctx.sessao = await carregarSessao(cfg, db, ctx);
+    ctx.user = ctx.sessao ? { id: ctx.sessao.user_id, papel: ctx.sessao.papel, nome: ctx.sessao.nome, dono: !!ctx.sessao.dono } : null;
+    const permitidas = permissoesDe(ctx.sessao); // vale já na próxima requisição após o dono mudar algo
+    ctx.pode = (p) => permitidas.has(p);
 
     const geral = limitador.bater(`api:${ctx.sessao?.id ?? ctx.ip}`, 600, 60_000);
     if (!geral.ok) throw Object.assign(erro(429, 'MUITAS_REQUISICOES', 'Muitas requisições. Aguarde um instante.'), { retryAfterS: geral.retryAfterS });
@@ -89,15 +94,24 @@ export function criarApp({ cfg, db, log }) {
       if (!ctx.sessao) throw erro(401, 'NAO_AUTENTICADO', 'Entre para continuar.');
       const ok = auth === 'completa' ? ctx.sessao.estagio === 'COMPLETA' : (etapas ?? []).includes(ctx.sessao.estagio);
       if (!ok) throw Object.assign(erro(403, 'ETAPA_INVALIDA', 'Conclua as etapas de acesso antes.'), { etapa: ctx.sessao.estagio });
+      if (auth === 'completa') {
+        // Negado por padrão: rota sem regra em src/permissoes.js não funciona para ninguém (nem para o dono) até ganhar uma regra.
+        const exigida = REGRAS.get(`${r.metodo} ${r.padrao}`);
+        if (exigida === undefined) throw erro(403, 'SEM_REGRA', 'Esta função ainda não tem regra de acesso.');
+        if (exigida !== 'qualquer' && !([].concat(exigida)).some((p) => ctx.pode(p))) throw erro(403, 'SEM_PERMISSAO', 'Você não tem permissão para esta função.');
+      }
     }
 
     const mutante = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
     if (mutante) {
-      const origem = req.headers.origin;
-      if (!origem || !cfg.origensPermitidas.has(origem)) throw erro(403, 'ORIGEM', 'Origem não permitida.');
-      const sfs = req.headers['sec-fetch-site'];
-      if (sfs && !['same-origin', 'none'].includes(sfs)) throw erro(403, 'ORIGEM', 'Origem não permitida.');
-      if (!csrfValido(cfg, ctx, req.headers['x-csrf-token'])) throw erro(403, 'CSRF', 'Sessão da página expirada. Recarregue a página.');
+      // Rotas `externa` (webhooks de terceiros) não têm cookie nem Origin: autenticam por segredo na URL e nunca confiam no corpo.
+      if (!r.opts.externa) {
+        const origem = req.headers.origin;
+        if (!origem || !cfg.origensPermitidas.has(origem)) throw erro(403, 'ORIGEM', 'Origem não permitida.');
+        const sfs = req.headers['sec-fetch-site'];
+        if (sfs && !['same-origin', 'none'].includes(sfs)) throw erro(403, 'ORIGEM', 'Origem não permitida.');
+        if (!csrfValido(cfg, ctx, req.headers['x-csrf-token'])) throw erro(403, 'CSRF', 'Sessão da página expirada. Recarregue a página.');
+      }
       const tipo = String(req.headers['content-type'] ?? '');
       const bruto = await lerCorpo(req, r.opts.limite ?? 256 * 1024);
       if (r.opts.texto) ctx.corpoTexto = bruto;
@@ -113,8 +127,8 @@ export function criarApp({ cfg, db, log }) {
       throw erro(403, 'REAUTENTICACAO', 'Confirme sua senha para continuar.');
     }
 
-    if (r.opts.idempotente) return idempotente(ctx, r);
-    return executar(ctx, r);
+    if (r.opts.idempotente) return await idempotente(ctx, r);
+    return await executar(ctx, r);
   }
 
   async function executar(ctx, r) {
@@ -122,22 +136,24 @@ export function criarApp({ cfg, db, log }) {
     return resultado;
   }
 
-  function idempotente(ctx, r) {
+  async function idempotente(ctx, r) {
     const chave = ctx.req.headers['idempotency-key'];
     if (!chave || !/^[A-Za-z0-9_-]{16,64}$/.test(chave)) throw erro(400, 'IDEMPOTENCIA', 'Chave de idempotência ausente ou inválida.');
     const rotaId = `${r.metodo} ${r.padrao}`;
     const corpoHash = sha256(ctx.corpoBruto ?? '');
-    return tx(db, () => {
-      const salvo = db.prepare('SELECT * FROM idempotencia WHERE chave = ? AND user_id = ? AND rota = ?').get(chave, ctx.user.id, rotaId);
+    const original = ctx.db;
+    return await tx(db, async (db) => {
+      await db.travar(`idem|${ctx.user.id}|${chave}`); // duas requisições com a mesma chave não correm juntas (no Postgres)
+      const salvo = await db.get('SELECT * FROM idempotencia WHERE chave = ? AND user_id = ? AND rota = ?', chave, ctx.user.id, rotaId);
       if (salvo) {
         if (salvo.corpo_hash !== corpoHash) throw erro(422, 'IDEMPOTENCIA', 'Esta chave já foi usada com outro conteúdo.');
         ctx.repetido = true;
         return JSON.parse(salvo.resposta);
       }
-      const out = r.handler(ctx);
-      if (out && typeof out.then === 'function') throw new Error('rota idempotente precisa ser síncrona');
-      db.prepare('INSERT INTO idempotencia (chave, user_id, rota, corpo_hash, status, resposta, criado_em) VALUES (?,?,?,?,?,?,?)')
-        .run(chave, ctx.user.id, rotaId, corpoHash, 200, JSON.stringify(out ?? null), cfg.agora());
+      ctx.db = db; // o handler trabalha DENTRO desta transação
+      let out;
+      try { out = await r.handler(ctx); } finally { ctx.db = original; }
+      await db.run('INSERT INTO idempotencia (chave, user_id, rota, corpo_hash, status, resposta, criado_em) VALUES (?,?,?,?,?,?,?)', chave, ctx.user.id, rotaId, corpoHash, 200, JSON.stringify(out ?? null), cfg.agora());
       return out;
     });
   }
@@ -171,7 +187,7 @@ export function criarApp({ cfg, db, log }) {
       if (url.pathname.startsWith('/api/')) {
         const out = await api(ctx, url);
         if (out && out._raw) responder(ctx, out.status ?? 200, out.corpo, out.tipo, out.headers);
-        else responder(ctx, ctx.status ?? 200, { ok: true, data: out ?? null }, undefined, ctx.repetido ? { 'Idempotent-Replay': 'true' } : {});
+        else responder(ctx, ctx.status ?? 200, { ok: true, data: ctx.pode('financeiro.ver') ? out ?? null : semFinanceiro(out ?? null) }, undefined, ctx.repetido ? { 'Idempotent-Replay': 'true' } : {});
       } else estatico(ctx, url);
     } catch (e) {
       let he = e;
@@ -196,7 +212,7 @@ export function criarApp({ cfg, db, log }) {
   server.maxHeadersCount = 50;
 
   return {
-    server, rota, limitador, atender,
+    server, rota, rotas, limitador, atender, eventos: new EventEmitter(),
     fechar: () => new Promise((resolve) => { limitador.parar(); server.close(() => resolve()); server.closeAllConnections?.(); }),
     csrfPara: (ctx) => csrfPara(cfg, ctx),
     novoAid: (ctx) => { const v = aleatorio(16); ctx.cookies[ck.aid] = v; ctx.setCookies.push(cookie(cfg, ck.aid, v, { maxAgeS: 86400 })); },

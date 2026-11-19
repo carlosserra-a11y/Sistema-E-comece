@@ -21,6 +21,7 @@ Base: OWASP ASVS nível 2 e Top 10. Tudo abaixo é coberto por testes automatiza
 | Arquivos | `path.resolve` + prefixo do diretório público, `..` e `%2e%2e` testados, arquivos ocultos negados |
 | Auditoria | só-inserção (gatilhos), encadeada por hash, verificável; criada **na mesma transação** da ação; não guarda senha, token, login nem segredo (testado) |
 | Dados | CNPJ/CPF cifrado (AES-256-GCM) + HMAC para unicidade + exibição mascarada; segredos só no `.env` (ignorado pelo Git) |
+| Integração (ML) | OAuth com `state` de uso único; credenciais e tokens cifrados; webhook por segredo rotacionável que **nunca confia no corpo**; hosts fixos e IDs validados (SSRF); sem token em erro, log ou auditoria — detalhes em [INTEGRACOES](INTEGRACOES.md) |
 | Integridade do estoque | razão imutável, saldo por gatilho, `CHECK (qtd >= 0)`, idempotência por chave, verificação saldo × razão |
 
 ## Revisão adversarial do próprio código (bugs achados e corrigidos)
@@ -41,6 +42,9 @@ Base: OWASP ASVS nível 2 e Top 10. Tudo abaixo é coberto por testes automatiza
 | 12 | Movimento durante a contagem gerava ajuste errado | análise | `mov_base` por item; aprovação recusa e pede recontagem |
 | 13 | UPC-A lido como EAN-13 (zero à frente) não achava o produto; mesmo código em dois produtos | análise | `variantes()` na busca e na checagem de colisão |
 | 15 | O fallback da SPA devolvia `index.html` para `/.env` e outros caminhos ocultos (não vazava nada, mas mascarava o 404) | teste de caminho oculto, depois de existir o `index.html` | qualquer segmento começando com `.` responde 404 antes do fallback |
+| 16 | Corpo grande demais no webhook derrubava o socket (o cliente via erro de rede, não `413`) | teste do webhook | o excesso é descartado sem memória e a resposta `413` sai; só quem insiste é cortado |
+| 17 | O refresh token do ML é de uso único: duas sincronizações simultâneas poderiam gastar o mesmo e derrubar a conexão | análise | renovação serializada por trava; teste com duas chamadas simultâneas = uma renovação |
+| 18 | Trocar a conta do vendedor deixaria enviar estoque para anúncios de outro dono | análise | sincronização dos anúncios antigos é desligada e auditada |
 | 14 | SKU igual ao código de barras de outro produto (leitura ambígua) | análise | colisão recusada nos dois sentidos; códigos livres não podem parecer endereço/lote |
 
 ## Limitações conhecidas (honestas)

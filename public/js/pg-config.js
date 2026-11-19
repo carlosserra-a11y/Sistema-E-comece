@@ -24,14 +24,15 @@ export async function renderizar(el, { sessao }) {
     { titulo: '', render: (s) => (s.atual ? badge('atual', 'ok') : h('button', { class: 'btn pequeno', onclick: async () => { try { await api.del(`/api/sessoes/${s.id}`); carregarSessoes(); } catch (e) { tratar(e); } } }, 'Encerrar')) }], d.sessoes),
   d.sessoes.length > 1 ? h('button', { class: 'btn perigo', onclick: async () => { try { const r = await api.post('/api/sessoes/sair-todas'); toast(`${r.revogadas} sessão(ões) encerrada(s).`, 'ok'); carregarSessoes(); } catch (e) { tratar(e); } } }, 'Sair de todos os outros dispositivos') : null));
 
+  const podeAud = !!sessao.usuario?.permissoes?.includes('auditoria.ver'); // histórico e verificação: só quem o dono liberou
   const alvoAud = h('div'); let pagAud = 1;
   const lerAud = () => carregar(alvoAud, () => api.get(`/api/auditoria?${qs({ pagina: pagAud, por_pagina: 15 })}`), (d) => alvoAud.append(tabela([{ titulo: 'Quando', render: (a) => fmt.dataHora(a.ts) }, { titulo: 'Ação', render: (a) => a.acao }, { titulo: 'Objeto', render: (a) => `${a.entidade ?? ''} ${a.entidade_id ?? ''}` }, { titulo: 'IP', render: (a) => h('span', { class: 'mono' }, a.ip ?? '') }], d.itens, { compacta: true }), paginacao(d.total, d.pagina, d.por_pagina, (n) => { pagAud = n; lerAud(); })));
   const verif = h('p', { role: 'status' });
   const auditoria = sec('Auditoria', h('div', { class: 'row' }, h('button', { class: 'btn', onclick: async () => {
-    try { const r = await api.get('/api/auditoria/verificar'); const e = await api.get('/api/estoque/integridade'); limpar(verif).append(r.ok ? badge(`Cadeia íntegra (${r.total} registros)`, 'ok') : badge(`Cadeia QUEBRADA no registro ${r.quebrouEm}`, 'erro'), ' ', e.ok ? badge('Estoque confere com o livro-razão', 'ok') : badge(`${e.divergencias.length} divergência(s) de estoque`, 'erro')); } catch (x) { tratar(x); }
+    try { const r = await api.get('/api/auditoria/verificar'); const e = sessao.usuario.permissoes.includes('estoque.ver') ? await api.get('/api/estoque/integridade') : { ok: true }; limpar(verif).append(r.ok ? badge(`Cadeia íntegra (${r.total} registros)`, 'ok') : badge(`Cadeia QUEBRADA no registro ${r.quebrouEm}`, 'erro'), ' ', e.ok ? badge('Estoque confere com o livro-razão', 'ok') : badge(`${e.divergencias.length} divergência(s) de estoque`, 'erro')); } catch (x) { tratar(x); }
   } }, icone('shield'), 'Verificar integridade')), verif, alvoAud);
 
   el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Configurações'))),
-    h('div', { class: 'grid cols-2' }, sec('Aparência', campo('Tema', st), campo('Densidade das tabelas', sd)), mfa), trocar, sec('Sessões ativas', alvoSessoes), auditoria);
-  carregarSessoes(); lerAud();
+    h('div', { class: 'grid cols-2' }, sec('Aparência', campo('Tema', st), campo('Densidade das tabelas', sd)), mfa), trocar, sec('Sessões ativas', alvoSessoes), podeAud && auditoria);
+  carregarSessoes(); if (podeAud) lerAud();
 }

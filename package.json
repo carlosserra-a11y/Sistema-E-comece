@@ -1,16 +1,27 @@
 {
-  "name": "armazem-wms",
+  "name": "carlos-desenvolvedor-de-sistema",
   "version": "0.3.0",
-  "description": "WMS com endereçamento, etiquetas e contagem de estoque (zero dependências)",
+  "description": "Carlos Desenvolvedor de Sistema: WMS com endereçamento, etiquetas, contagem, Mercado Livre, equipe e permissões",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "setup": "node scripts/init-env.js",
     "criar-admin": "node --disable-warning=ExperimentalWarning scripts/criar-admin.js",
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
     "dev": "node --watch --disable-warning=ExperimentalWarning src/server.js",
     "seed": "node --disable-warning=ExperimentalWarning scripts/seed-demo.js",
-    "test": "node --disable-warning=ExperimentalWarning --test"
+    "test": "node --disable-warning=ExperimentalWarning --test",
+    "icones": "node scripts/gerar-icones.js",
+    "test:pg": "node -e \"process.env.TEST_DB='pg';process.env.DB_LOCK_MS='8000';import('node:child_process').then(({spawnSync})=>process.exit(spawnSync(process.execPath,['--disable-warning=ExperimentalWarning','--test','--test-timeout=60000'],{stdio:'inherit'}).status))\""
+  },
+  "dependencies": {
+    "@vercel/functions": "^3.11.3",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.17"
   }
 }

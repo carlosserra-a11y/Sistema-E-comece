@@ -8,6 +8,7 @@ src/http/          roteador, sessão, CSRF/Origin, idempotência, cabeçalhos, e
 src/security/      scrypt+pepper, TOTP, AES-256-GCM, rate limit, auditoria encadeada
 src/modules/       regras de negócio e rotas por área (acesso, catalogo, deposito, estoque, inventario, consultas)
 src/barcode/       GTIN, Code 128, EAN/UPC, QR, etiquetas (SVG e ZPL)
+src/integracoes/   adapters de canais (Mercado Livre): só HTTP/OAuth, sem regra de negócio
 src/db.js          SQLite isolado (troca por PostgreSQL fica localizada aqui)
 migrations/        SQL versionado
 ```
@@ -52,7 +53,7 @@ erDiagram
 | 2.5 | Design system, shell, paleta, PWA | ✅ (captura de tela automatizada pendente) |
 | 3 | Endereçamento, livro-razão, put-away, transferência, inventário, mapa | ✅ (variações e kits pendentes) |
 | 4 | Alertas por e-mail/WhatsApp, compras e recebimento por pedido de compra | ⏳ (alertas no painel e reposição já existem) |
-| 5 | Hub de integrações (Mercado Livre, Shopee, Bling/Tiny) | ⏳ |
+| 5 | Hub de integrações: **Mercado Livre ✅** (testado com servidor falso; validar com conta real); Shopee e Bling/Tiny ⏳ | 🟡 |
 | 6 | Fluxo do pedido, reserva, separação mobile, conferência, embalagem | ⏳ |
 | 7 | Etiquetas de transportadora, DANFE, romaneio, rastreio | ⏳ |
 | 8 | Devoluções, relatórios, painel completo | ⏳ |

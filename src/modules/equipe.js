@@ -1,0 +1,119 @@
+import crypto from 'node:crypto';
+import { tx } from '../db.js';
+import { conflito, invalido, naoEncontrado } from '../util.js';
+import { E, T, validar } from '../validate.js';
+import { auditar } from '../security/audit.js';
+import { cifrar, decifrar } from '../security/crypto.js';
+import { hashSenha, validarPolitica } from '../security/password.js';
+import { GRUPOS, PAPEIS, limparPermissoes } from '../permissoes.js';
+import { chaveLogin } from './acesso.js';
+
+const MAX_PESSOAS = 50;
+const PAPEIS_VALIDOS = [...Object.keys(PAPEIS), 'personalizado'];
+const ESPEC = { nome: T({ obrig: true, min: 2, max: 80 }), papel: E(PAPEIS_VALIDOS, { obrig: true }) };
+const ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'; // sem caracteres ambíguos (0/O, 1/l/I)
+
+/** Senha provisória forte (passa a mesma política do sistema); a pessoa é obrigada a trocar no primeiro acesso. */
+export function senhaProvisoria() {
+  for (;;) {
+    const s = Array.from({ length: 16 }, () => ALFABETO[crypto.randomInt(ALFABETO.length)]).join('');
+    const formatada = `${s.slice(0, 4)}-${s.slice(4, 8)}-${s.slice(8, 12)}-${s.slice(12)}`;
+    if (!validarPolitica(formatada).length) return formatada;
+  }
+}
+
+/** Código de acesso de 11 dígitos sorteado (não é CPF de ninguém, então não há dado pessoal a proteger). */
+const sortearLogin = () => String(crypto.randomInt(10_000_000_000, 100_000_000_000));
+
+/** Papel + lista final de permissões. Sem lista explícita vale o modelo do papel; lista diferente do modelo vira "personalizado". */
+function resolver(papel, bruto) {
+  const modelo = papel === 'personalizado' ? null : limparPermissoes(PAPEIS[papel].permissoes);
+  const lista = Array.isArray(bruto) ? limparPermissoes(bruto) : modelo ?? [];
+  const igual = modelo && JSON.stringify(modelo) === JSON.stringify(lista);
+  return { papel: igual ? papel : 'personalizado', permissoes: lista };
+}
+
+export function registrarEquipe(app, { cfg, db }) {
+  const { rota } = app;
+
+  const publico = (u) => ({
+    id: u.id, nome: u.nome, papel: u.papel, dono: !!u.dono, ativo: !!u.ativo, mfa_ativo: !!u.mfa_ativo, trocar_senha: !!u.trocar_senha,
+    permissoes: u.dono ? null : limparPermissoes(JSON.parse(u.permissoes || '[]')), // dono = todas
+    login: u.login_enc ? decifrar(cfg.fieldKey, u.login_enc) : null, criado_em: u.criado_em,
+  });
+  const pessoa = async (db, id) => {
+    const u = await db.get('SELECT * FROM users WHERE id = ?', id);
+    if (!u) throw naoEncontrado('Pessoa');
+    return u;
+  };
+  const naoDono = (u) => { if (u.dono) throw conflito('DONO', 'A conta do dono não pode ser alterada por aqui.'); };
+  const revogarTodas = async (db, id) => { await db.run('UPDATE sessions SET revogada_em = ? WHERE user_id = ? AND revogada_em IS NULL', cfg.agora(), id); };
+
+  rota('GET', '/api/equipe/catalogo', async () => ({ grupos: GRUPOS, papeis: PAPEIS }));
+
+  rota('GET', '/api/equipe', async () => ({ itens: (await db.all('SELECT * FROM users ORDER BY dono DESC, ativo DESC, LOWER(nome), id')).map(publico) }));
+
+  rota('POST', '/api/equipe', { reauth: true }, async (ctx) => {
+    const d = validar(ctx.corpo, ESPEC);
+    const { papel, permissoes } = resolver(d.papel, ctx.corpo.permissoes);
+    const senha = senhaProvisoria();
+    const hash = await hashSenha(cfg, senha);
+    return await tx(db, async (db) => {
+      if ((await db.get('SELECT COUNT(*) c FROM users')).c >= MAX_PESSOAS) throw invalido({ nome: `Limite de ${MAX_PESSOAS} pessoas atingido.` });
+      let login; let chave;
+      do { login = sortearLogin(); chave = chaveLogin(cfg, login); } while (await db.get('SELECT 1 FROM users WHERE login_hmac = ?', chave));
+      const id = await db.insert('INSERT INTO users (login_hmac, login_enc, senha_hash, papel, nome, trocar_senha, dono, permissoes, criado_por, criado_em) VALUES (?,?,?,?,?,1,0,?,?,?)',
+        chave, cifrar(cfg.fieldKey, login), hash, papel, d.nome, JSON.stringify(permissoes), ctx.user.id, cfg.agora());
+      await auditar(db, ctx, 'EQUIPE_CRIADA', 'user', id, { nome: d.nome, papel, permissoes });
+      ctx.status = 201;
+      return { ...publico(await pessoa(db, id)), senha_provisoria: senha }; // a senha só aparece agora
+    });
+  });
+
+  rota('PUT', '/api/equipe/:id', { reauth: true }, async (ctx) => {
+    const d = validar(ctx.corpo, ESPEC);
+    const { papel, permissoes } = resolver(d.papel, ctx.corpo.permissoes);
+    return await tx(db, async (db) => {
+      const u = await pessoa(db, Number(ctx.params.id));
+      naoDono(u);
+      await db.run('UPDATE users SET nome = ?, papel = ?, permissoes = ? WHERE id = ?', d.nome, papel, JSON.stringify(permissoes), u.id);
+      await auditar(db, ctx, 'EQUIPE_ALTERADA', 'user', u.id, { de: limparPermissoes(JSON.parse(u.permissoes || '[]')), para: permissoes, papel });
+      return publico(await pessoa(db, u.id));
+    });
+  });
+
+  for (const [acao, ativo, evento] of [['desativar', 0, 'EQUIPE_DESATIVADA'], ['reativar', 1, 'EQUIPE_REATIVADA']]) {
+    rota('POST', `/api/equipe/:id/${acao}`, { reauth: true }, async (ctx) => await tx(db, async (db) => {
+      const u = await pessoa(db, Number(ctx.params.id));
+      naoDono(u);
+      await db.run('UPDATE users SET ativo = ? WHERE id = ?', ativo, u.id);
+      if (!ativo) await revogarTodas(db, u.id); // sai de todos os aparelhos na hora
+      await auditar(db, ctx, evento, 'user', u.id);
+      return publico(await pessoa(db, u.id));
+    }));
+  }
+
+  rota('POST', '/api/equipe/:id/redefinir-senha', { reauth: true }, async (ctx) => {
+    const senha = senhaProvisoria();
+    const hash = await hashSenha(cfg, senha);
+    return await tx(db, async (db) => {
+      const u = await pessoa(db, Number(ctx.params.id));
+      naoDono(u);
+      await db.run('UPDATE users SET senha_hash = ?, trocar_senha = 1, senha_alterada_em = ? WHERE id = ?', hash, cfg.agora(), u.id);
+      await revogarTodas(db, u.id);
+      if (u.login_enc) await db.run('DELETE FROM login_tentativas WHERE chave_hmac = ?', chaveLogin(cfg, decifrar(cfg.fieldKey, u.login_enc))); // tira o bloqueio por tentativas
+      await auditar(db, ctx, 'EQUIPE_SENHA_REDEFINIDA', 'user', u.id);
+      return { ...publico(await pessoa(db, u.id)), senha_provisoria: senha };
+    });
+  });
+
+  rota('POST', '/api/equipe/:id/resetar-mfa', { reauth: true }, async (ctx) => await tx(db, async (db) => {
+    const u = await pessoa(db, Number(ctx.params.id));
+    naoDono(u);
+    await db.run('UPDATE users SET mfa_ativo = 0, mfa_segredo_enc = NULL, mfa_pendente_enc = NULL, mfa_ultimo_passo = 0, mfa_falhas = 0 WHERE id = ?', u.id);
+    await db.run('DELETE FROM recovery_codes WHERE user_id = ?', u.id);
+    await revogarTodas(db, u.id);
+    await auditar(db, ctx, 'EQUIPE_MFA_RESETADO', 'user', u.id);
+    return publico(await pessoa(db, u.id)); // no próximo acesso a pessoa cadastra o autenticador de novo
+  }));
+}

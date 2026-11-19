@@ -13,7 +13,11 @@ const CAMPOS = [
   ['descricao', 'Descrição', 'area', { max: 2000 }],
 ];
 
-export async function renderizar(el, { params }) {
+let veFinanceiro = false; // preenchido em renderizar: sem a permissão, custo e preço nem aparecem no formulário
+const campos = () => (veFinanceiro ? CAMPOS : CAMPOS.filter(([k]) => k !== 'custo_centavos' && k !== 'preco_centavos'));
+
+export async function renderizar(el, { params, sessao }) {
+  veFinanceiro = !!sessao?.usuario?.permissoes?.includes('financeiro.ver');
   let filtro = 'ativos'; let q = ''; let pagina = 1;
   const alvo = h('div', { class: 'stack' });
   const busca = h('input', { type: 'search', placeholder: 'Buscar por nome, SKU ou código de barras', 'aria-label': 'Buscar produtos', autocomplete: 'off' });
@@ -36,7 +40,7 @@ export async function renderizar(el, { params }) {
 
   function novo() {
     let g;
-    const f = formulario(CAMPOS, { unidade: 'UN' }, async (v) => {
+    const f = formulario(campos(), { unidade: 'UN' }, async (v) => {
       try { const r = await api.post('/api/produtos', { ...v, gerar_codigo: gerar.checked ? 1 : 0, codigo_barras: cod.value.trim() || undefined }); g.fechar(); toast('Produto criado.', 'ok'); listar(); abrir(r.id); }
       catch (e) { if (e instanceof ApiError && e.campos) f.erros(e.campos); tratar(e); }
     }, { rotuloEnviar: 'Criar produto' });
@@ -53,16 +57,16 @@ export async function renderizar(el, { params }) {
       let p; try { p = await api.get(`/api/produtos/${id}`); } catch (e) { return tratar(e); }
       limpar(g.corpo);
       const painel = h('div', { class: 'stack' });
-      const desenhar = (id2) => { limpar(painel); ({ dados: dadosAba, estoque: estoqueAba, codigos: codigosAba })[id2](painel, p, () => recarregar(id2), g); };
+      const desenhar = (id2) => { limpar(painel); ({ dados: dadosAba, estoque: estoqueAba, codigos: codigosAba, anuncios: anunciosAba })[id2](painel, p, () => recarregar(id2), g); };
       g.corpo.append(h('div', { class: 'row' }, h('h2', null, p.nome), p.ativo ? badge('Ativo', 'ok') : badge('Inativo', 'erro')), h('p', { class: 'muted mono' }, p.sku),
-        abas([['dados', 'Dados'], ['estoque', 'Estoque por endereço'], ['codigos', 'Códigos e etiqueta']], aba, desenhar), painel);
+        abas([['dados', 'Dados'], ['estoque', 'Estoque por endereço'], ['codigos', 'Códigos e etiqueta'], ['anuncios', 'Anúncios ML']], aba, desenhar), painel);
       desenhar(aba);
     };
     await recarregar();
   }
 
   function dadosAba(painel, p, recarregar, g) {
-    const f = formulario(CAMPOS, p, async (v) => {
+    const f = formulario(campos(), p, async (v) => {
       try { await api.put(`/api/produtos/${p.id}`, { ...v, versao: p.versao }); toast('Salvo.', 'ok'); listar(); recarregar(); }
       catch (e) { if (e instanceof ApiError && e.campos) f.erros(e.campos); tratar(e); if (e.code === 'VERSAO') recarregar(); }
     });
@@ -77,6 +81,16 @@ export async function renderizar(el, { params }) {
       h('p', null, 'Endereço de picking: ', p.picking ? h('strong', { class: 'mono' }, p.picking.codigo) : h('span', { class: 'muted' }, 'não definido (use Endereços para designar)')),
       p.saldos.length ? tabela([{ titulo: 'Endereço', render: (s) => h('strong', { class: 'mono' }, s.endereco) }, { titulo: 'Zona', render: (s) => s.zona_tipo.toLowerCase() }, { titulo: 'Lote', render: (s) => (s.lote ? `${s.lote}${s.validade ? ` · ${fmt.data(s.validade)}` : ''}` : '—') }, { titulo: 'Qtd', num: true, chave: 'qtd' }], p.saldos) : vazio('Sem estoque'),
       h('a', { class: 'btn', href: `#/estoque?op=receber&produto=${p.id}` }, icone('download'), 'Receber este produto'));
+  }
+
+  async function anunciosAba(painel, p, recarregar) {
+    const item = h('input', { type: 'text', placeholder: 'Ex.: MLB1234567890', autocomplete: 'off', 'aria-label': 'Código do anúncio' }); const vari = h('input', { type: 'text', inputmode: 'numeric', placeholder: 'Variação (se tiver)', autocomplete: 'off', 'aria-label': 'Variação' });
+    let lista; try { lista = (await api.get(`/api/produtos/${p.id}/anuncios`)).itens; } catch (e) { return painel.append(h('p', { class: 'perigo-txt' }, e.message)); }
+    painel.append(h('p', { class: 'muted' }, 'O anúncio recebe: disponível − reservas dos pedidos − margem de segurança. O SKU do vendedor no Mercado Livre pode ser igual a este SKU para mapear sozinho no primeiro pedido.'),
+      lista.length ? tabela([{ titulo: 'Anúncio', render: (x) => h('span', { class: 'mono' }, `${x.item_id}${x.variacao_id ? ` / ${x.variacao_id}` : ''}`) }, { titulo: 'Disponível', num: true, chave: 'disponivel' }, { titulo: 'Reservado', num: true, chave: 'reservado' }, { titulo: 'Enviado', num: true, render: (x) => x.ultima_qtd_enviada ?? '—' },
+        { titulo: 'Situação', render: (x) => (x.ultimo_erro ? h('span', { class: 'perigo-txt quebra' }, x.ultimo_erro) : x.sync_ativo ? badge('sincronizando', 'ok') : badge('desligado')) },
+        { titulo: '', render: (x) => h('button', { class: 'btn pequeno fantasma', 'aria-label': `Remover ${x.item_id}`, onclick: async () => { try { await api.del(`/api/anuncios/${x.id}`); recarregar(); } catch (e) { tratar(e); } } }, icone('trash', 16)) }], lista, { compacta: true }) : vazio('Nenhum anúncio mapeado'),
+      h('div', { class: 'row' }, h('div', { class: 'grow' }, item), vari, h('button', { class: 'btn primario', onclick: async () => { try { await api.post(`/api/produtos/${p.id}/anuncios`, { item_id: item.value, variacao_id: vari.value || undefined }); toast('Anúncio mapeado.', 'ok'); recarregar(); } catch (e) { tratar(e); } } }, 'Mapear')));
   }
 
   function codigosAba(painel, p, recarregar) {

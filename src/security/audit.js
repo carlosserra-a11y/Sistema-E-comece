@@ -7,8 +7,9 @@ function calcular(prev, r) {
 }
 
 /** Registra um evento. Deve ser chamado dentro da mesma transação da ação auditada. Nunca grave senha/token em `detalhes`. */
-export function auditar(db, ctx, acao, entidade = null, entidadeId = null, detalhes = null) {
-  const ult = db.prepare('SELECT hash FROM auditoria ORDER BY id DESC LIMIT 1').get();
+export async function auditar(db, ctx, acao, entidade = null, entidadeId = null, detalhes = null) {
+  await db.travar('auditoria'); // no Postgres, duas transações não podem ler o mesmo "último hash" e bifurcar a cadeia
+  const ult = await db.get('SELECT hash FROM auditoria ORDER BY id DESC LIMIT 1');
   const prev = ult?.hash ?? GENESIS;
   const reg = {
     ts: ctx.agora(),
@@ -20,15 +21,14 @@ export function auditar(db, ctx, acao, entidade = null, entidadeId = null, detal
     ip: ctx.ip ?? null,
   };
   const hash = calcular(prev, reg);
-  db.prepare('INSERT INTO auditoria (ts, user_id, acao, entidade, entidade_id, detalhes, ip, hash_prev, hash) VALUES (?,?,?,?,?,?,?,?,?)')
-    .run(reg.ts, reg.user_id, reg.acao, reg.entidade, reg.entidade_id, reg.detalhes, reg.ip, prev, hash);
+  await db.run('INSERT INTO auditoria (ts, user_id, acao, entidade, entidade_id, detalhes, ip, hash_prev, hash) VALUES (?,?,?,?,?,?,?,?,?)', reg.ts, reg.user_id, reg.acao, reg.entidade, reg.entidade_id, reg.detalhes, reg.ip, prev, hash);
 }
 
 /** Recalcula a cadeia inteira. Retorna { ok, total, quebrouEm }. */
-export function verificarCadeia(db) {
+export async function verificarCadeia(db) {
   let prev = GENESIS;
   let total = 0;
-  for (const r of db.prepare('SELECT * FROM auditoria ORDER BY id').iterate()) {
+  for (const r of await db.all('SELECT * FROM auditoria ORDER BY id')) {
     total++;
     if (r.hash_prev !== prev || calcular(prev, r) !== r.hash) return { ok: false, total, quebrouEm: r.id };
     prev = r.hash;

@@ -1,0 +1,125 @@
+/* Camada visual (2026): paleta índigo/ciano, vidro, cantos grandes e celular de primeira classe. Vem depois de app.css e só ajusta o visual. */
+@layer reset, tokens, base, layout, components, utilities, print;
+
+@layer base {
+  body {
+    background:
+      radial-gradient(1100px 520px at 8% -8%, color-mix(in oklch, var(--accent) 16%, transparent), transparent 62%),
+      radial-gradient(900px 480px at 104% 2%, color-mix(in oklch, var(--accent-2) 11%, transparent), transparent 58%),
+      var(--bg);
+    background-attachment: fixed;
+    -webkit-tap-highlight-color: transparent;
+  }
+  h1 { font-weight: 800; letter-spacing: -0.035em; }
+  h2 { font-weight: 700; letter-spacing: -0.02em; }
+  .carregando { text-align: center; padding: var(--s-7); }
+  body.scan-aberto { overflow: hidden; }
+}
+
+@layer layout {
+  .nav { background: color-mix(in oklch, var(--surface-1) 86%, transparent); backdrop-filter: blur(16px) saturate(1.2); border-right-color: color-mix(in oklch, var(--border) 65%, transparent); padding: var(--s-5) var(--s-3); gap: 2px; }
+  .brand { gap: 11px; padding: var(--s-1) var(--s-3) var(--s-5); }
+  .brand .logo { width: 36px; height: 36px; border-radius: 11px; flex: none; background: none; box-shadow: 0 8px 22px color-mix(in oklch, var(--accent) 38%, transparent); }
+  .brand-txt { display: grid; line-height: 1.1; min-width: 0; }
+  .brand-txt strong { font-size: 18px; font-weight: 800; letter-spacing: -0.03em; }
+  .brand-txt small { font-size: 10.5px; font-weight: 600; color: var(--muted); letter-spacing: 0.01em; }
+  .brand-grande { justify-content: center; padding: 0 0 var(--s-2); gap: 14px; }
+  .brand-grande .logo { width: 52px; height: 52px; border-radius: 15px; }
+  .brand-grande .brand-txt strong { font-size: 26px; }
+  .brand-grande .brand-txt small { font-size: 12px; }
+  .nav a.item { border-radius: 12px; font-weight: 600; min-height: 42px; padding: 9px var(--s-3); }
+  .nav a.item[aria-current="page"] { background: linear-gradient(90deg, color-mix(in oklch, var(--accent) 24%, transparent), color-mix(in oklch, var(--accent) 4%, transparent)); box-shadow: inset 3px 0 0 var(--accent); color: var(--text); }
+  .topbar { padding: var(--s-3) var(--s-5); background: color-mix(in oklch, var(--bg) 72%, transparent); backdrop-filter: blur(14px) saturate(1.2); border-bottom-color: color-mix(in oklch, var(--border) 60%, transparent); }
+  .topbar .busca input { border-radius: var(--r-pill); padding-inline: var(--s-4); background: color-mix(in oklch, var(--surface-1) 80%, transparent); }
+  .content { padding: var(--s-6) var(--s-5); gap: var(--s-5); }
+  .page-head h1 { margin-bottom: 2px; }
+
+  @media (max-width: 760px) {
+    .content { padding: var(--s-4); padding-left: max(var(--s-4), env(safe-area-inset-left)); padding-right: max(var(--s-4), env(safe-area-inset-right)); padding-bottom: calc(var(--tab-h) + 44px + env(safe-area-inset-bottom)); gap: var(--s-4); }
+    .topbar { padding: var(--s-2) var(--s-4); padding-top: calc(var(--s-2) + env(safe-area-inset-top)); }
+    .page-head { gap: var(--s-2); }
+    .page-head .btn { flex: 1 1 auto; }
+    .tabbar {
+      inset: auto 10px calc(10px + env(safe-area-inset-bottom)) 10px; height: var(--tab-h); padding: 0 4px;
+      grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr;
+      border: 1px solid color-mix(in oklch, var(--border) 80%, transparent); border-radius: 24px;
+      background: color-mix(in oklch, var(--surface-1) 88%, transparent); backdrop-filter: blur(18px) saturate(1.3); box-shadow: var(--shadow-2);
+    }
+    .tabbar a, .tabbar button { font-weight: 600; border-radius: 16px; }
+    .tabbar [aria-current="page"] { color: var(--accent); }
+    .tab-bipar { color: var(--text); }
+    .tab-bipar > span { width: 58px; height: 58px; margin-top: -30px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); box-shadow: 0 10px 26px color-mix(in oklch, var(--accent) 55%, transparent), 0 0 0 6px var(--bg); transition: transform var(--dur) var(--ease); }
+    .tab-bipar:active > span { transform: scale(0.94); }
+    .toasts { bottom: calc(var(--tab-h) + 28px + env(safe-area-inset-bottom)); }
+    /* janelas viram "folhas" que sobem de baixo, no estilo dos apps de celular */
+    .overlay.centro { align-items: flex-end; padding: 0; }
+    .modal, .modal.largo { width: 100%; border-radius: 24px 24px 0 0; max-height: 92dvh; padding: var(--s-5) var(--s-4) calc(var(--s-5) + env(safe-area-inset-bottom)); animation: subir 220ms var(--ease); }
+    .drawer { border-left: 0; }
+    input[type="text"], input[type="search"], input[type="number"], input[type="password"], input[type="date"], input[type="email"], input[type="tel"], select, textarea { font-size: 16px; } /* evita o zoom automático do iPhone */
+    .btn { min-height: 48px; }
+    .btn.pequeno { min-height: 40px; }
+  }
+}
+
+@layer components {
+  .card { border-radius: var(--r-3); border-color: color-mix(in oklch, var(--border) 75%, transparent); background: linear-gradient(180deg, color-mix(in oklch, var(--surface-1) 94%, var(--text)), var(--surface-1) 46%); box-shadow: var(--shadow-1); }
+  .kpi .rotulo svg { box-sizing: content-box; padding: 6px; border-radius: 10px; color: var(--accent); background: color-mix(in oklch, var(--accent) 15%, transparent); }
+  .kpi .valor { letter-spacing: -0.04em; }
+
+  .btn { border-radius: 12px; font-weight: 650; }
+  .btn.primario { background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 6px 18px color-mix(in oklch, var(--accent) 30%, transparent); }
+  .btn.primario:hover { background: linear-gradient(135deg, color-mix(in oklch, var(--accent) 90%, var(--text)), color-mix(in oklch, var(--accent-2) 90%, var(--text))); }
+  .btn.perigo { box-shadow: 0 6px 18px color-mix(in oklch, var(--danger) 28%, transparent); }
+  @media (hover: hover) { .btn:hover { transform: translateY(-1px); } .btn:active { transform: translateY(0); } }
+
+  input[type="text"], input[type="search"], input[type="number"], input[type="password"], input[type="date"], input[type="email"], input[type="tel"], select, textarea { border-radius: 12px; background: color-mix(in oklch, var(--bg) 70%, var(--surface-1)); }
+  input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 24%, transparent); }
+
+  .tabela-wrap { border-radius: var(--r-2); border-color: color-mix(in oklch, var(--border) 75%, transparent); }
+  th { background: color-mix(in oklch, var(--surface-2) 75%, var(--surface-1)); }
+  tbody tr.clicavel:hover { background: color-mix(in oklch, var(--accent) 8%, var(--surface-2)); }
+  .badge { padding: 3px 10px; }
+  .chip { border-radius: var(--r-pill); }
+  .abas button[aria-selected="true"] { border-bottom-color: var(--accent); }
+  .drawer { border-radius: var(--r-3) 0 0 var(--r-3); }
+  .modal { border-radius: var(--r-3); }
+  .toast { border-radius: 14px; backdrop-filter: blur(10px); }
+  .stepper li { border-radius: var(--r-pill); }
+  .auth { background: radial-gradient(700px 420px at 50% -10%, color-mix(in oklch, var(--accent) 20%, transparent), transparent 70%); }
+  .auth .card { padding: var(--s-6) var(--s-5); box-shadow: var(--shadow-2); }
+  @keyframes subir { from { transform: translateY(40px); opacity: 0; } }
+
+  /* campo com câmera (receber, guardar, baixar...) */
+  .com-linha { display: flex; gap: var(--s-2); align-items: stretch; }
+  .com-linha input { flex: 1; min-width: 0; }
+  .com-camera { flex: none; color: var(--accent); }
+
+  /* leitor em tela cheia */
+  .scan { position: fixed; inset: 0; z-index: 200; background: #000; color: #fff; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+  .scan-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .scan-topo, .scan-base { position: relative; z-index: 2; display: flex; gap: var(--s-3); align-items: center; padding: var(--s-4); }
+  .scan-topo { padding-top: calc(var(--s-4) + env(safe-area-inset-top)); background: linear-gradient(#000a, transparent); font-size: var(--t-md); }
+  .scan-base { flex-direction: column; align-items: stretch; padding-bottom: calc(var(--s-4) + env(safe-area-inset-bottom)); background: linear-gradient(transparent, #000c 40%); grid-row: 3; }
+  .scan-btn { background: #ffffff26; border-color: transparent; color: #fff; backdrop-filter: blur(8px); }
+  .scan-status { text-align: center; font-weight: 600; text-shadow: 0 1px 4px #000; min-height: 1.5em; }
+  .scan-form { display: flex; gap: var(--s-2); }
+  .scan-manual { flex: 1; background: #ffffff1f !important; border-color: #ffffff40 !important; color: #fff !important; }
+  .scan-manual::placeholder { color: #ffffffb3; }
+  .scan-mira { position: relative; z-index: 1; grid-row: 2; place-self: center; width: min(82vw, 520px); aspect-ratio: 16 / 9; border-radius: 22px; border: 3px solid color-mix(in oklch, var(--accent-2) 85%, white); box-shadow: 0 0 0 100vmax #0000008c; pointer-events: none; }
+  .scan-mira span { position: absolute; left: 6%; right: 6%; top: 10%; height: 3px; border-radius: 3px; background: linear-gradient(90deg, transparent, var(--accent-2), transparent); box-shadow: 0 0 16px var(--accent-2); animation: varrer 1.8s ease-in-out infinite alternate; }
+  @keyframes varrer { to { top: 88%; } }
+
+  /* equipe e permissões */
+  .equipe-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: var(--s-4); }
+  .pessoa { display: grid; gap: var(--s-3); align-content: start; }
+  .pessoa.inativa { opacity: 0.72; }
+  .avatar { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 800; font-size: var(--t-lg); color: var(--on-accent); background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  .permissoes { border: 1px solid var(--border); border-radius: var(--r-2); padding: var(--s-3) var(--s-4); display: grid; gap: 0; }
+  .permissoes legend { padding: 0 var(--s-2); font-weight: 700; }
+  .permissoes.financeiro { border-color: color-mix(in oklch, var(--warning) 60%, var(--border)); background: color-mix(in oklch, var(--warning) 7%, transparent); }
+  .aviso-txt { color: var(--warning); font-size: var(--t-xs); font-weight: 600; }
+}
+
+@layer utilities {
+  @media (prefers-reduced-motion: reduce) { .scan-mira span { animation: none; top: 50%; } }
+}

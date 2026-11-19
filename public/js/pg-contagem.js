@@ -1,5 +1,5 @@
 import { h, limpar, api, carregar, icone, fmt, badge, qs, tratar, toast, tabela, paginacao, modal, vazio, campo, confirmar, selecao, feedback, esqueleto, combobox, buscarEnderecos, ApiError } from './core.js';
-import { leitorCamera } from './pg-consulta.js';
+import { leitorCamera } from './scanner.js';
 
 export async function renderizar(el, { params, ir }) {
   const alvo = h('div', { class: 'stack' });
@@ -38,7 +38,7 @@ async function contar(alvo, id, voltar) {
   const entEnd = h('input', { type: 'text', class: 'enorme', placeholder: 'Leia o ENDEREÇO', autocomplete: 'off', 'aria-label': 'Endereço' });
   const entProd = h('input', { type: 'text', class: 'enorme', placeholder: 'Leia o PRODUTO', autocomplete: 'off', 'aria-label': 'Produto', disabled: true });
   const entQtd = h('input', { type: 'number', min: 0, class: 'enorme', placeholder: 'Qtd', inputmode: 'numeric', 'aria-label': 'Quantidade contada', disabled: true });
-  const cam = leitorCamera((c) => (endAtual ? (entProd.value = c, resolverProduto()) : (entEnd.value = c, resolverEndereco())));
+  const cam = leitorCamera((c) => { endAtual ? (entProd.value = c, resolverProduto()) : (entEnd.value = c, resolverEndereco()); return false; }, { continuo: true, titulo: 'Contagem: leia o endereço e depois os produtos' });
   const info = h('p', { class: 'muted', role: 'status' });
   const areaItens = h('div'); const topo = h('div');
 

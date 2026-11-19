@@ -13,7 +13,7 @@ async function com(fn) {
   try { await fn(sis); } finally { await sis.parar(); }
 }
 
-test('fluxo de acesso: etapas obrigatórias e rotas protegidas', () => com(async (sis) => {
+test('fluxo de acesso: etapas obrigatórias e rotas protegidas', async () => await com(async (sis) => {
   const c = sis.cliente();
   await c.get('/api/sessao');
   assert.equal((await c.get('/api/produtos')).status, 401);
@@ -40,7 +40,7 @@ test('fluxo de acesso: etapas obrigatórias e rotas protegidas', () => com(async
   assert.equal((await c.get('/api/produtos')).status, 200);
 }));
 
-test('login: resposta idêntica para login inexistente e senha errada; bloqueio progressivo', () => com(async (sis) => {
+test('login: resposta idêntica para login inexistente e senha errada; bloqueio progressivo', async () => await com(async (sis) => {
   const a = sis.cliente(); await a.get('/api/sessao');
   const b = sis.cliente(); await b.get('/api/sessao');
   const r1 = await a.post('/api/login', { login: LOGIN, senha: 'errada-errada-1' });
@@ -61,7 +61,7 @@ test('login: resposta idêntica para login inexistente e senha errada; bloqueio 
   assert.equal((await a.post('/api/login', { login: LOGIN, senha: SENHA_INICIAL })).status, 200, 'libera depois do prazo');
 }));
 
-test('login: entradas malformadas não derrubam o servidor', () => com(async (sis) => {
+test('login: entradas malformadas não derrubam o servidor', async () => await com(async (sis) => {
   const c = sis.cliente(); await c.get('/api/sessao');
   for (const corpo of [{}, { login: null, senha: null }, { login: { $ne: 1 }, senha: [] }, { login: 'a'.repeat(5000), senha: 'b'.repeat(5000) }, { login: LOGIN, senha: 12345 }]) {
     const r = await c.post('/api/login', corpo);
@@ -71,7 +71,7 @@ test('login: entradas malformadas não derrubam o servidor', () => com(async (si
   assert.ok(r.status < 500);
 }));
 
-test('CSRF, Origin, tipo de conteúdo e host', () => com(async (sis) => {
+test('CSRF, Origin, tipo de conteúdo e host', async () => await com(async (sis) => {
   const c = await entrarCompleto(sis);
   assert.equal((await c.post('/api/produtos', { sku: 'A1', nome: 'Teste' }, { semCsrf: true })).erro.code, 'CSRF');
   const outro = await c.post('/api/produtos', { sku: 'A1', nome: 'Teste' }, { headers: { Origin: 'https://malicioso.example' } });
@@ -91,7 +91,7 @@ test('CSRF, Origin, tipo de conteúdo e host', () => com(async (sis) => {
   assert.equal((await c.get('/api/produtos', { headers: { Cookie: 'sid=roubado' } })).status, 401);
 }));
 
-test('MFA: anti-replay, recuperação de uso único e esgotamento de tentativas', () => com(async (sis) => {
+test('MFA: anti-replay, recuperação de uso único e esgotamento de tentativas', async () => await com(async (sis) => {
   const c1 = await entrarCompleto(sis);
   await c1.post('/api/logout');
   const c = sis.cliente(); await c.get('/api/sessao');
@@ -116,7 +116,7 @@ test('MFA: anti-replay, recuperação de uso único e esgotamento de tentativas'
   assert.equal((await e.get('/api/produtos')).status, 401, 'sessão revogada após excesso de falhas');
 }));
 
-test('sessão: expiração por inatividade e absoluta, rotação e lista/revogação', () => com(async (sis) => {
+test('sessão: expiração por inatividade e absoluta, rotação e lista/revogação', async () => await com(async (sis) => {
   const c = await entrarCompleto(sis);
   assert.equal((await c.get('/api/produtos')).status, 200);
   const lista = await c.get('/api/sessoes');
@@ -131,7 +131,7 @@ test('sessão: expiração por inatividade e absoluta, rotação e lista/revoga�
   assert.equal((await c.get('/api/produtos')).status, 401, 'expira por inatividade');
 }));
 
-test('troca de senha: derruba as outras sessões e exige política', () => com(async (sis) => {
+test('troca de senha: derruba as outras sessões e exige política', async () => await com(async (sis) => {
   const c = await entrarCompleto(sis);
   const outra = sis.cliente(); await outra.get('/api/sessao');
   await outra.post('/api/login', { login: LOGIN, senha: SENHA_FORTE });
@@ -147,7 +147,7 @@ test('troca de senha: derruba as outras sessões e exige política', () => com(a
   assert.ok(validarPolitica('aaaa!Bcdxkj#92Zq').some((p) => /repetir/.test(p)));
 }));
 
-test('reautenticação é exigida para ações críticas', () => com(async (sis) => {
+test('reautenticação é exigida para ações críticas', async () => await com(async (sis) => {
   const c = await entrarCompleto(sis);
   sis.relogio.t += 6 * 60_000; // vence a janela de 5 min
   c.csrf = (await c.get('/api/sessao')).data.csrf;
@@ -158,7 +158,7 @@ test('reautenticação é exigida para ações críticas', () => com(async (sis)
   assert.equal((await c.post('/api/mfa/regenerar')).data.codigos_recuperacao.length, 10);
 }));
 
-test('cabeçalhos de segurança, caminho relativo e arquivos ocultos', () => com(async (sis) => {
+test('cabeçalhos de segurança, caminho relativo e arquivos ocultos', async () => await com(async (sis) => {
   const r = await fetch(`${sis.base}/`);
   const csp = r.headers.get('content-security-policy');
   assert.match(csp, /default-src 'none'/);
@@ -174,7 +174,7 @@ test('cabeçalhos de segurança, caminho relativo e arquivos ocultos', () => com
   assert.equal((await fetch(`${sis.base}/api/rota-que-nao-existe`)).status, 404);
 }));
 
-test('injeção SQL e mass assignment', () => com(async (sis) => {
+test('injeção SQL e mass assignment', async () => await com(async (sis) => {
   const c = await entrarCompleto(sis);
   const p = await novoProduto(c);
   for (const q of ["' OR 1=1 --", "'; DROP TABLE produtos; --", '%', '_', '\\']) {
@@ -191,27 +191,27 @@ test('injeção SQL e mass assignment', () => com(async (sis) => {
   assert.equal(p.versao, 1);
 }));
 
-test('auditoria encadeada: íntegra, só-inserção e detecta adulteração', () => com(async (sis) => {
+test('auditoria encadeada: íntegra, só-inserção e detecta adulteração', async () => await com(async (sis) => {
   const c = await entrarCompleto(sis);
   await novoProduto(c);
   const v = (await c.get('/api/auditoria/verificar')).data;
   assert.equal(v.ok, true);
   assert.ok(v.total >= 4);
-  assert.throws(() => sis.db.exec("UPDATE auditoria SET acao = 'X' WHERE id = 1"), /somente insercao/);
-  assert.throws(() => sis.db.exec('DELETE FROM auditoria WHERE id = 1'), /somente insercao/);
-  sis.db.exec('DROP TRIGGER trg_auditoria_no_update');
-  sis.db.exec("UPDATE auditoria SET acao = 'FORJADO' WHERE id = 2");
-  const apos = verificarCadeia(sis.db);
+  await assert.rejects(() => sis.db.exec("UPDATE auditoria SET acao = 'X' WHERE id = 1"), /somente insercao/);
+  await assert.rejects(() => sis.db.exec('DELETE FROM auditoria WHERE id = 1'), /somente insercao/);
+  await sis.db.exec(sis.db.dialeto === 'pg' ? 'DROP TRIGGER trg_auditoria_no_update ON auditoria' : 'DROP TRIGGER trg_auditoria_no_update');
+  await sis.db.exec("UPDATE auditoria SET acao = 'FORJADO' WHERE id = 2");
+  const apos = await verificarCadeia(sis.db);
   assert.equal(apos.ok, false);
   assert.equal(apos.quebrouEm, 2);
 }));
 
-test('auditoria não guarda senha, token nem login', () => com(async (sis) => {
+test('auditoria não guarda senha, token nem login', async () => await com(async (sis) => {
   const c = await entrarCompleto(sis);
   await c.post('/api/login', { login: LOGIN, senha: 'errada-errada-1' }).catch(() => {});
-  const texto = JSON.stringify(sis.db.prepare('SELECT * FROM auditoria').all());
+  const texto = JSON.stringify(await sis.db.all('SELECT * FROM auditoria'));
   for (const segredo of [SENHA_FORTE, SENHA_INICIAL, LOGIN, c.segredo, ...c.codigos]) assert.ok(!texto.includes(segredo), 'vazou algo sensível');
-  const banco = JSON.stringify(sis.db.prepare('SELECT * FROM users').all()) + JSON.stringify(sis.db.prepare('SELECT * FROM sessions').all());
+  const banco = JSON.stringify(await sis.db.all('SELECT * FROM users')) + JSON.stringify(await sis.db.all('SELECT * FROM sessions'));
   assert.ok(!banco.includes(LOGIN) && !banco.includes(SENHA_FORTE) && !banco.includes(c.segredo));
 }));
 

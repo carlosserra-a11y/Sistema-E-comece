@@ -24,7 +24,7 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
   const estagioInicial = sessao.estagio;
   const cartao = h('div', { class: 'card' });
   limpar(raiz).append(h('main', { class: 'auth' }, cartao));
-  const cab = (titulo, sub) => [h('div', { class: 'brand' }, h('span', { class: 'logo' }, icone('box', 18)), sessao.appName), h('h1', null, titulo), sub && h('p', { class: 'muted' }, sub)];
+  const cab = (titulo, sub) => [h('div', { class: 'brand brand-grande' }, h('img', { class: 'logo', src: '/icone.svg', alt: '', width: 48, height: 48 }), h('div', { class: 'brand-txt' }, h('strong', null, sessao.appName.split(' ')[0]), h('small', null, sessao.appName.split(' ').slice(1).join(' ')))), h('h1', null, titulo), sub && h('p', { class: 'muted' }, sub)];
 
   function login() {
     const l = entrada({ inputmode: 'numeric', autocomplete: 'username', autofocus: true, maxlength: 14 });

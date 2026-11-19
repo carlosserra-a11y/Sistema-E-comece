@@ -9,3 +9,6 @@ data/
 *.log
 backups/
 .DS_Store
+
+.claude/
+.vercel/

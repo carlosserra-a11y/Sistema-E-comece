@@ -14,9 +14,10 @@ export function sparkline(valores) {
 
 const kpi = (rotulo, valor, nota, ic, extra = {}) => h('section', { class: `card kpi ${extra.cls ?? ''}`, 'aria-label': rotulo }, h('div', { class: 'rotulo' }, icone(ic, 16), rotulo), h('div', { class: 'valor' }, valor), nota && h('div', { class: 'nota' }, nota));
 
-export async function renderizar(el, { ir }) {
+export async function renderizar(el, { ir, sessao }) {
+  const pode = (x) => !!sessao?.usuario?.permissoes?.includes(x);
   el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Início'), h('p', null, 'Visão do galpão agora.')),
-    h('div', { class: 'row' }, h('button', { class: 'btn primario', onclick: () => ir('estoque?op=receber') }, icone('download'), 'Receber mercadoria'), h('button', { class: 'btn', onclick: () => ir('contagem?novo=1') }, icone('clipboard'), 'Nova contagem'))));
+    h('div', { class: 'row' }, pode('estoque.operar') && h('button', { class: 'btn primario', onclick: () => ir('estoque?op=receber') }, icone('download'), 'Receber mercadoria'), pode('contagem.operar') && h('button', { class: 'btn', onclick: () => ir('contagem?novo=1') }, icone('clipboard'), 'Nova contagem'))));
   const alvo = h('div'); el.append(alvo);
   await carregar(alvo, () => api.get('/api/painel'), (d) => {
     const ocup = d.enderecos ? Math.round((d.enderecos_ocupados / d.enderecos) * 100) : 0;

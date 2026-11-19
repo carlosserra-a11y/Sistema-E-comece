@@ -1,29 +1,8 @@
 // Consulta rápida: leia (ou digite) qualquer código — produto, endereço ou lote — e veja onde está e quanto tem.
+import { leitorCamera } from './scanner.js';
 import { h, limpar, api, icone, fmt, badge, qs, tratar, feedback, esqueleto, vazio, tabela, toast } from './core.js';
 
-/** Leitura por câmera com BarcodeDetector. Se o navegador não suportar, o campo de texto (leitor USB/Bluetooth) continua funcionando. */
-export function leitorCamera(aoLer) {
-  const suportado = 'BarcodeDetector' in window && navigator.mediaDevices?.getUserMedia;
-  const video = h('video', { class: 'camera', playsinline: true, muted: true, 'aria-label': 'Câmera para leitura de código' });
-  const caixa = h('div', { class: 'stack', hidden: true }, video, h('button', { class: 'btn', type: 'button', onclick: () => parar() }, 'Fechar câmera'));
-  let stream = null; let ativo = false; let ultimo = ''; let ultimoEm = 0;
-  async function ligar() {
-    if (!suportado) return toast('Este navegador não lê código pela câmera. Use o leitor ou digite o código.', 'aviso', 7000);
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      video.srcObject = stream; await video.play(); caixa.hidden = false; ativo = true;
-      const det = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code', 'itf'] });
-      const volta = async () => {
-        if (!ativo) return;
-        try { const r = await det.detect(video); const c = r[0]?.rawValue; if (c && (c !== ultimo || Date.now() - ultimoEm > 2500)) { ultimo = c; ultimoEm = Date.now(); aoLer(c); } } catch { /* quadro ruim */ }
-        setTimeout(() => requestAnimationFrame(volta), 180);
-      };
-      volta();
-    } catch { toast('Não consegui abrir a câmera. Verifique a permissão do navegador.', 'erro'); }
-  }
-  function parar() { ativo = false; stream?.getTracks().forEach((t) => t.stop()); stream = null; caixa.hidden = true; }
-  return { botao: h('button', { class: 'btn', type: 'button', onclick: ligar, hidden: !suportado }, icone('camera'), 'Câmera'), caixa, parar };
-}
+export { leitorCamera } from './scanner.js'; // a leitura por câmera agora vive em scanner.js (tela cheia, com ZXing no iPhone)
 
 function mostrarProduto(r) {
   const p = r.produto;

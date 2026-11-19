@@ -37,7 +37,16 @@
 
 **Estoque → Reposição** lista picking vazio (ou ≤ 25% da capacidade) com saldo na reserva. *Repor* faz a transferência.
 
-## 6. Quando algo dá errado
+## 6. Pedidos do Mercado Livre
+
+1. **Integrações**: confira a bolinha de saúde (verde = ok). Pedidos entram sozinhos; **Sincronizar agora** força.
+2. Pedido **Com problema**: abra e leia o motivo.
+   - *SKU não mapeado*: abra o produto → aba **Anúncios ML** → informe o código do anúncio (MLB…) → volte ao pedido e **Reprocessar**.
+   - *Estoque insuficiente*: receba a mercadoria (ou cancele a venda no ML) e **Reprocessar**.
+3. O anúncio recebe o **disponível**: estoque vendável − reservas dos pedidos − margem. Mexeu no estoque? O anúncio é atualizado em segundos.
+4. Saúde **vermelha**: leia o motivo. "Reautorizar" = a autorização expirou/foi revogada → **Reautorizar** e entre de novo no ML.
+
+## 7. Quando algo dá errado
 
 | Situação | O que fazer |
 |---|---|

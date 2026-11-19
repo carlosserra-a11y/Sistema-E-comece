@@ -24,4 +24,10 @@ Registradas porque o prompt pedia perguntas e não houve resposta: valeu o padr�
 | CSV | aceita `;` ou `,`, `12,50` e BOM; só **cria** produtos (SKU existente é ignorado) | seguro por padrão |
 | Datas | milissegundos UTC no banco; exibição em `America/Sao_Paulo` | prompt |
 | Fonte | pilha do sistema (Inter/Geist local fica pendente) | sem download |
+| ML: autenticação do webhook | segredo na URL (rotacionável) + buscar sempre o pedido na API | o `orders_v2` não traz assinatura; o corpo só indica qual pedido buscar |
+| ML: reserva | por produto (não por endereço), ativa ao importar pedido novo/pago; baixa física fica para a expedição | evita vender o mesmo estoque duas vezes sem antecipar a Fase 6 |
+| ML: estoque do anúncio | `max(0, disponível − reservas − margem)`; pausa/reativa opcional | ML já abate a venda no anúncio; reservar e descontar da mesma conta evita contar duas vezes |
+| ML: polling | a cada 10 min (`ML_POLL_MIN`, 0 desliga), janela de 7 dias | reconcilia webhook perdido sem sobrecarregar a API |
+| ML: pedido cancelado | estado terminal | o ML não reativa pedido cancelado; evita reservar de novo por reenvio antigo |
+| ML: dados do comprador | só apelido e id | LGPD: endereço/CPF só serão guardados quando a etiqueta exigir (Fase 7) |
 | Aviso de etiqueta | barras com módulo < 2 pontos geram aviso | leitores baratos falham com barras muito finas |

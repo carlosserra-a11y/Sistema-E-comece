@@ -14,12 +14,11 @@ const problemas = validarPolitica(cfg.adminSenha, { login });
 if (problemas.length && cfg.prod) { console.error('Em produção a senha inicial precisa seguir a política:\n- ' + problemas.join('\n- ')); process.exit(1); }
 if (problemas.length) console.warn('Aviso (desenvolvimento): a senha inicial é fraca. A troca será obrigatória no primeiro acesso.');
 
-const db = abrirBanco(cfg.dbPath);
-migrar(db, cfg.migrationsDir);
-garantirDeposito(db, cfg.agora());
-if (db.prepare('SELECT 1 FROM users LIMIT 1').get()) { console.log('O usuário único já existe: nada foi alterado.'); db.close(); process.exit(0); }
+const db = await abrirBanco(cfg);
+await migrar(db, cfg.migrationsDir);
+await garantirDeposito(db, cfg.agora());
+if (await db.get('SELECT 1 FROM users WHERE dono = 1')) { console.log('A conta do dono já existe: nada foi alterado.'); await db.fechar(); process.exit(0); }
 
-db.prepare('INSERT INTO users (login_hmac, senha_hash, trocar_senha, criado_em) VALUES (?, ?, 1, ?)')
-  .run(chaveLogin(cfg, login), await hashSenha(cfg, cfg.adminSenha), cfg.agora());
-db.close();
+await db.run("INSERT INTO users (login_hmac, senha_hash, trocar_senha, dono, papel, nome, criado_em) VALUES (?, ?, 1, 1, 'admin', 'Carlos (dono)', ?)", chaveLogin(cfg, login), await hashSenha(cfg, cfg.adminSenha), cfg.agora());
+await db.fechar();
 console.log('Usuário criado. No primeiro acesso: trocar a senha e ativar o MFA. Apague ADMIN_LOGIN e ADMIN_INITIAL_PASSWORD do .env.');
