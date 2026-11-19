@@ -1,0 +1,27 @@
+# Decisões
+
+Registradas porque o prompt pedia perguntas e não houve resposta: valeu o padrão mais seguro e simples.
+
+| Tema | Decisão | Motivo |
+|---|---|---|
+| Ponto de partida | As Fases 0–2 não existiam nesta máquina, então foram **refeitas do zero** seguindo a descrição do prompt | o prompt prevê recomeçar em pasta vazia |
+| Nome | **Armazém** (`APP_NAME` no `.env`) | `[NOME_DO_SISTEMA]` não foi definido |
+| Marca/cor | azul-ciano como acento, sem logotipo (ícone de caixa em SVG) | seguiu os tokens do prompt |
+| Stack | Node 24 sem dependências, `node:sqlite`, front-end sem build | alvo "hoje" do prompt; sem rede para pacotes |
+| Código interno | EAN-13 com prefixo **20** (circulação restrita GS1) + sequência de 10 dígitos + verificador | não conflita com códigos de fabricante e todo leitor lê |
+| Códigos livres | 3–40 caracteres A–Z/0–9/`._-`, nunca parecidos com endereço (`D1-A-03-02-01-04`) ou lote (`LT-000123`) | leitura sem ambiguidade |
+| Endereço | `DEPÓSITO-ZONA-RUA-PRÉDIO-NÍVEL-POSIÇÃO`, dois dígitos por parte (1–99), zona de 1–3 letras | padrão do prompt |
+| Depósito inicial | `D1` com zonas R (recebimento), P (picking), V (reserva), A (avaria), D (devolução), Q (quarentena), E (expedição) e um endereço em cada zona de apoio | operação funciona no primeiro dia |
+| Disponível | só picking e reserva contam como disponível | recebimento/avaria/devolução/quarentena/expedição são físicos, não vendáveis |
+| Lote | `lote_id = 0` significa "sem lote"; FEFO ordena por validade | simplifica a chave do saldo |
+| Capacidade | 0 = sem limite; por itens e por peso; nunca reduz abaixo do que já tem | evita estado inconsistente |
+| Idempotência | obrigatória (`Idempotency-Key`) em receber/transferir/ajustar/baixar/avaria; guardada 2 dias | duplo clique e queda de rede |
+| Reautenticação | senha, janela de 5 min, para ajuste, aprovação de contagem e códigos de recuperação | ações críticas |
+| Aprovação de inventário | o mesmo usuário cria e aprova (único usuário), registrado como `auto_aprovacao` na auditoria | separação de funções chega com a equipe/RBAC |
+| Contagem | cega por padrão; item achado fora do sistema entra com saldo 0 | evita viés |
+| Sessão | ociosa 30 min, absoluta 12 h, pré-MFA 15 min | equilíbrio segurança/uso |
+| Bloqueio | 5 falhas → 1 min, dobrando até 60 min | progressivo |
+| CSV | aceita `;` ou `,`, `12,50` e BOM; só **cria** produtos (SKU existente é ignorado) | seguro por padrão |
+| Datas | milissegundos UTC no banco; exibição em `America/Sao_Paulo` | prompt |
+| Fonte | pilha do sistema (Inter/Geist local fica pendente) | sem download |
+| Aviso de etiqueta | barras com módulo < 2 pontos geram aviso | leitores baratos falham com barras muito finas |

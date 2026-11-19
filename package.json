@@ -1,0 +1,16 @@
+{
+  "name": "armazem-wms",
+  "version": "0.3.0",
+  "description": "WMS com endereçamento, etiquetas e contagem de estoque (zero dependências)",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "setup": "node scripts/init-env.js",
+    "criar-admin": "node --disable-warning=ExperimentalWarning scripts/criar-admin.js",
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --watch --disable-warning=ExperimentalWarning src/server.js",
+    "seed": "node --disable-warning=ExperimentalWarning scripts/seed-demo.js",
+    "test": "node --disable-warning=ExperimentalWarning --test"
+  }
+}
