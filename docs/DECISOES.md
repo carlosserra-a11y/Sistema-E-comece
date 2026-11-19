@@ -31,3 +31,14 @@ Registradas porque o prompt pedia perguntas e não houve resposta: valeu o padr�
 | ML: pedido cancelado | estado terminal | o ML não reativa pedido cancelado; evita reservar de novo por reenvio antigo |
 | ML: dados do comprador | só apelido e id | LGPD: endereço/CPF só serão guardados quando a etiqueta exigir (Fase 7) |
 | Aviso de etiqueta | barras com módulo < 2 pontos geram aviso | leitores baratos falham com barras muito finas |
+
+
+## Equipe, Supabase e Vercel (nov/2026)
+
+- **Dono único + equipe:** uma conta `dono=1` (índice único parcial) com todas as funções; as demais têm lista de permissões escolhida pelo dono. Rotas sem regra em `src/permissoes.js` ficam **negadas para todos** (teste garante que nenhuma rota fica sem regra). `usuarios.gerenciar` nunca é delegável.
+- **Financeiro restrito:** além de proteger as rotas, o servidor remove `custo_centavos`, `preco_centavos` e `total_centavos` de **toda** resposta de quem não tem `financeiro.ver`, e ignora esses campos na gravação.
+- **Dois bancos, um código:** SQL com `?`, sem dialeto nos módulos. Diferenças ficam em `src/db.js` e no esquema (`migrations/` SQLite × `supabase/migrations/` Postgres). O Postgres de teste é o **PGlite** (Postgres real em WebAssembly) — a mesma suíte passa nos dois.
+- **Saldo no Postgres:** trigger PL/pgSQL faz UPDATE antes do INSERT (o CHECK de um UPSERT rejeitaria saídas) e usa trava consultiva por chave; a cadeia de auditoria usa trava consultiva para não bifurcar.
+- **Papel `app_wms`:** o app nunca usa o `postgres`. RLS ligado com política só para esse papel; `anon`/`authenticated` sem acesso; sem UPDATE/DELETE em `auditoria` e `movimentacoes_estoque`.
+- **Vercel:** função catch-all reaproveita `montar()`; `waitUntil` termina o processamento em segundo plano do webhook; cron diário de manutenção (plano Hobby só permite 1x/dia). Limitador de requisições em memória é por instância (o bloqueio de login é no banco, então vale para todas).
+- **Celular:** PWA (ícones PNG, atalhos), barra inferior com botão **Bipar**, leitor em tela cheia (BarcodeDetector nativo; ZXing local no iPhone, sem CDN por causa da CSP).

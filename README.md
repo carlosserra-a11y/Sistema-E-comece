@@ -1,14 +1,14 @@
-# Armazém — WMS com endereçamento, etiquetas e contagem de estoque
+# Carlos Desenvolvedor de Sistema — WMS + vendas (Mercado Livre)
 
 Sistema web para controlar **estoque com endereçamento físico (picking)**, **etiquetar produtos** (gerador de código de barras), **reconhecer o produto na leitura**, **contar o estoque** e preparar o caminho para marketplaces e expedição. Interface em português do Brasil, moeda BRL, fuso `America/Sao_Paulo`.
 
-Node 22+ (testado no 24), **zero dependências**, SQLite embutido (`node:sqlite`), HTML/CSS/JS puros com CSP estrita (sem `innerHTML`, sem estilo inline).
+Node 22+ (testado no 24). **Dois motores de banco atrás da mesma interface:** SQLite (`node:sqlite`, desenvolvimento e testes) e **PostgreSQL na Supabase** (produção). Front-end em HTML/CSS/JS puros com CSP estrita, **PWA para celular** com leitura de código pela câmera.
 
 ## Começar
 
 ```powershell
 npm run setup          # cria o .env com segredos aleatórios (não imprime nada secreto)
-npm run criar-admin    # cria o usuário único a partir do .env (grava só o hash)
+npm run criar-admin    # cria a conta do DONO a partir do .env (grava só o hash)
 npm run seed           # opcional: dados FICTÍCIOS para treinamento
 npm start              # http://127.0.0.1:3000
 npm test               # testes de segurança, estoque, código de barras e contraste
@@ -52,3 +52,15 @@ Shopee, NF-e (Bling/Tiny), fluxo do pedido (separação mobile, conferência, em
 ## Documentação
 
 [ARQUITETURA](docs/ARQUITETURA.md) · [SEGURANCA](docs/SEGURANCA.md) · [DECISOES](docs/DECISOES.md) · [OPERACAO](docs/OPERACAO.md) · [DESIGN](docs/DESIGN.md) · [INTEGRACOES](docs/INTEGRACOES.md)
+
+## Produção: Supabase + Vercel
+
+- **Banco:** Supabase (PostgreSQL). O esquema fica em `supabase/migrations/` (RLS ligado; o app usa o papel `app_wms`, sem poder alterar livro-razão/auditoria).
+- **Site:** Vercel — a função `api/[...rota].js` roda o mesmo sistema; `public/` sai da CDN com os mesmos cabeçalhos de segurança (`vercel.json`, conferido por teste).
+- **Variáveis de ambiente:** veja `.env.example` (`DATABASE_URL`, `PEPPER`, `HMAC_KEY`, `FIELD_KEY`, `PUBLIC_ORIGIN`, `TRUST_PROXY=true`, `CRON_SECRET`, `NODE_ENV=production`). **Nunca** commite valores.
+- **Testes nos dois motores:** `npm test` (SQLite) e `npm run test:pg` (PostgreSQL embutido via PGlite).
+
+## Documentação
+
+- [Guia do dono](docs/GUIA-DO-DONO.md) — onde fica tudo, acesso, equipe/permissões, limites do plano grátis, backup, segredos, migração para a Hostinger.
+- [Operação](docs/OPERACAO.md) · [Segurança](docs/SEGURANCA.md) · [Arquitetura](docs/ARQUITETURA.md) · [Integrações](docs/INTEGRACOES.md) · [Decisões](docs/DECISOES.md)
