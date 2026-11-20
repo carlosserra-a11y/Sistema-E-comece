@@ -4,6 +4,10 @@ Tudo o que você precisa saber para ser dono deste sistema, em português simple
 
 ## 1. Onde cada coisa fica
 
+**Endereço do sistema:** https://carlos-sistema-carlos-nunes.vercel.app
+
+Só este endereço funciona (o sistema recusa outros nomes da Vercel, de propósito). Cada vez que o código muda no GitHub (`main`), a Vercel publica sozinha.
+
 | Peça | Onde está | Para que serve | Custo hoje |
 |---|---|---|---|
 | **Código-fonte** | GitHub: `carlosserra-a11y/Sistema-E-comece` | É o "projeto". Qualquer mudança passa por aqui | grátis |
