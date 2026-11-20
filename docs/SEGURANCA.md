@@ -9,7 +9,7 @@ Base: OWASP ASVS nível 2 e Top 10. Tudo abaixo é coberto por testes automatiza
 | Identidade | usuário único (índice sobre expressão constante impede o segundo); login de 11 dígitos guardado só como HMAC; sem tela de cadastro |
 | Senha | scrypt (N=32768) com pepper fora do banco; política 12–128 sem datas, sequências ou repetição; troca obrigatória; nova ≠ atual; ao trocar, as outras sessões caem |
 | Enumeração | mesma resposta e mesmo tempo (verificação falsa) para login inexistente e senha errada; o bloqueio vale também para logins que não existem |
-| Força bruta | limite por IP (20/15 min), bloqueio progressivo por login (5 falhas → 1, 2, 4… até 60 min), 8 tentativas de MFA por sessão e a sessão é revogada ao 5º erro |
+| Força bruta | limite por IP (60/15 min), bloqueio progressivo por login (10 falhas → 1, 2, 4… até 60 min), 10 erros de MFA derrubam a sessão |
 | MFA | TOTP RFC 6238 (vetor oficial testado), janela ±1, **anti-replay** (só aceita passo maior que o último), segredo cifrado AES-256-GCM, 10 códigos de recuperação de uso único (HMAC no banco) |
 | Sessão | token de 256 bits (só o SHA-256 vai ao banco); cookie `HttpOnly`, `SameSite=Strict`, `Secure` + prefixo `__Host-` em produção; **rotação a cada etapa**; ociosa 30 min, absoluta 12 h; lista e revogação |
 | CSRF | token sem estado (HMAC da sessão) + checagem de `Origin` + `Sec-Fetch-Site`; JSON obrigatório (415 para outros tipos) |

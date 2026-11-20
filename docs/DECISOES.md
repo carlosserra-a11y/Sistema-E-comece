@@ -20,7 +20,7 @@ Registradas porque o prompt pedia perguntas e não houve resposta: valeu o padr�
 | Aprovação de inventário | o mesmo usuário cria e aprova (único usuário), registrado como `auto_aprovacao` na auditoria | separação de funções chega com a equipe/RBAC |
 | Contagem | cega por padrão; item achado fora do sistema entra com saldo 0 | evita viés |
 | Sessão | ociosa 30 min, absoluta 12 h, pré-MFA 15 min | equilíbrio segurança/uso |
-| Bloqueio | 5 falhas → 1 min, dobrando até 60 min | progressivo |
+| Bloqueio | 10 tentativas erradas → 1 min, dobrando até 60 min (constante `TENTATIVAS_MAX`) | progressivo; senha fraca na troca de senha não conta tentativa |
 | CSV | aceita `;` ou `,`, `12,50` e BOM; só **cria** produtos (SKU existente é ignorado) | seguro por padrão |
 | Datas | milissegundos UTC no banco; exibição em `America/Sao_Paulo` | prompt |
 | Fonte | pilha do sistema (Inter/Geist local fica pendente) | sem download |

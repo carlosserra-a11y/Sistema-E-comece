@@ -1,6 +1,7 @@
 import http from 'node:http';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { TENTATIVAS_MAX } from '../src/modules/acesso.js';
 import { criarSistema, entrarCompleto, codigoMfa, LOGIN, SENHA_INICIAL, SENHA_FORTE, novoProduto } from './helpers.js';
 import { verificarCadeia } from '../src/security/audit.js';
 import { validarPolitica } from '../src/security/password.js';
@@ -48,14 +49,14 @@ test('login: resposta idêntica para login inexistente e senha errada; bloqueio 
   assert.equal(r1.status, 401); assert.equal(r2.status, 401);
   assert.equal(r1.erro.message, r2.erro.message);
   assert.equal(r1.erro.code, r2.erro.code);
-  for (let i = 0; i < 3; i++) await a.post('/api/login', { login: LOGIN, senha: 'errada-errada-1' });
+  for (let i = 0; i < TENTATIVAS_MAX - 2; i++) await a.post('/api/login', { login: LOGIN, senha: 'errada-errada-1' });
   const quinta = await a.post('/api/login', { login: LOGIN, senha: 'errada-errada-1' });
   assert.equal(quinta.status, 401);
   const bloq = await a.post('/api/login', { login: LOGIN, senha: SENHA_INICIAL });
   assert.equal(bloq.status, 429, 'mesmo com a senha certa, fica bloqueado');
   assert.ok(bloq.erro.retryAfterS > 0);
   // login inexistente também bloqueia (não dá para distinguir)
-  for (let i = 0; i < 5; i++) await b.post('/api/login', { login: '11122233344', senha: 'x-errada-x-1' });
+  for (let i = 0; i < TENTATIVAS_MAX; i++) await b.post('/api/login', { login: '11122233344', senha: 'x-errada-x-1' });
   assert.equal((await b.post('/api/login', { login: '11122233344', senha: 'x-errada-x-1' })).status, 429);
   sis.relogio.t += 2 * 60_000;
   assert.equal((await a.post('/api/login', { login: LOGIN, senha: SENHA_INICIAL })).status, 200, 'libera depois do prazo');
@@ -110,7 +111,7 @@ test('MFA: anti-replay, recuperação de uso único e esgotamento de tentativas'
   const e = sis.cliente(); await e.get('/api/sessao');
   await e.post('/api/login', { login: LOGIN, senha: SENHA_FORTE });
   assert.equal((await e.post('/api/mfa/recuperar', { codigo: rec })).status, 422, 'código de recuperação não pode ser reutilizado');
-  for (let i = 0; i < 4; i++) await e.post('/api/mfa/verificar', { codigo: '000001' });
+  for (let i = 0; i < TENTATIVAS_MAX - 1; i++) await e.post('/api/mfa/verificar', { codigo: '000001' });
   const ultimo = await e.post('/api/mfa/verificar', { codigo: '000001' });
   assert.ok([401, 429].includes(ultimo.status));
   assert.equal((await e.get('/api/produtos')).status, 401, 'sessão revogada após excesso de falhas');
@@ -233,3 +234,16 @@ test('criptografia de campo, TOTP (RFC 6238) e CSV seguro', () => {
   assert.equal(celulaCsv('@SUM(A1)'), "'@SUM(A1)");
   assert.equal(celulaCsv('a;b'), '"a;b"');
 });
+
+test('troca de senha: senha fraca não gasta tentativa; só a senha atual errada conta (10) e a mensagem diz quanto esperar', async () => await com(async (sis) => {
+  const c = sis.cliente(); await c.get('/api/sessao');
+  await c.post('/api/login', { login: LOGIN, senha: SENHA_INICIAL });
+  for (let i = 0; i < TENTATIVAS_MAX + 5; i++) assert.equal((await c.post('/api/senha/trocar', { senha_atual: SENHA_INICIAL, senha_nova: 'curta' })).status, 422, 'erro de senha fraca é só um aviso');
+  for (let i = 0; i < TENTATIVAS_MAX; i++) assert.equal((await c.post('/api/senha/trocar', { senha_atual: 'errada-errada-1', senha_nova: SENHA_FORTE })).status, 401);
+  const bloq = await c.post('/api/senha/trocar', { senha_atual: SENHA_INICIAL, senha_nova: SENHA_FORTE });
+  assert.equal(bloq.status, 429);
+  assert.match(bloq.erro.message, /Aguarde \d+ (segundos|minutos)/, 'diz quanto tempo falta');
+  sis.relogio.t += 11 * 60_000; // passou a janela de 10 minutos
+  const ok = await c.post('/api/senha/trocar', { senha_atual: SENHA_INICIAL, senha_nova: SENHA_FORTE });
+  assert.equal(ok.status, 200, ok.texto);
+}));

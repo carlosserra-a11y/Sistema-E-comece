@@ -10,7 +10,10 @@ import { permissoesDe } from '../permissoes.js';
 import { criarSessao, revogarSessao, cookie, nomesCookie } from '../http/sessao.js';
 
 const LOGIN_RE = /^\d{11}$/;
-const MAX_FALHAS_MFA = 5;
+/** Quantas tentativas erradas a pessoa pode fazer (senha, código de 2 etapas) antes de o sistema segurar. */
+export const TENTATIVAS_MAX = 10;
+const MAX_FALHAS_MFA = TENTATIVAS_MAX;
+const espera = (s) => (s >= 90 ? `${Math.ceil(s / 60)} minutos` : `${Math.max(1, s)} segundos`);
 
 export const proximoEstagio = (u) => (u.trocar_senha ? 'TROCAR_SENHA' : !u.mfa_ativo ? 'MFA_INSCREVER' : 'MFA_VERIFICAR');
 export const chaveLogin = (cfg, digitos) => hmacHex(cfg.hmacKey, `login|${digitos}`);
@@ -26,9 +29,9 @@ export function registrarAcesso(app, { cfg, db }) {
     await criarSessao(cfg, db, ctx, ctx.user.id, estagio);
     if (reauth) await db.run('UPDATE sessions SET reauth_em = ? WHERE token_hash = ?', cfg.agora(), ctx.sessao.token_hash);
   }
-  const limitar = (chave, max, janelaMs, msg = 'Muitas tentativas. Aguarde.') => {
+  const limitar = (chave, max, janelaMs, msg = 'Muitas tentativas.') => {
     const r = limitador.bater(chave, max, janelaMs);
-    if (!r.ok) throw Object.assign(erro(429, 'MUITAS_TENTATIVAS', msg), { retryAfterS: r.retryAfterS });
+    if (!r.ok) throw Object.assign(erro(429, 'MUITAS_TENTATIVAS', `${msg} Aguarde ${espera(r.retryAfterS)} e tente de novo.`), { retryAfterS: r.retryAfterS });
   };
   const respostaSessao = (ctx, extra = {}) => ({ estagio: ctx.sessao.estagio, csrf: app.csrfPara(ctx), ...extra });
 
@@ -46,14 +49,14 @@ export function registrarAcesso(app, { cfg, db }) {
   });
 
   rota('POST', '/api/login', { auth: 'publica' }, async (ctx) => {
-    limitar(`login:ip:${ctx.ip}`, 20, 15 * 60_000, 'Muitas tentativas de entrada. Aguarde alguns minutos.');
+    limitar(`login:ip:${ctx.ip}`, TENTATIVAS_MAX * 6, 15 * 60_000, 'Muitas tentativas de entrada neste aparelho/rede.');
     const { login, senha } = ctx.corpo;
     const digitos = typeof login === 'string' ? login.replace(/\D/g, '') : '';
     const chave = chaveLogin(cfg, LOGIN_RE.test(digitos) ? digitos : `invalido:${String(login).slice(0, 40)}`);
     const t = cfg.agora();
     const tent = await db.get('SELECT * FROM login_tentativas WHERE chave_hmac = ?', chave);
     if (tent && tent.bloqueado_ate > t) {
-      throw Object.assign(erro(429, 'BLOQUEADO', 'Acesso temporariamente bloqueado por excesso de tentativas.'), { retryAfterS: Math.ceil((tent.bloqueado_ate - t) / 1000) });
+      throw Object.assign(erro(429, 'BLOQUEADO', `Acesso temporariamente bloqueado por excesso de tentativas. Aguarde ${espera(Math.ceil((tent.bloqueado_ate - t) / 1000))}.`), { retryAfterS: Math.ceil((tent.bloqueado_ate - t) / 1000) });
     }
     const senhaOk = typeof senha === 'string' && senha.length > 0 && senha.length <= 1024;
     const user = LOGIN_RE.test(digitos) ? await db.get('SELECT * FROM users WHERE login_hmac = ? AND ativo = 1', chave) : null;
@@ -61,7 +64,7 @@ export function registrarAcesso(app, { cfg, db }) {
     if (!ok) {
       await tx(db, async (db) => {
         const falhas = (tent?.falhas ?? 0) + 1;
-        const bloq = falhas >= 5 ? t + Math.min(60, 2 ** (falhas - 5)) * 60_000 : 0;
+        const bloq = falhas >= TENTATIVAS_MAX ? t + Math.min(60, 2 ** (falhas - TENTATIVAS_MAX)) * 60_000 : 0;
         await db.run(`INSERT INTO login_tentativas (chave_hmac, falhas, bloqueado_ate, atualizado_em) VALUES (?,?,?,?)
           ON CONFLICT (chave_hmac) DO UPDATE SET falhas = excluded.falhas, bloqueado_ate = excluded.bloqueado_ate, atualizado_em = excluded.atualizado_em`, chave, falhas, bloq, t);
         await auditar(db, ctx, 'LOGIN_FALHA', 'login', chave.slice(0, 8), { falhas });
@@ -78,12 +81,12 @@ export function registrarAcesso(app, { cfg, db }) {
   });
 
   rota('POST', '/api/senha/trocar', { auth: 'parcial', etapas: ['TROCAR_SENHA', 'COMPLETA'] }, async (ctx) => {
-    limitar(`senha:${ctx.sessao.id}`, 5, 10 * 60_000);
     const { senha_atual: atual, senha_nova: nova } = validar(ctx.corpo, { senha_atual: T({ min: 1, max: 1024 }), senha_nova: T({ min: 1, max: 1024 }) });
-    const u = await usuario(ctx.user.id);
-    if (!(await verificarSenha(cfg, atual, u.senha_hash))) throw erro(401, 'CREDENCIAIS', 'A senha atual está incorreta.');
-    const problemas = validarPolitica(nova);
+    const problemas = validarPolitica(nova); // senha fraca é só um aviso: não gasta tentativa
     if (problemas.length) throw erro(422, 'SENHA_FRACA', problemas.join(' '), { senha_nova: problemas.join(' ') });
+    limitar(`senha:${ctx.sessao.id}`, TENTATIVAS_MAX, 10 * 60_000);
+    const u = await usuario(ctx.user.id);
+    if (!(await verificarSenha(cfg, atual, u.senha_hash))) throw erro(401, 'CREDENCIAIS', 'A senha atual (a provisória) está incorreta. Confira o arquivo de segredos.');
     if (await verificarSenha(cfg, nova, u.senha_hash)) throw erro(422, 'SENHA_FRACA', 'A nova senha precisa ser diferente da atual.', { senha_nova: 'Escolha uma senha diferente.' });
     const hash = await hashSenha(cfg, nova);
     const eraInicial = ctx.sessao.estagio === 'TROCAR_SENHA';
@@ -109,7 +112,7 @@ export function registrarAcesso(app, { cfg, db }) {
   });
 
   rota('POST', '/api/mfa/confirmar', { auth: 'parcial', etapas: ['MFA_INSCREVER'] }, async (ctx) => {
-    limitar(`mfa:${ctx.sessao.id}`, 8, 10 * 60_000);
+    limitar(`mfa:${ctx.sessao.id}`, TENTATIVAS_MAX + 5, 10 * 60_000);
     const { codigo } = validar(ctx.corpo, { codigo: T({ min: 6, max: 10 }) });
     const u = await usuario(ctx.user.id);
     if (!u.mfa_pendente_enc) throw erro(409, 'MFA', 'Inicie a configuração do MFA primeiro.');
@@ -128,7 +131,7 @@ export function registrarAcesso(app, { cfg, db }) {
   });
 
   rota('POST', '/api/mfa/verificar', { auth: 'parcial', etapas: ['MFA_VERIFICAR'] }, async (ctx) => {
-    limitar(`mfa:${ctx.sessao.id}`, 8, 10 * 60_000);
+    limitar(`mfa:${ctx.sessao.id}`, TENTATIVAS_MAX + 5, 10 * 60_000);
     const { codigo } = validar(ctx.corpo, { codigo: T({ min: 6, max: 10 }) });
     const u = await usuario(ctx.user.id);
     const passo = verificarTotp(decifrar(cfg.fieldKey, u.mfa_segredo_enc), codigo, cfg.agora(), u.mfa_ultimo_passo);
@@ -151,7 +154,7 @@ export function registrarAcesso(app, { cfg, db }) {
   });
 
   rota('POST', '/api/mfa/recuperar', { auth: 'parcial', etapas: ['MFA_VERIFICAR'] }, async (ctx) => {
-    limitar(`mfa:${ctx.sessao.id}`, 8, 10 * 60_000);
+    limitar(`mfa:${ctx.sessao.id}`, TENTATIVAS_MAX + 5, 10 * 60_000);
     const { codigo } = validar(ctx.corpo, { codigo: T({ min: 8, max: 20 }) });
     const h = hmacHex(cfg.hmacKey, `rec|${normalizarCodigoRecuperacao(codigo)}`);
     const rc = await db.get('SELECT * FROM recovery_codes WHERE user_id = ? AND codigo_hmac = ? AND usado_em IS NULL', ctx.user.id, h);
@@ -180,7 +183,7 @@ export function registrarAcesso(app, { cfg, db }) {
   });
 
   rota('POST', '/api/reautenticar', { auth: 'completa' }, async (ctx) => {
-    limitar(`reauth:${ctx.sessao.id}`, 5, 5 * 60_000);
+    limitar(`reauth:${ctx.sessao.id}`, TENTATIVAS_MAX, 5 * 60_000);
     const { senha } = validar(ctx.corpo, { senha: T({ min: 1, max: 1024 }) });
     if (!(await verificarSenha(cfg, senha, (await usuario(ctx.user.id)).senha_hash))) {
       await tx(db, async (db) => await auditar(db, ctx, 'REAUTENTICACAO_FALHA', 'user', ctx.user.id));
