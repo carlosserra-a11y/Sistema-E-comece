@@ -10,6 +10,9 @@ import { sha256, aleatorio } from '../security/crypto.js';
 import { REGRAS, permissoesDe, semFinanceiro } from '../permissoes.js';
 import { carregarSessao, csrfValido, csrfPara, lerCookies, nomesCookie, cookie } from './sessao.js';
 
+const ID_VALIDO = /^[0-9]{1,9}$/; // até 999.999.999 (cabe em INTEGER)
+const ehChaveDeId = (k) => k === 'id' || k === 'cid' || k.endsWith('_id');
+
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml',
@@ -80,6 +83,9 @@ export function criarApp({ cfg, db, log }) {
     const m = r.re.exec(url.pathname);
     ctx.params = Object.fromEntries(r.chaves.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
     ctx.query = Object.fromEntries(url.searchParams);
+    // Ids na URL precisam caber num inteiro do banco (o Postgres recusa "1.5" ou números enormes com erro interno).
+    for (const [k, v] of Object.entries(ctx.params)) if (ehChaveDeId(k) && !ID_VALIDO.test(v)) throw erro(404, 'NAO_ENCONTRADO', 'Registro não encontrado.');
+    for (const [k, v] of Object.entries(ctx.query)) if (ehChaveDeId(k) && v !== '' && !ID_VALIDO.test(v)) throw erro(422, 'VALIDACAO', 'Parâmetro inválido.', { [k]: 'Número inteiro inválido.' });
 
     ctx.sessao = await carregarSessao(cfg, db, ctx);
     ctx.user = ctx.sessao ? { id: ctx.sessao.user_id, papel: ctx.sessao.papel, nome: ctx.sessao.nome, dono: !!ctx.sessao.dono } : null;

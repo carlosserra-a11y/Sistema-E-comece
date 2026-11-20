@@ -28,7 +28,7 @@ export async function renderizar(el, { params, sessao }) {
   function listar() {
     const p = { q, pagina, por_pagina: 25, ativo: filtro === 'inativos' ? '0' : '', sem_codigo: filtro === 'sem_codigo' ? 1 : '', abaixo_minimo: filtro === 'abaixo' ? 1 : '', zerados: filtro === 'zerados' ? 1 : '' };
     carregar(alvo, () => api.get(`/api/produtos?${qs(p)}`), (d) => {
-      alvo.append(d.total === 0 ? vazio('Nenhum produto encontrado', q ? 'Tente outra busca.' : 'Cadastre o primeiro produto.', h('button', { class: 'btn primario', onclick: () => novo() }, 'Novo produto'))
+      alvo.append(d.total === 0 ? vazio('Nenhum produto encontrado', q ? 'Tente outra busca.' : 'Cadastre o primeiro produto.', h('button', { class: 'btn primario', 'data-requer': 'produtos.editar', onclick: () => novo() }, 'Novo produto'))
         : tabela([
           { titulo: 'SKU', render: (x) => h('strong', { class: 'mono' }, x.sku) }, { titulo: 'Produto', render: (x) => h('span', { class: 'quebra' }, x.nome) },
           { titulo: 'Código', render: (x) => (x.codigo_principal ? h('span', { class: 'mono' }, x.codigo_principal) : badge('sem código', 'aviso')) },
@@ -43,7 +43,7 @@ export async function renderizar(el, { params, sessao }) {
     const f = formulario(campos(), { unidade: 'UN' }, async (v) => {
       try { const r = await api.post('/api/produtos', { ...v, gerar_codigo: gerar.checked ? 1 : 0, codigo_barras: cod.value.trim() || undefined }); g.fechar(); toast('Produto criado.', 'ok'); listar(); abrir(r.id); }
       catch (e) { if (e instanceof ApiError && e.campos) f.erros(e.campos); tratar(e); }
-    }, { rotuloEnviar: 'Criar produto' });
+    }, { rotuloEnviar: 'Criar produto', perm: 'produtos.editar' });
     const cod = h('input', { type: 'text', placeholder: 'Opcional: leia o código do fabricante', autocomplete: 'off', 'aria-label': 'Código de barras do fabricante' });
     const gerar = h('input', { type: 'checkbox', checked: true });
     g = gaveta('Novo produto', [
@@ -59,7 +59,7 @@ export async function renderizar(el, { params, sessao }) {
       const painel = h('div', { class: 'stack' });
       const desenhar = (id2) => { limpar(painel); ({ dados: dadosAba, estoque: estoqueAba, codigos: codigosAba, anuncios: anunciosAba })[id2](painel, p, () => recarregar(id2), g); };
       g.corpo.append(h('div', { class: 'row' }, h('h2', null, p.nome), p.ativo ? badge('Ativo', 'ok') : badge('Inativo', 'erro')), h('p', { class: 'muted mono' }, p.sku),
-        abas([['dados', 'Dados'], ['estoque', 'Estoque por endereço'], ['codigos', 'Códigos e etiqueta'], ['anuncios', 'Anúncios ML']], aba, desenhar), painel);
+        abas([['dados', 'Dados'], ['estoque', 'Estoque por endereço'], ['codigos', 'Códigos e etiqueta'], ['anuncios', 'Anúncios ML', 'integracoes.ver']], aba, desenhar), painel);
       desenhar(aba);
     };
     await recarregar();
@@ -69,8 +69,8 @@ export async function renderizar(el, { params, sessao }) {
     const f = formulario(campos(), p, async (v) => {
       try { await api.put(`/api/produtos/${p.id}`, { ...v, versao: p.versao }); toast('Salvo.', 'ok'); listar(); recarregar(); }
       catch (e) { if (e instanceof ApiError && e.campos) f.erros(e.campos); tratar(e); if (e.code === 'VERSAO') recarregar(); }
-    });
-    painel.append(f.el, h('button', { class: `btn ${p.ativo ? 'perigo' : ''}`, onclick: async () => {
+    }, { perm: 'produtos.editar' });
+    painel.append(f.el, h('button', { class: `btn ${p.ativo ? 'perigo' : ''}`, 'data-requer': 'produtos.editar', onclick: async () => {
       if (p.ativo && !(await confirmar('Inativar produto', 'O produto some das listas e não pode receber estoque. O histórico é mantido.', { perigo: true, rotulo: 'Inativar' }))) return;
       try { await api.post(`/api/produtos/${p.id}/${p.ativo ? 'inativar' : 'reativar'}`); toast(p.ativo ? 'Produto inativado.' : 'Produto reativado.', 'ok'); listar(); recarregar(); } catch (e) { tratar(e); }
     } }, p.ativo ? 'Inativar produto' : 'Reativar produto'));
@@ -103,10 +103,10 @@ export async function renderizar(el, { params, sessao }) {
     const fm = h('select', { 'aria-label': 'Formato da etiqueta', onchange: () => mostrarEtiqueta(fm.value) }, ['50x30', '40x25', '100x50', '100x150'].map((f) => h('option', { value: f }, `${f.replace('x', ' × ')} mm`)));
     painel.append(
       p.codigos.length ? h('div', { class: 'lista' }, p.codigos.map((c) => h('div', null, h('span', { class: 'row' }, h('strong', { class: 'mono' }, c.codigo), badge(c.tipo), c.origem === 'INTERNO' ? badge('interno', 'info') : null, c.principal ? badge('principal', 'ok') : null),
-        h('span', { class: 'row' }, !c.principal && h('button', { class: 'btn pequeno', onclick: async () => { try { await api.post(`/api/produtos/${p.id}/codigos/${c.id}/principal`); recarregar(); } catch (e) { tratar(e); } } }, 'Tornar principal'),
-          h('button', { class: 'btn pequeno fantasma', 'aria-label': `Remover ${c.codigo}`, onclick: async () => { if (await confirmar('Remover código', `Remover ${c.codigo}? A etiqueta já impressa deixa de ser reconhecida.`, { perigo: true, rotulo: 'Remover' })) { try { await api.del(`/api/produtos/${p.id}/codigos/${c.id}`); recarregar(); } catch (e) { tratar(e); } } } }, icone('trash', 16)))))) : vazio('Sem código de barras', 'Cadastre o do fabricante ou gere um código interno para etiquetar.'),
-      h('div', { class: 'row' }, h('div', { class: 'grow' }, novoCod), h('button', { class: 'btn', onclick: async () => { try { await api.post(`/api/produtos/${p.id}/codigos`, { codigo: novoCod.value }); toast('Código adicionado.', 'ok'); recarregar(); } catch (e) { tratar(e); } } }, 'Adicionar')),
-      h('button', { class: 'btn primario', onclick: async () => { try { const c = await api.post(`/api/produtos/${p.id}/codigos/gerar`); toast(`Código ${c.codigo} gerado.`, 'ok'); recarregar(); } catch (e) { tratar(e); } } }, icone('tag'), 'Gerar código interno (EAN-13)'),
+        h('span', { class: 'row' }, !c.principal && h('button', { class: 'btn pequeno', 'data-requer': 'produtos.editar', onclick: async () => { try { await api.post(`/api/produtos/${p.id}/codigos/${c.id}/principal`); recarregar(); } catch (e) { tratar(e); } } }, 'Tornar principal'),
+          h('button', { class: 'btn pequeno fantasma', 'data-requer': 'produtos.editar', 'aria-label': `Remover ${c.codigo}`, onclick: async () => { if (await confirmar('Remover código', `Remover ${c.codigo}? A etiqueta já impressa deixa de ser reconhecida.`, { perigo: true, rotulo: 'Remover' })) { try { await api.del(`/api/produtos/${p.id}/codigos/${c.id}`); recarregar(); } catch (e) { tratar(e); } } } }, icone('trash', 16)))))) : vazio('Sem código de barras', 'Cadastre o do fabricante ou gere um código interno para etiquetar.'),
+      h('div', { class: 'row' }, h('div', { class: 'grow' }, novoCod), h('button', { class: 'btn', 'data-requer': 'produtos.editar', onclick: async () => { try { await api.post(`/api/produtos/${p.id}/codigos`, { codigo: novoCod.value }); toast('Código adicionado.', 'ok'); recarregar(); } catch (e) { tratar(e); } } }, 'Adicionar')),
+      h('button', { class: 'btn primario', 'data-requer': 'produtos.editar', onclick: async () => { try { const c = await api.post(`/api/produtos/${p.id}/codigos/gerar`); toast(`Código ${c.codigo} gerado.`, 'ok'); recarregar(); } catch (e) { tratar(e); } } }, icone('tag'), 'Gerar código interno (EAN-13)'),
       h('h3', null, 'Etiqueta'), h('div', { class: 'row' }, fm, h('a', { class: 'btn', href: `#/etiquetas?produto=${p.id}` }, icone('printer'), 'Imprimir / ZPL')), prev);
     mostrarEtiqueta();
   }
@@ -140,8 +140,8 @@ export async function renderizar(el, { params, sessao }) {
   }
 
   el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Produtos'), h('p', null, 'Cadastro, códigos de barras e etiquetas.')),
-    h('div', { class: 'row' }, h('button', { class: 'btn', onclick: gerarFaltantes }, icone('tag'), 'Gerar códigos faltantes'), h('button', { class: 'btn', onclick: importar }, icone('upload'), 'Importar CSV'),
-      h('a', { class: 'btn', href: '/api/produtos-exportar', download: 'produtos.csv' }, icone('download'), 'Exportar'), h('button', { class: 'btn primario', 'data-novo': true, onclick: novo }, icone('plus'), 'Novo produto'))),
+    h('div', { class: 'row' }, h('button', { class: 'btn', 'data-requer': 'produtos.editar', onclick: gerarFaltantes }, icone('tag'), 'Gerar códigos faltantes'), h('button', { class: 'btn', 'data-requer': 'produtos.editar', onclick: importar }, icone('upload'), 'Importar CSV'),
+      h('a', { class: 'btn', href: '/api/produtos-exportar', download: 'produtos.csv' }, icone('download'), 'Exportar'), h('button', { class: 'btn primario', 'data-requer': 'produtos.editar', 'data-novo': true, onclick: novo }, icone('plus'), 'Novo produto'))),
   h('div', { class: 'stack' }, busca, chips), alvo);
   listar();
   if (params.get('novo')) novo();

@@ -26,6 +26,6 @@ export function celulaCsv(v) {
 }
 export function paginar(query, padrao = 25, max = 200) {
   const por = Math.min(Math.max(parseInt(query.por_pagina ?? padrao, 10) || padrao, 1), max);
-  const pagina = Math.max(parseInt(query.pagina ?? 1, 10) || 1, 1);
+  const pagina = Math.min(Math.max(parseInt(query.pagina ?? 1, 10) || 1, 1), 100_000);
   return { por, pagina, offset: (pagina - 1) * por };
 }

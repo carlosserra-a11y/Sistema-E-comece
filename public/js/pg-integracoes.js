@@ -33,9 +33,9 @@ export async function renderizar(el, { params, sessao }) {
       d.sem_mapeamento ? h('p', { class: 'perigo-txt', role: 'alert' }, `${d.sem_mapeamento} item(ns) de pedido sem produto mapeado. Mapeie o anúncio na aba "Anúncios ML" do produto e reprocesse o pedido.`) : null,
       d.ultimo_erro ? h('p', { class: 'perigo-txt' }, `Último erro: ${d.ultimo_erro}`) : null,
       h('div', { class: 'row' },
-        h('button', { class: 'btn primario', disabled: !d.app_configurado, onclick: conectar }, icone('refresh'), conectada ? 'Reconectar' : d.status === 'REAUTORIZAR' ? 'Reautorizar' : 'Conectar conta'),
-        h('button', { class: 'btn', disabled: !conectada, onclick: sincronizar }, 'Sincronizar agora'),
-        h('button', { class: 'btn perigo', disabled: !conectada && d.status !== 'REAUTORIZAR', onclick: desconectar }, 'Desconectar')));
+        h('button', { class: 'btn primario', 'data-requer': 'integracoes.gerenciar', disabled: !d.app_configurado, onclick: conectar }, icone('refresh'), conectada ? 'Reconectar' : d.status === 'REAUTORIZAR' ? 'Reautorizar' : 'Conectar conta'),
+        h('button', { class: 'btn', 'data-requer': 'integracoes.gerenciar', disabled: !conectada, onclick: sincronizar }, 'Sincronizar agora'),
+        h('button', { class: 'btn perigo', 'data-requer': 'integracoes.gerenciar', disabled: !conectada && d.status !== 'REAUTORIZAR', onclick: desconectar }, 'Desconectar')));
   }
 
   async function conectar() { try { const r = await api.post('/api/integracoes/ml/conectar'); location.assign(r.url); } catch (e) { tratar(e); } }
@@ -67,7 +67,7 @@ export async function renderizar(el, { params, sessao }) {
         h('div', { class: 'cols-2' }, campo('App ID', appId, { ajuda: d.app_configurado ? 'Já configurado. Informe de novo só para alterar (alterar desconecta a conta).' : undefined }), campo('Chave secreta', segredo)),
         campo('Margem de segurança (unidades que NÃO vão para o anúncio)', margem, { ajuda: 'Anúncio recebe: disponível − reservas − margem.' }),
         h('label', { class: 'check' }, sync, 'Enviar o estoque para os anúncios'), h('label', { class: 'check' }, pausar, 'Pausar o anúncio quando o estoque chegar a zero (e reativar quando voltar)'),
-        h('div', { class: 'row' }, h('button', { class: 'btn primario', type: 'submit' }, 'Salvar (pede sua senha)'),
+        h('div', { class: 'row' }, h('button', { class: 'btn primario', 'data-requer': 'integracoes.gerenciar', type: 'submit' }, 'Salvar (pede sua senha)'),
           h('button', { class: 'btn', type: 'button', onclick: async () => { if (await confirmar('Girar o segredo do webhook', 'A URL de notificações antiga deixa de funcionar. Você precisará cadastrar a nova no aplicativo.', { rotulo: 'Girar' })) { try { await api.post('/api/integracoes/ml/rotacionar-webhook', {}); toast('Novo segredo gerado.', 'ok'); ler(); } catch (x) { tratar(x); } } } }, 'Girar segredo do webhook')))));
   }
 
@@ -91,7 +91,7 @@ export async function renderizar(el, { params, sessao }) {
       const p = await api.get(`/api/pedidos/${id}`);
       const m = modal(`Pedido ${p.canal_pedido_id}`, h('div', { class: 'stack' }, h('div', { class: 'row' }, badge(...ST_PEDIDO[p.status]), h('span', { class: 'muted' }, `Comprador ${p.comprador_apelido ?? '—'}${veFin ? ` · ${fmt.moeda(p.total_centavos)}` : ''}`)), p.problema ? h('p', { class: 'perigo-txt' }, p.problema) : null,
         tabela([{ titulo: 'Anúncio', render: (i) => h('span', { class: 'mono' }, i.item_id) }, { titulo: 'SKU do vendedor', render: (i) => i.sku_canal ?? '—' }, { titulo: 'Produto', render: (i) => i.sku_interno ?? badge('sem mapeamento', 'erro') }, { titulo: 'Qtd', num: true, chave: 'qtd' }, { titulo: 'Reserva', render: (i) => (i.reserva ? badge(i.reserva.toLowerCase(), i.reserva === 'ATIVA' ? 'ok' : '') : '—') }], p.itens, { compacta: true }),
-        p.status === 'COM_PROBLEMA' ? h('button', { class: 'btn primario', onclick: async () => { try { const r = await api.post(`/api/pedidos/${id}/reprocessar`, {}); m.fechar(); toast(r.problema ? `Ainda com problema: ${r.problema}` : 'Pedido reprocessado.', r.problema ? 'aviso' : 'ok', 6000); ler(); } catch (e) { tratar(e); } } }, 'Reprocessar') : null), { largo: true });
+        p.status === 'COM_PROBLEMA' ? h('button', { class: 'btn primario', 'data-requer': 'pedidos.gerenciar', onclick: async () => { try { const r = await api.post(`/api/pedidos/${id}/reprocessar`, {}); m.fechar(); toast(r.problema ? `Ainda com problema: ${r.problema}` : 'Pedido reprocessado.', r.problema ? 'aviso' : 'ok', 6000); ler(); } catch (e) { tratar(e); } } }, 'Reprocessar') : null), { largo: true });
     } catch (e) { tratar(e); }
   }
 

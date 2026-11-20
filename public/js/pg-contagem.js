@@ -85,7 +85,7 @@ async function contar(alvo, id, voltar) {
   const acoes = () => h('div', { class: 'row' },
     h('button', { class: 'btn', disabled: !endAtual, onclick: async () => { if (!endAtual) return; if (await confirmar('Endereço vazio', `Confirmar que ${endAtual.codigo} está fisicamente VAZIO? Os itens ainda não contados ficam com 0.`, { perigo: true, rotulo: 'Está vazio' })) { try { await api.post(`/api/inventarios/${id}/vazio`, { endereco_id: endAtual.id }); feedback('ok', 'Vazio ✓'); ler(); } catch (e) { tratar(e); } } } }, 'Endereço vazio'),
     h('button', { class: 'btn', disabled: !endAtual, onclick: async () => { try { await api.post(`/api/inventarios/${id}/concluir-endereco`, { endereco_id: endAtual.id }); feedback('ok', `${endAtual.codigo} concluído`); endAtual = null; entEnd.value = ''; entProd.disabled = true; entEnd.focus(); ler(); } catch (e) { tratar(e); } } }, 'Concluir endereço'),
-    h('button', { class: 'btn primario', onclick: async () => {
+    h('button', { class: 'btn primario', 'data-requer': 'contagem.aprovar', onclick: async () => {
       const pend = inv.resumo.pendentes;
       if (!(await confirmar('Aprovar contagem', `Isso AJUSTA o estoque para o que foi contado (${inv.resumo.divergentes} divergência(s), ${inv.resumo.diferenca_abs} un).${pend ? ` ${pend} item(ns) não contado(s) serão ignorados.` : ''} Pede sua senha de novo.`, { rotulo: 'Aprovar e ajustar' }))) return;
       try { const r = await api.post(`/api/inventarios/${id}/aprovar`, { ignorar_pendentes: pend ? 1 : 0 }); toast(`Aprovada: ${r.ajustes} ajuste(s).`, 'ok', 7000); ler(); render(); } catch (e) { tratar(e); }

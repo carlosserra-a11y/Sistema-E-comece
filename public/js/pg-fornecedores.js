@@ -16,10 +16,10 @@ export async function renderizar(el) {
     let g;
     const fm = formulario(CAMPOS, { ...f, documento: '' }, async (v) => {
       try { if (f) await api.put(`/api/fornecedores/${f.id}`, { ...v, versao: f.versao }); else await api.post('/api/fornecedores', v); g.fechar(); toast('Salvo.', 'ok'); ler(); } catch (e) { if (e instanceof ApiError && e.campos) fm.erros(e.campos); tratar(e); }
-    });
+    }, { perm: 'fornecedores.editar' });
     g = gaveta(f ? f.nome : 'Novo fornecedor', [f?.documento_mascarado ? h('p', { class: 'muted' }, `Documento atual: ${f.documento_mascarado}. Deixe em branco para manter; digite um novo para trocar.`) : null, fm.el,
-      f ? h('button', { class: `btn ${f.ativo ? 'perigo' : ''}`, onclick: async () => { try { await api.post(`/api/fornecedores/${f.id}/${f.ativo ? 'inativar' : 'reativar'}`); g.fechar(); ler(); } catch (e) { tratar(e); } } }, f.ativo ? 'Inativar' : 'Reativar') : null]);
+      f ? h('button', { class: `btn ${f.ativo ? 'perigo' : ''}`, 'data-requer': 'fornecedores.editar', onclick: async () => { try { await api.post(`/api/fornecedores/${f.id}/${f.ativo ? 'inativar' : 'reativar'}`); g.fechar(); ler(); } catch (e) { tratar(e); } } }, f.ativo ? 'Inativar' : 'Reativar') : null]);
   }
-  el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Fornecedores')), h('button', { class: 'btn primario', 'data-novo': true, onclick: () => editar(null) }, icone('plus'), 'Novo fornecedor')), h('div', { class: 'row' }, h('div', { class: 'grow' }, busca), chk), alvo);
+  el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Fornecedores')), h('button', { class: 'btn primario', 'data-requer': 'fornecedores.editar', 'data-novo': true, onclick: () => editar(null) }, icone('plus'), 'Novo fornecedor')), h('div', { class: 'row' }, h('div', { class: 'grow' }, busca), chk), alvo);
   ler();
 }

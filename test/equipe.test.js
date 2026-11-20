@@ -1,4 +1,11 @@
 import test from 'node:test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
+import { ROOT } from '../src/config.js';
 import assert from 'node:assert/strict';
 import { criarSistema, entrarCompleto, novoProduto } from './helpers.js';
 import { codigoTotp, passoAtual } from '../src/security/totp.js';
@@ -179,3 +186,27 @@ test('equipe: a conta do dono é intocável e tudo fica auditado sem segredos', 
   assert.ok(!banco.includes(pessoa.senha_provisoria));
   assert.equal((await verificarCadeia(sis.db)).ok, true);
 }));
+
+test('emergência: npm run resetar-dono devolve o acesso ao dono (senha nova, 2 etapas zeradas, sessões derrubadas, auditado)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wms-reset-'));
+  const hex = () => crypto.randomBytes(32).toString('hex');
+  const env = { ...process.env, NODE_ENV: 'development', DB_PATH: path.join(dir, 't.db'), DATABASE_URL: '', PEPPER: hex(), HMAC_KEY: hex(), FIELD_KEY: hex(), SCRYPT_N: '1024', ADMIN_LOGIN: '52998224725', ADMIN_INITIAL_PASSWORD: 'Inicial-Teste-9x!Kq' };
+  const rodar = (arq) => spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', arq], { cwd: ROOT, env, encoding: 'utf8' });
+  try {
+    assert.equal(rodar('scripts/criar-admin.js').status, 0);
+    const db = new DatabaseSync(env.DB_PATH);
+    db.exec("UPDATE users SET trocar_senha = 0, mfa_ativo = 1, mfa_segredo_enc = 'x'; INSERT INTO recovery_codes (user_id, codigo_hmac) VALUES (1, 'abc'); INSERT INTO sessions (user_id, token_hash, estagio, criado_em, ultimo_uso, expira_abs) VALUES (1, 'tok', 'COMPLETA', 1, 1, 9999999999999)");
+    const antes = db.prepare('SELECT senha_hash FROM users WHERE dono = 1').get().senha_hash;
+    const r = rodar('scripts/resetar-dono.js');
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /Nova senha provisória[^:]*: [A-Za-z2-9]{4}(-[A-Za-z2-9]{4}){3}/);
+    const u = db.prepare('SELECT * FROM users WHERE dono = 1').get();
+    assert.notEqual(u.senha_hash, antes);
+    assert.equal(u.trocar_senha, 1); assert.equal(u.mfa_ativo, 0); assert.equal(u.mfa_segredo_enc, null);
+    assert.equal(db.prepare('SELECT COUNT(*) c FROM recovery_codes').get().c, 0);
+    assert.ok(db.prepare("SELECT revogada_em FROM sessions WHERE token_hash = 'tok'").get().revogada_em, 'sessão derrubada');
+    assert.equal(db.prepare("SELECT COUNT(*) c FROM auditoria WHERE acao = 'DONO_RESETADO'").get().c, 1);
+    assert.ok(!r.stdout.includes(env.PEPPER));
+    db.close();
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

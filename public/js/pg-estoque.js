@@ -1,4 +1,4 @@
-import { h, limpar, api, carregar, icone, fmt, badge, qs, tratar, toast, tabela, paginacao, abas, vazio, combobox, buscarProdutos, buscarEnderecos, campo, feedback, novaChave, ApiError, selecao } from './core.js';
+import { pode, h, limpar, api, carregar, icone, fmt, badge, qs, tratar, toast, tabela, paginacao, abas, vazio, combobox, buscarProdutos, buscarEnderecos, campo, feedback, novaChave, ApiError, selecao } from './core.js';
 
 const TIPOS_MOV = { ENTRADA: ['Entrada', 'ok'], SAIDA: ['Saída', 'erro'], TRANSF_SAIDA: ['Transf. (saída)', 'info'], TRANSF_ENTRADA: ['Transf. (entrada)', 'info'], AJUSTE: ['Ajuste', 'aviso'], AVARIA: ['Avaria', 'erro'], DEVOLUCAO: ['Devolução', 'ok'], INVENTARIO: ['Inventário', 'aviso'] };
 
@@ -15,8 +15,10 @@ function emissor() {
 
 export async function renderizar(el, { params }) {
   const painel = h('div', { class: 'stack' });
-  const inicial = ['receber', 'transferir', 'ajustar', 'baixar', 'avaria'].includes(params.get('op')) ? params.get('op') : 'saldos';
-  const ABAS = [['receber', 'Receber'], ['transferir', 'Guardar / transferir'], ['ajustar', 'Ajustar'], ['baixar', 'Baixar'], ['avaria', 'Avaria'], ['saldos', 'Saldos'], ['mov', 'Movimentações'], ['repor', 'Reposição']];
+  const ABAS = [['receber', 'Receber', 'estoque.operar'], ['transferir', 'Guardar / transferir', 'estoque.operar'], ['ajustar', 'Ajustar', 'estoque.ajustar'], ['baixar', 'Baixar', 'estoque.operar'], ['avaria', 'Avaria', 'estoque.operar'], ['saldos', 'Saldos', 'estoque.ver'], ['mov', 'Movimentações', 'estoque.ver'], ['repor', 'Reposição', 'estoque.ver']];
+  const liberadas = ABAS.filter(([, , perm]) => pode(perm)).map(([id]) => id);
+  const pedida = params.get('op');
+  const inicial = liberadas.includes(pedida) ? pedida : liberadas.includes('saldos') ? 'saldos' : liberadas[0];
   const trocar = (id) => { limpar(painel); ({ receber: fReceber, transferir: fTransferir, ajustar: fAjustar, baixar: fBaixar, avaria: fAvaria, saldos: saldos, mov: movimentos, repor: reposicao })[id](painel, params); };
   el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Estoque'), h('p', null, 'Toda alteração vira uma linha imutável do livro-razão.'))), abas(ABAS, inicial, trocar), painel);
   trocar(inicial);

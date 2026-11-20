@@ -1,4 +1,4 @@
-import { h, limpar, api, carregar, icone, fmt, badge, qs, tratar, toast, tabela, paginacao, gaveta, abas, vazio, combobox, buscarProdutos, campo, confirmar, selecao, ApiError, esqueleto } from './core.js';
+import { pode, h, limpar, api, carregar, icone, fmt, badge, qs, tratar, toast, tabela, paginacao, gaveta, abas, vazio, combobox, buscarProdutos, campo, confirmar, selecao, ApiError, esqueleto } from './core.js';
 
 const NIVEIS_ZONA = { RECEBIMENTO: 'Recebimento', PICKING: 'Picking', RESERVA: 'Reserva', AVARIA: 'Avaria', DEVOLUCAO: 'Devolução', QUARENTENA: 'Quarentena', EXPEDICAO: 'Expedição' };
 
@@ -7,9 +7,9 @@ export async function renderizar(el, { params }) {
   const deps = await api.get('/api/depositos');
   const zonas = deps.flatMap((d) => d.zonas.map((z) => ({ ...z, dep: d.codigo })));
   const trocar = (id) => { limpar(painel); ({ lista, mapa, massa, zonasAba })[id](painel, zonas, deps); };
-  const inicial = params.get('massa') ? 'massa' : 'lista';
+  const inicial = params.get('massa') && pode('enderecos.gerenciar') ? 'massa' : 'lista';
   el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Endereços'), h('p', null, 'DEPÓSITO-ZONA-RUA-PRÉDIO-NÍVEL-POSIÇÃO, ex.: D1-P-03-02-01-04'))),
-    abas([['lista', 'Lista'], ['mapa', 'Mapa do galpão'], ['massa', 'Criar em massa'], ['zonasAba', 'Zonas']], inicial, trocar), painel);
+    abas([['lista', 'Lista'], ['mapa', 'Mapa do galpão'], ['massa', 'Criar em massa', 'enderecos.gerenciar'], ['zonasAba', 'Zonas']], inicial, trocar), painel);
   trocar(inicial);
 }
 
@@ -38,9 +38,9 @@ function lista(el, zonas) {
       d.zona_tipo === 'PICKING' ? pc.el : null,
       h('div', { class: 'cols-2' }, campo('Capacidade (itens, 0 = sem limite)', cap), campo('Capacidade (gramas, 0 = sem limite)', capP)),
       h('label', { class: 'check' }, bloq, 'Bloqueado (cheio / em manutenção)'), campo('Motivo do bloqueio', motivo),
-      h('div', { class: 'row' }, h('button', { class: 'btn primario', onclick: async () => { try { await api.put(`/api/enderecos/${id}`, { cap_itens: Number(cap.value), cap_peso_g: Number(capP.value), bloqueado: bloq.checked ? 1 : 0, motivo_bloqueio: motivo.value }); toast('Salvo.', 'ok'); g.fechar(); ler(); } catch (e) { tratar(e); } } }, 'Salvar'),
+      h('div', { class: 'row' }, h('button', { class: 'btn primario', 'data-requer': 'enderecos.gerenciar', onclick: async () => { try { await api.put(`/api/enderecos/${id}`, { cap_itens: Number(cap.value), cap_peso_g: Number(capP.value), bloqueado: bloq.checked ? 1 : 0, motivo_bloqueio: motivo.value }); toast('Salvo.', 'ok'); g.fechar(); ler(); } catch (e) { tratar(e); } } }, 'Salvar'),
         h('a', { class: 'btn', href: `#/etiquetas?endereco=${id}` }, icone('printer'), 'Etiqueta'),
-        h('button', { class: 'btn perigo', onclick: async () => { if (await confirmar('Inativar endereço', 'O endereço sai de uso. Só é possível se estiver vazio.', { perigo: true, rotulo: 'Inativar' })) { try { await api.post(`/api/enderecos/${id}/inativar`); g.fechar(); ler(); } catch (e) { tratar(e); } } } }, 'Inativar')));
+        h('button', { class: 'btn perigo', 'data-requer': 'enderecos.gerenciar', onclick: async () => { if (await confirmar('Inativar endereço', 'O endereço sai de uso. Só é possível se estiver vazio.', { perigo: true, rotulo: 'Inativar' })) { try { await api.post(`/api/enderecos/${id}/inativar`); g.fechar(); ler(); } catch (e) { tratar(e); } } } }, 'Inativar')));
   }
 }
 

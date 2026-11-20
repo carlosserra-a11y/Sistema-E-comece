@@ -1,6 +1,6 @@
 # Guia do dono — Carlos Desenvolvedor de Sistema
 
-Tudo o que você precisa saber para ser dono deste sistema, em português simples.
+Tudo o que você precisa saber para ser dono deste sistema, em português simples. Para aprender a usar as telas, veja [COMO-USAR.md](COMO-USAR.md).
 
 ## 1. Onde cada coisa fica
 
@@ -68,7 +68,7 @@ Menu **Integrações**: informe o App ID e a chave do seu app (são guardados **
 | Sintoma | O que fazer |
 |---|---|
 | "Sistema indisponível" | Supabase pausado? Abra o painel do Supabase e restaure o projeto. Depois recarregue. |
-| Esqueci a senha | Outra pessoa não consegue redefinir a sua (você é o dono). Use os **códigos de recuperação** para o 2º fator; para a senha, peça ajuda técnica: ela é redefinida direto no banco por quem tem acesso ao Supabase. |
+| Esqueci a senha (ou perdi tudo: senha, celular e códigos) | Ninguém redefine a conta do dono pela tela (de propósito). Quem tem as variáveis de produção roda `npm run resetar-dono`: gera uma senha provisória nova, zera as 2 etapas e derruba as sessões. O login continua o mesmo. |
 | Perdi o celular do autenticador | Use um dos 10 códigos de recuperação. Gere novos em Configurações. |
 | Uma pessoa saiu | Equipe → **Desativar**. |
 | Suspeita de acesso indevido | Configurações → Sessões → "sair de todos"; troque a senha; confira a Auditoria. |

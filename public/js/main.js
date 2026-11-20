@@ -1,4 +1,4 @@
-import { h, limpar, api, estado, icone, modal, confirmar, campo, toast, tratar, esqueleto, blocoErro, $ } from './core.js';
+import { h, limpar, api, estado, pode, icone, modal, confirmar, campo, toast, tratar, esqueleto, blocoErro, $ } from './core.js';
 import { telaAcesso } from './acesso.js';
 
 const PAGINAS = [
@@ -31,6 +31,7 @@ export const ir = (destino) => { location.hash = `#/${destino}`; };
 async function iniciar() {
   try { sessao = await api.get('/api/sessao'); } catch (e) { return limpar(raiz).append(blocoErro(e, iniciar)); }
   estado.csrf = sessao.csrf;
+  estado.permissoes = new Set(sessao.usuario?.permissoes ?? []);
   document.title = sessao.appName;
   if (!sessao.autenticado) return telaAcesso(raiz, sessao, async () => { estado.csrf = null; await iniciar(); });
   montarShell();
@@ -192,6 +193,10 @@ estado.aoReautenticar = () => new Promise((resolve) => {
   const obs = new MutationObserver(() => { if (!document.body.contains(m.el)) { obs.disconnect(); if (!ok) resolve(false); } });
   obs.observe(document.body, { childList: true });
 });
+
+// Botões/abas marcados com data-requer somem para quem não tem a permissão (inclui gavetas e janelas abertas depois).
+const aplicarRequer = (no) => { if (no.nodeType !== 1) return; if (no.dataset?.requer && !pode(no.dataset.requer)) return no.remove(); no.querySelectorAll?.('[data-requer]').forEach((e) => { if (!pode(e.dataset.requer)) e.remove(); }); };
+new MutationObserver((ms) => ms.forEach((x) => x.addedNodes.forEach(aplicarRequer))).observe(document.body, { childList: true, subtree: true });
 
 window.addEventListener('hashchange', desenharRota);
 window.addEventListener('online', () => document.getElementById('faixa-offline') && (document.getElementById('faixa-offline').hidden = true));

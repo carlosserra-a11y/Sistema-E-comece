@@ -61,7 +61,9 @@ export function icone(nome, tam = 20) {
 export class ApiError extends Error {
   constructor(status, e) { super(e?.message ?? 'Erro de rede.'); this.status = status; this.code = e?.code; this.campos = e?.campos; this.etapa = e?.etapa; this.retryAfterS = e?.retryAfterS; }
 }
-export const estado = { csrf: null, sessao: null, aoExpirar: null, aoReautenticar: null };
+export const estado = { csrf: null, sessao: null, aoExpirar: null, aoReautenticar: null, permissoes: new Set() };
+/** A pessoa logada tem esta permissão? ("a,b" = qualquer uma). O servidor confere de novo: aqui só escondemos o que não funcionaria. */
+export const pode = (p) => !p || String(p).split(',').some((x) => estado.permissoes.has(x));
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID().replaceAll('-', '') : Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 32);
 
 async function chamar(metodo, url, corpo, { texto = false, idem = false, tentouReauth = false } = {}) {
@@ -182,7 +184,8 @@ export function campo(rotulo, input, { ajuda, erro } = {}) {
 }
 export const entrada = (props = {}) => h('input', { type: 'text', autocomplete: 'off', ...props });
 export const selecao = (opcoes, valor, props = {}) => h('select', props, opcoes.map(([v, r]) => h('option', { value: v, selected: String(v) === String(valor) }, r)));
-export function abas(itens, inicial, aoTrocar) {
+export function abas(todos, inicial, aoTrocar) {
+  const itens = todos.filter(([, , perm]) => pode(perm)); // aba com 3º item = permissão exigida
   const barra = h('div', { class: 'abas', role: 'tablist' });
   const botoes = itens.map(([id, rotulo]) => h('button', { role: 'tab', id: `aba-${id}`, 'aria-selected': id === inicial, onclick: () => ativar(id) }, rotulo));
   botoes.forEach((b) => barra.append(b));

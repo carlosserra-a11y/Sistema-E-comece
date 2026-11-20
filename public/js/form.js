@@ -4,7 +4,7 @@ import { h, campo, centavos, reais } from './core.js';
  * Formulário a partir de uma lista de campos: [chave, rótulo, tipo, opções].
  * tipos: texto | int | moeda | check | select | data | area. `valores()` devolve o corpo pronto para a API.
  */
-export function formulario(campos, inicial = {}, aoEnviar, { rotuloEnviar = 'Salvar' } = {}) {
+export function formulario(campos, inicial = {}, aoEnviar, { rotuloEnviar = 'Salvar', perm } = {}) {
   const refs = {}; const caixas = {};
   const el = h('form', { class: 'stack', novalidate: true, onsubmit: async (e) => { e.preventDefault(); botao.disabled = true; try { await aoEnviar(valores()); } finally { botao.disabled = false; } } });
   const grade = h('div', { class: 'cols-2' });
@@ -19,7 +19,7 @@ export function formulario(campos, inicial = {}, aoEnviar, { rotuloEnviar = 'Sal
     const bloco = alvo ?? campo(rotulo, input, { ajuda: o.ajuda });
     caixas[chave] = bloco; (o.largo || tipo === 'area' ? el : grade).append(bloco);
   }
-  const botao = h('button', { class: 'btn primario', type: 'submit' }, rotuloEnviar);
+  const botao = h('button', { class: 'btn primario', type: 'submit', 'data-requer': perm }, rotuloEnviar);
   el.append(grade, botao);
   // `largo` fica antes da grade; reposiciona a grade para o início
   el.prepend(grade);
