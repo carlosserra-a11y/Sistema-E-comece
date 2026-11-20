@@ -5,7 +5,7 @@
   "buildCommand": "",
   "outputDirectory": "public",
   "functions": {
-    "api/[...rota].js": {
+    "api/index.js": {
       "maxDuration": 30,
       "includeFiles": "src/**"
     }
@@ -53,6 +53,12 @@
           "value": "max-age=31536000; includeSubDomains"
         }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index"
     }
   ]
 }

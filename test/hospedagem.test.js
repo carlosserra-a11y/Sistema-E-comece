@@ -20,8 +20,10 @@ test('vercel.json: a CDN serve os arquivos estáticos com os MESMOS cabeçalhos 
   assert.match(cab['Permissions-Policy'], /camera=\(self\)/);
   assert.match(cab['Strict-Transport-Security'], /max-age=31536000/);
   assert.equal(vercel.outputDirectory, 'public');
-  assert.ok(fs.existsSync(path.join(ROOT, 'api', '[...rota].js')), 'a função da Vercel existe');
+  assert.ok(fs.existsSync(path.join(ROOT, 'api', 'index.js')), 'a função da Vercel existe');
   assert.equal(vercel.crons[0].path, '/api/cron/manutencao');
+  assert.deepEqual(vercel.rewrites, [{ source: '/api/:path*', destination: '/api/index' }], 'todo /api/* (inclusive 2+ níveis) vai para a função');
+  assert.ok(vercel.functions['api/index.js'], 'configuração da função aponta para o arquivo certo');
 });
 
 test('cron de manutenção: só responde com o segredo certo (sem segredo configurado, nunca)', async () => {
@@ -45,14 +47,14 @@ test('cron de manutenção: só responde com o segredo certo (sem segredo config
   } finally { await sis.parar(); delete process.env.CRON_SECRET; }
 });
 
-test('função da Vercel (api/[...rota].js): sobe o sistema sob demanda, responde e se recupera de configuração ruim', async () => {
+test('função da Vercel (api/index.js): sobe o sistema sob demanda, responde e se recupera de configuração ruim', async () => {
   const livre = await new Promise((ok) => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => ok(p)); }); });
   const hex = () => crypto.randomBytes(32).toString('hex');
   const antigo = { ...process.env };
   Object.assign(process.env, { NODE_ENV: 'test', DB_PATH: ':memory:', PORT: String(livre), SCRYPT_N: '1024', LOG_LEVEL: 'error', ML_POLL_MIN: '0' });
   process.env.PEPPER = 'curta'; // chave inválida (o .env local, se existir, não pode mascarar o teste)
   delete process.env.DATABASE_URL;
-  const { default: handler } = await import('../api/[...rota].js');
+  const { default: handler } = await import('../api/index.js');
   const servidor = http.createServer(handler);
   await new Promise((ok) => servidor.listen(livre, '127.0.0.1', ok));
   try {

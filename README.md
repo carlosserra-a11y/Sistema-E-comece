@@ -58,7 +58,7 @@ Shopee, NF-e (Bling/Tiny), fluxo do pedido (separação mobile, conferência, em
 **Endereço do sistema:** https://carlos-sistema-carlos-nunes.vercel.app (projeto `carlos-sistema` na Vercel, conectado a este repositório: cada envio à branch `main` publica sozinho).
 
 - **Banco:** Supabase (PostgreSQL). O esquema fica em `supabase/migrations/` (RLS ligado; o app usa o papel `app_wms`, sem poder alterar livro-razão/auditoria).
-- **Site:** Vercel — a função `api/[...rota].js` roda o mesmo sistema; `public/` sai da CDN com os mesmos cabeçalhos de segurança (`vercel.json`, conferido por teste).
+- **Site:** Vercel — a função `api/index.js` (recebe todo `/api/*` por reescrita no `vercel.json`) roda o mesmo sistema; `public/` sai da CDN com os mesmos cabeçalhos de segurança (`vercel.json`, conferido por teste).
 - **Variáveis de ambiente:** veja `.env.example` (`DATABASE_URL`, `PEPPER`, `HMAC_KEY`, `FIELD_KEY`, `PUBLIC_ORIGIN`, `TRUST_PROXY=true`, `CRON_SECRET`, `NODE_ENV=production`). **Nunca** commite valores.
 - **Testes nos dois motores:** `npm test` (SQLite) e `npm run test:pg` (PostgreSQL embutido via PGlite).
 
