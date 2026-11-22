@@ -1,5 +1,5 @@
 // Telas de acesso: entrar, criar conta, confirmar o e-mail com o código, trocar a senha provisória e aguardar a liberação do dono.
-// Não existe mais segunda etapa (QR Code): quem cria a conta confirma o e-mail uma vez e depois entra só com e-mail e senha.
+// Não existe mais QR Code. Segunda etapa = código de 6 dígitos que vai para o e-mail da conta a cada login.
 import { h, limpar, api, icone, campo, entrada, senhaInput, ApiError } from './core.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -75,6 +75,7 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
       const senha = s.input.value;
       try {
         const r = await api.post('/api/login', { login: l.value.trim(), senha });
+        if (r.estagio === 'CODIGO_EMAIL') return confirmarEmail({ email: r.email, senha, enviado: true, modo: 'login' });
         if (r.estagio === 'TROCAR_SENHA') trocarSenha(senha); else aoEntrar();
       } catch (x) {
         if (x instanceof ApiError && x.code === 'EMAIL_NAO_CONFIRMADO') return confirmarEmail({ email: l.value.trim(), senha, enviado: false });
@@ -100,30 +101,40 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
     h('p', { class: 'ajuda' }, 'Depois de confirmar o e-mail, o dono do sistema precisa liberar o seu acesso.')));
   }
 
-  function confirmarEmail({ email, senha, enviado }) {
+  /** Tela do código de 6 dígitos. modo 'cadastro' confirma o e-mail novo; modo 'login' é a 2ª etapa de quem já tem conta (`email` vem mascarado). */
+  function confirmarEmail({ email, senha, enviado, modo = 'cadastro' }) {
+    const doLogin = modo === 'login';
     const c = entrada({ inputmode: 'numeric', maxlength: 6, autocomplete: 'one-time-code', autofocus: true, placeholder: '000000', class: 'codigo-6' });
     const erro = h('p', { class: 'erro', role: 'alert' });
     const aviso = h('p', { class: 'muted', role: 'status' });
     const reenviar = h('button', { class: 'btn fantasma', type: 'button' });
-    const btn = h('button', { class: 'btn primario', type: 'submit' }, 'Confirmar e entrar');
+    const btn = h('button', { class: 'btn primario', type: 'submit' }, doLogin ? 'Entrar' : 'Confirmar e entrar');
     let espera = enviado ? 60 : 0; // o servidor só reenvia depois de 60 s
     const pintar = () => { reenviar.disabled = espera > 0; reenviar.textContent = espera > 0 ? `Reenviar código (${espera} s)` : 'Reenviar código'; };
     const relogio = setInterval(() => { if (!document.body.contains(reenviar)) return clearInterval(relogio); if (espera > 0) { espera -= 1; pintar(); } }, 1000);
     pintar();
     reenviar.addEventListener('click', async () => {
       erro.textContent = ''; reenviar.disabled = true;
-      try { await api.post('/api/cadastro/reenviar', { email }); aviso.textContent = 'Enviamos um código novo. Confira também o spam.'; espera = 60; }
+      try { await (doLogin ? api.post('/api/login/codigo/reenviar') : api.post('/api/cadastro/reenviar', { email })); aviso.textContent = 'Enviamos um código novo. Confira também o spam.'; espera = 60; }
       catch (x) { erro.textContent = x.message; espera = x.retryAfterS ?? 60; }
       pintar();
     });
-    limpar(cartao).append(...cab('Confirme seu e-mail', enviado ? `Enviamos um código de 6 dígitos para ${email}. Ele vale por 10 minutos.` : `O e-mail ${email} ainda não foi confirmado. Peça um código novo e digite aqui.`),
+    limpar(cartao).append(...(doLogin
+      ? cab('Digite o código', enviado ? `Para sua segurança, enviamos um código de 6 dígitos para ${email}. Ele vale por 10 minutos.` : `Digite o código que enviamos para ${email}. Se não chegou, peça um novo.`)
+      : cab('Confirme seu e-mail', enviado ? `Enviamos um código de 6 dígitos para ${email}. Ele vale por 10 minutos.` : `O e-mail ${email} ainda não foi confirmado. Peça um código novo e digite aqui.`)),
       h('div', { class: 'info-bloco' }, icone('mail', 22), h('p', null, 'Não achou? Olhe a caixa de spam ou promoções.')),
       h('form', { class: 'stack', onsubmit: async (e) => {
         e.preventDefault(); btn.disabled = true; erro.textContent = '';
-        try { await api.post('/api/cadastro/confirmar', { email, codigo: c.value.trim(), senha }); clearInterval(relogio); aoEntrar(); }
+        try {
+          if (doLogin) {
+            const r = await api.post('/api/login/codigo', { codigo: c.value.trim() });
+            clearInterval(relogio);
+            if (r.estagio === 'TROCAR_SENHA') trocarSenha(senha); else aoEntrar();
+          } else { await api.post('/api/cadastro/confirmar', { email, codigo: c.value.trim(), senha }); clearInterval(relogio); aoEntrar(); }
+        }
         catch (x) { erro.textContent = msg(x); btn.disabled = false; c.select(); }
       } }, campo('Código de 6 dígitos', c), erro, aviso, btn),
-      reenviar, h('button', { class: 'btn fantasma', type: 'button', onclick: () => { clearInterval(relogio); login(); } }, 'Voltar'));
+      reenviar, h('button', { class: 'btn fantasma', type: 'button', onclick: async () => { clearInterval(relogio); if (doLogin) await api.post('/api/logout').catch(() => {}); login(); } }, 'Voltar'));
   }
 
   /** Conta criada pelo dono: a senha provisória vale uma vez. Se acabou de digitá-la no login, ela é reaproveitada. */
@@ -139,7 +150,9 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
     } }, atual && campo('Senha atual (a provisória)', atual.el), campo('Nova senha', nova.el), medidor(nova.input), erro, btn));
   }
 
-  if (sessao.estagio === 'TROCAR_SENHA') trocarSenha(); else login();
+  if (sessao.estagio === 'TROCAR_SENHA') trocarSenha();
+  else if (sessao.estagio === 'CODIGO_EMAIL') confirmarEmail({ email: sessao.usuario?.email ?? 'o seu e-mail', senha: null, enviado: false, modo: 'login' });
+  else login();
 }
 
 /** Conta criada pelo e-mail e já confirmada, mas sem nenhuma permissão até o dono liberar. */

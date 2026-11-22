@@ -79,7 +79,7 @@ Menu **Integrações**: informe o App ID e a chave do seu app (são guardados **
 
 ## 10. Como o sistema se protege (resumo)
 
-Senhas com hash forte + segredo fora do banco; e-mail confirmado por código para quem cria conta; bloqueio por tentativas; sessão com expiração; proteção contra requisições forjadas (CSRF); cabeçalhos de segurança rígidos (CSP); banco com RLS e um papel próprio sem permissão de alterar histórico; livro-razão e auditoria imutáveis; toda função nova nasce **bloqueada** até ganhar uma regra de permissão. Detalhes em `SEGURANCA.md`.
+Senhas com hash forte + segredo fora do banco; código no e-mail a cada login (para contas com e-mail confirmado); bloqueio por tentativas; sessão com expiração; proteção contra requisições forjadas (CSRF); cabeçalhos de segurança rígidos (CSP); banco com RLS e um papel próprio sem permissão de alterar histórico; livro-razão e auditoria imutáveis; toda função nova nasce **bloqueada** até ganhar uma regra de permissão. Detalhes em `SEGURANCA.md`.
 
 ## 11. Ligar o envio de e-mail (para as pessoas criarem conta)
 
@@ -91,3 +91,5 @@ Enquanto isso não for feito, a tela de entrada **não mostra "Criar conta"** (o
 
 - A senha de app fica **só na Vercel** (e no seu gerenciador de senhas): nunca no GitHub nem no Obsidian.
 - Por padrão só `@gmail.com` pode criar conta. Para liberar outros provedores: `EMAIL_DOMINIOS=gmail.com,outlook.com` (ou `*` para qualquer um).
+
+**Proteja a sua conta de dono:** depois de ligar o e-mail, vincule o *seu* Gmail em **Configurações → E-mail da conta**. A partir daí o seu login também pede o código que chega no e-mail (protege se a senha vazar). Se o envio de e-mail cair e você ficar sem conseguir entrar: na Vercel crie `LOGIN_CODIGO=0`, faça um Redeploy, entre, resolva o e-mail e apague a variável.

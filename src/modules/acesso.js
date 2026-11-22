@@ -6,12 +6,13 @@ import { hmacHex, decifrar } from '../security/crypto.js';
 import { hashSenha, verificarSenha, verificacaoFalsa, validarPolitica } from '../security/password.js';
 import { normalizarEmail, chaveEmail, mascararEmail } from '../email.js';
 import { permissoesDe } from '../permissoes.js';
+import { criarCodigos, espera, VALIDADE_MIN } from './codigos.js';
 import { criarSessao, revogarSessao, cookie, nomesCookie } from '../http/sessao.js';
 
 const LOGIN_RE = /^\d{11}$/;
 /** Quantas tentativas erradas a pessoa pode fazer (senha, código) antes de o sistema segurar. */
 export const TENTATIVAS_MAX = 10;
-export const espera = (s) => (s >= 90 ? `${Math.ceil(s / 60)} minutos` : `${Math.max(1, s)} segundos`);
+export { espera };
 
 /** Contas com senha provisória (criadas pelo dono) trocam a senha no 1º acesso; as demais entram direto. Não há mais 2ª etapa. */
 export const proximoEstagio = (u) => (u.trocar_senha ? 'TROCAR_SENHA' : 'COMPLETA');
@@ -30,8 +31,15 @@ export function identificarLogin(cfg, bruto) {
   return { tipo: 'invalido', chave: chaveLogin(cfg, `invalido:${txt.slice(0, 40)}`), coluna: null };
 }
 
-export function registrarAcesso(app, { cfg, db, email }) {
+export function registrarAcesso(app, { cfg, db, email, log }) {
   const { rota, limitador } = app;
+  const { emitirCodigo, conferirCodigo } = criarCodigos({ cfg, db, email, log });
+  /** Contas com e-mail confirmado recebem um código a cada login (2ª etapa). Sem e-mail configurado no servidor não há como enviar. */
+  const exigeCodigo = (u) => cfg.loginCodigo && email.configurado && !!u.email_verificado && !!u.email_enc;
+  const enviarCodigoLogin = async (u) => {
+    try { await emitirCodigo(u, decifrar(cfg.fieldKey, u.email_enc), u.nome); }
+    catch (x) { if (x.code !== 'AGUARDE_REENVIO') throw x; /* acabou de ser enviado: o código anterior continua valendo */ }
+  };
   const usuario = async (id) => await db.get('SELECT * FROM users WHERE id = ?', id);
 
   /** Troca a sessão atual por outra (rotação a cada etapa). */
@@ -93,13 +101,37 @@ export function registrarAcesso(app, { cfg, db, email }) {
     if (id.tipo === 'email' && !user.email_verificado) {
       throw Object.assign(erro(403, 'EMAIL_NAO_CONFIRMADO', 'Confirme o seu e-mail com o código que enviamos.'), { etapa: 'CONFIRMAR_EMAIL' });
     }
+    const comCodigo = exigeCodigo(user);
+    if (comCodigo) await enviarCodigoLogin(user); // antes de abrir a sessão: se o e-mail falhar, nada fica aberto
     await tx(db, async (db) => {
       await db.run('DELETE FROM login_tentativas WHERE chave_hmac = ?', chave);
       ctx.user = { id: user.id, papel: user.papel, nome: user.nome };
-      await criarSessao(cfg, db, ctx, user.id, proximoEstagio(user));
-      await auditar(db, ctx, 'LOGIN_OK', 'user', user.id);
+      await criarSessao(cfg, db, ctx, user.id, comCodigo ? 'CODIGO_EMAIL' : proximoEstagio(user));
+      await auditar(db, ctx, comCodigo ? 'LOGIN_SENHA_OK' : 'LOGIN_OK', 'user', user.id);
+    });
+    return respostaSessao(ctx, comCodigo ? { email: mascararEmail(decifrar(cfg.fieldKey, user.email_enc)) } : {});
+  });
+
+  // 2ª etapa: o código que foi para o e-mail da conta. A sessão só vira "completa" (ou segue para trocar a senha) depois dele.
+  rota('POST', '/api/login/codigo', { auth: 'parcial', etapas: ['CODIGO_EMAIL'] }, async (ctx) => {
+    limitar(`logincod:${ctx.sessao.id}`, TENTATIVAS_MAX, 10 * 60_000);
+    limitar(`logincod:ip:${ctx.ip}`, TENTATIVAS_MAX * 6, 15 * 60_000, 'Muitas tentativas de código neste aparelho/rede.');
+    const { codigo } = validar(ctx.corpo, { codigo: T({ obrig: true, max: 12 }) });
+    const u = await usuario(ctx.user.id);
+    await conferirCodigo(u, codigo);
+    await tx(db, async (db) => {
+      await db.run('UPDATE users SET cod_hash = NULL, cod_expira = NULL, cod_tentativas = 0, cod_enviado_em = NULL WHERE id = ?', u.id);
+      await rotacionar(db, ctx, proximoEstagio(u));
+      await auditar(db, ctx, 'LOGIN_OK', 'user', u.id);
     });
     return respostaSessao(ctx);
+  });
+
+  rota('POST', '/api/login/codigo/reenviar', { auth: 'parcial', etapas: ['CODIGO_EMAIL'] }, async (ctx) => {
+    limitar(`logincod:reenviar:${ctx.sessao.id}`, 10, 10 * 60_000);
+    const u = await usuario(ctx.user.id);
+    await emitirCodigo(u, decifrar(cfg.fieldKey, u.email_enc), u.nome);
+    return { enviado: true, minutos: VALIDADE_MIN };
   });
 
   rota('POST', '/api/senha/trocar', { auth: 'parcial', etapas: ['TROCAR_SENHA', 'COMPLETA'] }, async (ctx) => {
@@ -135,7 +167,7 @@ export function registrarAcesso(app, { cfg, db, email }) {
     return { valido_ate: cfg.agora() + cfg.reauthMs };
   });
 
-  rota('POST', '/api/logout', { auth: 'parcial', etapas: ['TROCAR_SENHA', 'COMPLETA'] }, async (ctx) => {
+  rota('POST', '/api/logout', { auth: 'parcial', etapas: ['CODIGO_EMAIL', 'TROCAR_SENHA', 'COMPLETA'] }, async (ctx) => {
     await tx(db, async (db) => { await revogarSessao(cfg, db, ctx.sessao.id); await auditar(db, ctx, 'LOGOUT', 'user', ctx.user.id); });
     ctx.setCookies.push(cookie(cfg, nomesCookie(cfg).sid, '', { maxAgeS: 0 }));
     return { saiu: true };

@@ -81,6 +81,7 @@ export function loadConfig(overrides = {}) {
       de: env.EMAIL_DE || (env.SMTP_USER ? `"${env.APP_NAME || 'Carlos Desenvolvedor de Sistema'}" <${env.SMTP_USER}>` : ''),
       dominios: (env.EMAIL_DOMINIOS || 'gmail.com,googlemail.com').toLowerCase().split(',').map((x) => x.trim()).filter(Boolean), // '*' libera qualquer e-mail
     },
+    loginCodigo: env.LOGIN_CODIGO !== '0', // código por e-mail a cada login (2ª etapa). LOGIN_CODIGO=0 desliga (emergência: e-mail fora do ar)
     adminLogin: env.ADMIN_LOGIN || '',
     adminSenha: env.ADMIN_INITIAL_PASSWORD || '',
     agora: () => Date.now(),

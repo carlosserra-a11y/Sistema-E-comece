@@ -70,12 +70,17 @@ test('cadastro: cria a conta, manda o código ao e-mail, confirma, fica pendente
 
   // depois disso entra só com e-mail e senha; pontos e +etiqueta do Gmail não criam outra identidade
   await c.post('/api/logout');
-  const volta = await (await visitante(sis)).post('/api/login', { login: 'anasouza@gmail.com', senha: SENHA });
+  const antesDeEntrar = sis.email.caixa.length;
+  const entrada = await visitante(sis);
+  const volta = await entrada.post('/api/login', { login: 'anasouza@gmail.com', senha: SENHA });
   assert.equal(volta.status, 200, volta.texto);
-  assert.equal(volta.data.estagio, 'COMPLETA');
+  assert.equal(volta.data.estagio, 'CODIGO_EMAIL', 'a cada login novo vai um código para o e-mail');
+  assert.equal(sis.email.caixa.length, antesDeEntrar + 1);
+  const fim = await entrada.post('/api/login/codigo', { codigo: codigoDoEmail(sis, para) });
+  assert.equal(fim.data.estagio, 'COMPLETA');
   const outra = await cadastrar(sis, { email: 'a.n.a.souza@gmail.com', senha: 'Outra-Senha-99' });
   assert.equal(outra.r.status, 200, 'resposta igual para e-mail que já existe');
-  assert.equal(sis.email.caixa.length, 1, 'nenhum e-mail novo foi enviado para conta já confirmada');
+  assert.equal(sis.email.caixa.length, antesDeEntrar + 1, 'nenhum e-mail novo foi enviado para conta já confirmada');
   assert.equal((await (await visitante(sis)).post('/api/login', { login: EMAIL, senha: 'Outra-Senha-99' })).status, 401, 'a senha da conta existente não mudou');
 }));
 
@@ -163,9 +168,11 @@ test('conta criada pelo dono pode vincular um e-mail (com código) e entrar por 
   assert.equal(ok.status, 200, ok.texto);
   assert.match((await dono.get('/api/sessao')).data.usuario.email, /^do\*+@gmail\.com$/, 'e-mail aparece mascarado');
 
-  const porEmail = await (await visitante(sis)).post('/api/login', { login: meu, senha: SENHA_FORTE });
+  const porEmailC = await visitante(sis);
+  const porEmail = await porEmailC.post('/api/login', { login: meu, senha: SENHA_FORTE });
   assert.equal(porEmail.status, 200, porEmail.texto);
-  assert.equal(porEmail.data.estagio, 'COMPLETA');
+  assert.equal(porEmail.data.estagio, 'CODIGO_EMAIL', 'com e-mail vinculado, o login passa a pedir o código');
+  assert.equal((await porEmailC.post('/api/login/codigo', { codigo: codigoDoEmail(sis, meu) })).data.estagio, 'COMPLETA');
 
   const { c: ana } = await cadastrar(sis);
   await confirmar(ana, codigoDoEmail(sis, EMAIL));
@@ -193,4 +200,104 @@ test('dados: e-mail e código nunca ficam em texto puro; cadastro não confirmad
   await sis.limpar();
   const restam = await sis.db.all("SELECT email_verificado FROM users WHERE papel = 'pendente'");
   assert.deepEqual(restam.map((u) => u.email_verificado), [1], 'só a que confirmou o e-mail ficou');
+}));
+
+// ---------------------------------------------------------------- 2ª etapa: código por e-mail a cada login
+async function contaConfirmada(sis) {
+  const { c } = await cadastrar(sis);
+  assert.equal((await confirmar(c, codigoDoEmail(sis, EMAIL))).status, 200);
+  await c.post('/api/logout');
+}
+
+test('login com código: a cada login o e-mail recebe um código e a sessão só abre depois dele', async () => await com(async (sis) => {
+  await contaConfirmada(sis);
+  const c = await visitante(sis);
+  const r = await c.post('/api/login', { login: EMAIL, senha: SENHA });
+  assert.equal(r.data.estagio, 'CODIGO_EMAIL');
+  assert.match(r.data.email, /^an\*+@gmail\.com$/, 'só o e-mail mascarado volta na resposta');
+  const bloq = await c.get('/api/produtos');
+  assert.equal(bloq.status, 403);
+  assert.equal(bloq.erro.code, 'ETAPA_INVALIDA', 'sem o código a sessão não vale nada');
+  assert.equal((await c.get('/api/sessoes')).status, 403);
+
+  const certo = codigoDoEmail(sis, EMAIL);
+  const errado = certo === '000000' ? '000001' : '000000';
+  for (let i = 0; i < 4; i++) assert.equal((await c.post('/api/login/codigo', { codigo: errado })).erro.code, 'CODIGO_INVALIDO');
+  assert.match((await c.post('/api/login/codigo', { codigo: errado })).erro.message, /novo código/);
+  assert.equal((await c.post('/api/login/codigo', { codigo: certo })).status, 422, 'depois de 5 erros nem o certo vale');
+
+  assert.equal((await c.post('/api/login/codigo/reenviar')).status, 429, 'espera de 60 s entre envios');
+  sis.relogio.t += 61_000;
+  assert.equal((await c.post('/api/login/codigo/reenviar')).status, 200);
+  const ok = await c.post('/api/login/codigo', { codigo: codigoDoEmail(sis, EMAIL) });
+  assert.equal(ok.status, 200, ok.texto);
+  assert.equal(ok.data.estagio, 'COMPLETA');
+  assert.equal((await c.get('/api/sessoes')).status, 200);
+  assert.equal((await c.post('/api/login/codigo', { codigo: '123456' })).status, 403, 'depois de entrar a rota do código não serve mais');
+}));
+
+test('login com código: o código vence em 10 minutos, sair cancela e cada login manda um código novo', async () => await com(async (sis) => {
+  await contaConfirmada(sis);
+  const c = await visitante(sis);
+  await c.post('/api/login', { login: EMAIL, senha: SENHA });
+  const primeiro = codigoDoEmail(sis, EMAIL);
+  sis.relogio.t += 11 * 60_000;
+  assert.equal((await c.post('/api/login/codigo', { codigo: primeiro })).erro.code, 'CODIGO_INVALIDO', 'vencido');
+  assert.equal((await c.post('/api/logout')).status, 200, 'dá para desistir na etapa do código');
+  assert.equal((await c.get('/api/sessao')).data.estagio, null);
+
+  const d = await visitante(sis);
+  const antes = sis.email.caixa.length;
+  await d.post('/api/login', { login: EMAIL, senha: SENHA });
+  assert.equal(sis.email.caixa.length, antes + 1, 'novo login, novo código');
+  assert.equal((await d.post('/api/login/codigo', { codigo: codigoDoEmail(sis, EMAIL) })).status, 200);
+}));
+
+test('login com código: senha errada não envia e-mail e código de outra conta não serve', async () => await com(async (sis) => {
+  await contaConfirmada(sis);
+  const antes = sis.email.caixa.length;
+  const c = await visitante(sis);
+  assert.equal((await c.post('/api/login', { login: EMAIL, senha: 'errada-errada-1' })).status, 401);
+  assert.equal(sis.email.caixa.length, antes, 'sem a senha certa ninguém dispara e-mail para a vítima');
+
+  const { c: bia } = await cadastrar(sis, { nome: 'Bia Lima', email: 'bia.lima@gmail.com' });
+  sis.relogio.t += 61 * 60_000; // limpa o limite por aparelho
+  await confirmar(bia, codigoDoEmail(sis, 'bia.lima@gmail.com'), { email: 'bia.lima@gmail.com' });
+  const d = await visitante(sis);
+  await d.post('/api/login', { login: EMAIL, senha: SENHA });
+  const deBia = codigoDoEmail(sis, 'bia.lima@gmail.com');
+  const doDono = codigoDoEmail(sis, EMAIL);
+  if (deBia !== doDono) assert.equal((await d.post('/api/login/codigo', { codigo: deBia })).status, 422, 'o código de outra pessoa não abre esta conta');
+}));
+
+test('login com código: e-mail fora do ar = erro claro e nenhuma sessão aberta; LOGIN_CODIGO=0 desliga a etapa', async () => {
+  await com(async (sis) => {
+    await contaConfirmada(sis);
+    sis.email.enviar = async () => { throw new Error('smtp fora do ar'); };
+    const c = await visitante(sis);
+    const r = await c.post('/api/login', { login: EMAIL, senha: SENHA });
+    assert.equal(r.status, 502);
+    assert.equal(r.erro.code, 'EMAIL_FALHOU');
+    assert.equal((await c.get('/api/sessao')).data.estagio, null, 'nada ficou aberto');
+  });
+  await com(async (sis) => {
+    await contaConfirmada(sis);
+    const c = await visitante(sis);
+    const r = await c.post('/api/login', { login: EMAIL, senha: SENHA });
+    assert.equal(r.data.estagio, 'COMPLETA', 'interruptor de emergência');
+  }, { env: { LOGIN_CODIGO: '0' } });
+});
+
+test('login com código: conta com senha provisória confirma o código e depois troca a senha', async () => await com(async (sis) => {
+  await contaConfirmada(sis);
+  const dono = await entrarCompleto(sis);
+  const ana = (await dono.get('/api/equipe')).data.itens.find((u) => u.email === EMAIL);
+  const red = await dono.post(`/api/equipe/${ana.id}/redefinir-senha`);
+  assert.equal(red.status, 200, red.texto);
+  const c = await visitante(sis);
+  assert.equal((await c.post('/api/login', { login: EMAIL, senha: red.data.senha_provisoria })).data.estagio, 'CODIGO_EMAIL');
+  const r = await c.post('/api/login/codigo', { codigo: codigoDoEmail(sis, EMAIL) });
+  assert.equal(r.data.estagio, 'TROCAR_SENHA');
+  const nova = 'Outro-Cavalo-88';
+  assert.equal((await c.post('/api/senha/trocar', { senha_atual: red.data.senha_provisoria, senha_nova: nova })).data.estagio, 'COMPLETA');
 }));

@@ -2,30 +2,24 @@
 // A conta nasce "pendente" (sem nenhuma permissão): quem libera o acesso é o dono, na tela Equipe.
 // Defesas: código só vale com a senha do cadastro (evita "pré-sequestro" de e-mail alheio), 5 erros invalidam o código, reenvio a cada 60 s
 // (máx. 5/hora), limite por IP e limite global de cadastros novos por hora, resposta igual para e-mail novo ou já existente.
-import crypto from 'node:crypto';
 import { tx } from '../db.js';
 import { erro, invalido } from '../util.js';
 import { T, validar } from '../validate.js';
 import { auditar } from '../security/audit.js';
-import { hmacHex, cifrar, decifrar, iguais } from '../security/crypto.js';
+import { cifrar, decifrar } from '../security/crypto.js';
 import { hashSenha, verificarSenha, validarPolitica } from '../security/password.js';
-import { normalizarEmail, chaveEmail, mensagemCodigo } from '../email.js';
+import { normalizarEmail, chaveEmail } from '../email.js';
 import { criarSessao } from '../http/sessao.js';
-import { chaveLogin, TENTATIVAS_MAX, espera } from './acesso.js';
+import { chaveLogin, TENTATIVAS_MAX } from './acesso.js';
+import { criarCodigos, espera, VALIDADE_MIN, HORA } from './codigos.js';
 
-const VALIDADE_MIN = 10;
-const MAX_ERROS_CODIGO = 5;
-const ESPERA_REENVIO_MS = 60_000;
-const MAX_ENVIOS_HORA = 5;
 const MAX_CADASTROS_HORA = 30; // global: protege a cota de e-mail contra enxurrada de cadastros
 const MAX_PESSOAS = 50;
 const MAX_NAO_CONFIRMADOS = 200; // cadastros sem e-mail confirmado (somem em 24 h) não ocupam as vagas das pessoas de verdade
-const HORA = 3_600_000;
 
 export function registrarCadastro(app, { cfg, db, email, log }) {
   const { rota, limitador } = app;
   const GENERICO = { enviado: true, minutos: VALIDADE_MIN };
-  const codigoHash = (id, codigo) => hmacHex(cfg.hmacKey, `cod|${id}|${codigo}`);
 
   const limitar = (chave, max, janelaMs, msg) => {
     const r = limitador.bater(chave, max, janelaMs);
@@ -41,48 +35,7 @@ export function registrarCadastro(app, { cfg, db, email, log }) {
     return e;
   }
 
-  /** Confere a espera entre envios e o limite por hora (lança 429). Devolve o estado da janela de envios. */
-  function cotaEnvio(u) {
-    const t = cfg.agora();
-    if (u.cod_enviado_em && t - u.cod_enviado_em < ESPERA_REENVIO_MS) {
-      const s = Math.ceil((ESPERA_REENVIO_MS - (t - u.cod_enviado_em)) / 1000);
-      throw Object.assign(erro(429, 'AGUARDE_REENVIO', `O código acabou de ser enviado. Aguarde ${espera(s)} para pedir outro.`), { retryAfterS: s });
-    }
-    const janelaNova = !u.cod_envios_desde || t - u.cod_envios_desde > HORA;
-    const envios = janelaNova ? 0 : u.cod_envios;
-    if (envios >= MAX_ENVIOS_HORA) throw erro(429, 'MUITOS_ENVIOS', 'Muitos códigos pedidos nesta hora. Tente de novo mais tarde.');
-    return { t, janelaNova, envios };
-  }
-
-  /** Gera e envia um código novo para `para`. */
-  async function emitirCodigo(u, para, nome) {
-    const { t, janelaNova, envios } = cotaEnvio(u);
-    const codigo = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
-    await db.run('UPDATE users SET cod_hash = ?, cod_expira = ?, cod_tentativas = 0, cod_enviado_em = ?, cod_envios = ?, cod_envios_desde = ? WHERE id = ?',
-      codigoHash(u.id, codigo), t + VALIDADE_MIN * 60_000, t, envios + 1, janelaNova ? t : u.cod_envios_desde, u.id);
-    try {
-      await email.enviar({ para, ...mensagemCodigo({ nome: nome?.split(' ')[0], codigo, minutos: VALIDADE_MIN, appName: cfg.appName }) });
-    } catch (e) {
-      await db.run('UPDATE users SET cod_hash = NULL, cod_enviado_em = NULL WHERE id = ?', u.id); // não deixa um código que ninguém recebeu
-      log?.error?.('falha ao enviar e-mail', { erro: e?.message });
-      throw erro(502, 'EMAIL_FALHOU', 'Não consegui enviar o e-mail agora. Tente de novo em instantes.');
-    }
-  }
-
-  /** Confere o código de `u`. Lança erro se inválido/vencido/esgotado. */
-  async function conferirCodigo(u, codigo) {
-    const t = cfg.agora();
-    const msgGenerica = 'Código incorreto ou vencido.';
-    if (!u?.cod_hash || !u.cod_expira || t > u.cod_expira) throw erro(422, 'CODIGO_INVALIDO', `${msgGenerica} Peça um novo código.`, { codigo: msgGenerica });
-    if (u.cod_tentativas >= MAX_ERROS_CODIGO) throw erro(422, 'CODIGO_ESGOTADO', 'Muitos erros. Peça um novo código.', { codigo: 'Peça um novo código.' });
-    const certo = typeof codigo === 'string' && /^\d{6}$/.test(codigo.trim()) && iguais(codigoHash(u.id, codigo.trim()), u.cod_hash);
-    if (!certo) {
-      const erros = u.cod_tentativas + 1;
-      await db.run('UPDATE users SET cod_tentativas = ?, cod_hash = CASE WHEN ? >= ? THEN NULL ELSE cod_hash END WHERE id = ?', erros, erros, MAX_ERROS_CODIGO, u.id);
-      const restam = MAX_ERROS_CODIGO - erros;
-      throw erro(422, 'CODIGO_INVALIDO', restam > 0 ? `Código incorreto. Restam ${restam} tentativa(s).` : 'Código incorreto. Peça um novo código.', { codigo: 'Código incorreto.' });
-    }
-  }
+  const { cotaEnvio, emitirCodigo, conferirCodigo } = criarCodigos({ cfg, db, email, log });
 
   // ---------------------------------------------------------------- cadastro (público)
   rota('POST', '/api/cadastro', { auth: 'publica' }, async (ctx) => {
@@ -144,7 +97,7 @@ export function registrarCadastro(app, { cfg, db, email, log }) {
     if (!(await verificarSenha(cfg, d.senha, u.senha_hash))) throw erro(422, 'SENHA_NAO_CONFERE', 'A senha não confere com a do cadastro. Faça o cadastro de novo.', { senha: 'Senha diferente da do cadastro.' });
     await conferirCodigo(u, d.codigo);
     await tx(db, async (db) => {
-      await db.run('UPDATE users SET email_verificado = 1, cod_hash = NULL, cod_expira = NULL, cod_tentativas = 0 WHERE id = ?', u.id);
+      await db.run('UPDATE users SET email_verificado = 1, cod_hash = NULL, cod_expira = NULL, cod_tentativas = 0, cod_enviado_em = NULL WHERE id = ?', u.id);
       ctx.user = { id: u.id, papel: u.papel, nome: u.nome };
       await criarSessao(cfg, db, ctx, u.id, 'COMPLETA');
       await auditar(db, ctx, 'CADASTRO_CONFIRMADO', 'user', u.id);
@@ -174,7 +127,7 @@ export function registrarCadastro(app, { cfg, db, email, log }) {
     if (!u.email_novo_enc) throw erro(409, 'SEM_EMAIL_PENDENTE', 'Informe o e-mail primeiro.');
     await conferirCodigo(u, codigo);
     await tx(db, async (db) => {
-      await db.run('UPDATE users SET email_enc = email_novo_enc, email_hmac = email_novo_hmac, email_verificado = 1, email_novo_enc = NULL, email_novo_hmac = NULL, cod_hash = NULL, cod_expira = NULL, cod_tentativas = 0 WHERE id = ?', u.id);
+      await db.run('UPDATE users SET email_enc = email_novo_enc, email_hmac = email_novo_hmac, email_verificado = 1, email_novo_enc = NULL, email_novo_hmac = NULL, cod_hash = NULL, cod_expira = NULL, cod_tentativas = 0, cod_enviado_em = NULL WHERE id = ?', u.id);
       await auditar(db, ctx, 'EMAIL_VINCULADO', 'user', u.id);
     });
     return { vinculado: true };

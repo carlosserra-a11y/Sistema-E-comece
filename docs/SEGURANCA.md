@@ -49,7 +49,7 @@ Base: OWASP ASVS nível 2 e Top 10. Tudo abaixo é coberto por testes automatiza
 
 ## Limitações conhecidas (honestas)
 
-- **Sem segunda etapa (decisão do dono em 22/11/2026).** O login é só e-mail + senha: quem descobrir a senha do dono entra como dono. Mitigações que continuam valendo: bloqueio após 10 tentativas, senha com hash forte, sessão curta, reautenticação em ações críticas, auditoria. Use uma senha longa e única. Um próximo passo possível é pedir um código enviado ao e-mail a cada login novo.
+- **Segunda etapa por e-mail (22/11/2026).** Quem tem e-mail confirmado recebe um código de 6 dígitos a cada login (10 min, 5 erros o invalidam, reenvio a cada 60 s) e a sessão só abre depois dele. A conta do dono só passa a ter essa etapa depois de **vincular um e-mail** em Configurações. Quem tiver a senha **e** o e-mail entra: ligue a verificação em duas etapas do Google no e-mail. Interruptor de emergência: `LOGIN_CODIGO=0` na Vercel (desliga a etapa se o envio de e-mail cair).
 - O envio do código depende de um Gmail com "senha de app" configurado na Vercel; sem isso o cadastro fica desligado (a tela nem mostra "Criar conta").
 
 - **Código de barras lido por leitor real não foi testado.** O QR foi decodificado com OpenCV (versões 1 a 10 ). EAN-13, EAN-8 e Code 128 foram validados com vetores GS1, estrutura e decodificação própria; o detector de barras do OpenCV não leu as imagens sintéticas. **Imprima uma etiqueta e leia com o seu leitor antes de etiquetar o estoque.**
