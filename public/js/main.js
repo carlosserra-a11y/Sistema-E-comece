@@ -20,7 +20,7 @@ const permitida = (p) => !p[4] || p[4].some((x) => sessao?.usuario?.permissoes?.
 const visiveis = () => PAGINAS.filter(permitida);
 const ABAS_CELULAR = ['painel', 'estoque', 'contagem'];
 const raiz = document.getElementById('raiz');
-let conteudo; let limparPagina = null; let sessao = null; let ultimaAtividade = Date.now(); let ultimoBatimento = 0;
+let conteudo; let limparPagina = null; let sessao = null;
 
 export const rotaAtual = () => {
   const [, caminho = 'painel', consulta = ''] = /^#\/([a-z]+)(?:\?(.*))?$/.exec(location.hash) ?? [];
@@ -167,19 +167,14 @@ document.addEventListener('keydown', (e) => {
   else if (e.key.toLowerCase() === 'n') document.querySelector('[data-novo]')?.click();
 });
 
-// Sessão: batimento por atividade e aviso antes de expirar por inatividade.
-['pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, () => {
-  ultimaAtividade = Date.now();
-  if (sessao?.autenticado && ultimaAtividade - ultimoBatimento > 120_000) { ultimoBatimento = ultimaAtividade; api.get('/api/sessao').catch(() => {}); }
-}, { passive: true }));
-let avisoAberto = false;
-setInterval(async () => {
-  if (!sessao?.autenticado || avisoAberto || Date.now() - ultimaAtividade < 27 * 60_000) return;
-  avisoAberto = true;
-  const continuar = await confirmar('Sua sessão vai expirar', 'Por inatividade, você será desconectado em poucos minutos.', { rotulo: 'Continuar logado' });
-  avisoAberto = false;
-  if (continuar) { ultimaAtividade = Date.now(); api.get('/api/sessao').catch(() => {}); }
-}, 30_000);
+// Sessão: enquanto a aba estiver aberta ela NÃO expira (dá para ficar horas bipando). A aba avisa o servidor que está viva a cada minuto,
+// ao voltar do segundo plano e quando a internet volta. Fechou a aba ou o navegador: sem esses avisos o servidor encerra a sessão por
+// inatividade (e o cookie de sessão some ao fechar o navegador), e é preciso entrar de novo.
+const baterBatimento = () => { if (sessao?.autenticado) api.get('/api/sessao').catch(() => {}); };
+setInterval(baterBatimento, 60_000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') baterBatimento(); });
+window.addEventListener('online', baterBatimento);
+window.addEventListener('pageshow', baterBatimento);
 
 estado.aoExpirar = () => { if (sessao?.autenticado) { sessao = null; toast('Sua sessão expirou. Entre novamente.', 'aviso', 8000); iniciar(); } };
 estado.aoReautenticar = () => new Promise((resolve) => {

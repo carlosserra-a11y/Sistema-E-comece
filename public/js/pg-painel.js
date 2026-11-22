@@ -12,7 +12,21 @@ export function sparkline(valores) {
   return svg;
 }
 
-const kpi = (rotulo, valor, nota, ic, extra = {}) => h('section', { class: `card kpi ${extra.cls ?? ''}`, 'aria-label': rotulo }, h('div', { class: 'rotulo' }, icone(ic, 16), rotulo), h('div', { class: 'valor' }, valor), nota && h('div', { class: 'nota' }, nota));
+/** Faz o número "contar" de 0 até o valor em ~0,7 s. Sem animação quando a pessoa pediu menos movimento. */
+const contar = (el, alvo, formatar = (n) => fmt.num(n)) => {
+  if (!alvo || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.textContent = formatar(alvo); return el; }
+  const t0 = performance.now(); const dur = 700;
+  el.textContent = formatar(0);
+  const passo = (t) => {
+    const p = Math.min(1, (t - t0) / dur);
+    el.textContent = formatar(Math.round(alvo * (1 - (1 - p) ** 3)));
+    if (p < 1 && el.isConnected) requestAnimationFrame(passo);
+  };
+  requestAnimationFrame(passo);
+  return el;
+};
+const kpi = (rotulo, valor, nota, ic, extra = {}) => h('section', { class: `card kpi ${extra.cls ?? ''}`, 'aria-label': rotulo }, h('div', { class: 'rotulo' }, icone(ic, 16), rotulo),
+  h('div', { class: 'valor' }, typeof valor === 'number' ? contar(h('span'), valor) : valor), nota && h('div', { class: 'nota' }, nota));
 
 export async function renderizar(el, { ir, sessao }) {
   const pode = (x) => !!sessao?.usuario?.permissoes?.includes(x);
@@ -22,9 +36,9 @@ export async function renderizar(el, { ir, sessao }) {
   await carregar(alvo, () => api.get('/api/painel'), (d) => {
     const ocup = d.enderecos ? Math.round((d.enderecos_ocupados / d.enderecos) * 100) : 0;
     alvo.append(h('div', { class: 'grid bento' },
-      kpi('Produtos ativos', fmt.num(d.produtos_ativos), d.sem_codigo ? `${d.sem_codigo} sem código de barras` : 'todos com código', 'box'),
-      kpi('Unidades em estoque', fmt.num(d.unidades), null, 'layers'),
-      h('section', { class: 'card kpi', 'aria-label': 'Ocupação' }, h('div', { class: 'rotulo' }, icone('map', 16), 'Ocupação do galpão'), h('div', { class: 'valor' }, `${ocup}%`),
+      kpi('Produtos ativos', d.produtos_ativos, d.sem_codigo ? `${d.sem_codigo} sem código de barras` : 'todos com código', 'box'),
+      kpi('Unidades em estoque', d.unidades, null, 'layers'),
+      h('section', { class: 'card kpi', 'aria-label': 'Ocupação' }, h('div', { class: 'rotulo' }, icone('map', 16), 'Ocupação do galpão'), h('div', { class: 'valor' }, contar(h('span'), ocup, (n) => `${n}%`)),
         (() => { const b = h('div', { class: 'barra', role: 'progressbar', 'aria-valuenow': ocup, 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-label': 'Ocupação' }, h('span')); b.firstChild.style.setProperty('--p', String(ocup)); return b; })(),
         h('div', { class: 'nota' }, `${fmt.num(d.enderecos_ocupados)} de ${fmt.num(d.enderecos)} endereços`)),
       h('section', { class: 'card kpi', 'aria-label': 'Integridade' }, h('div', { class: 'rotulo' }, icone('shield', 16), 'Integridade do estoque'),

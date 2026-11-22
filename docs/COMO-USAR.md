@@ -11,7 +11,7 @@ Para o dia a dia do galpão (etiquetar, receber, contar) veja também [OPERACAO.
 5. **Criar conta (para a equipe):** na tela de entrada, toque em **Criar conta**, digite nome, Gmail e uma senha de 8 ou mais caracteres. O sistema manda um **código de 6 dígitos** para o seu e-mail (vale 10 minutos); digite para confirmar. Depois o dono precisa **liberar o seu acesso**.
 6. Pronto: você cai na tela **Início**.
 
-Dica: a sessão expira depois de 30 minutos sem uso (o sistema avisa antes) e no máximo em 12 horas. Para ações sensíveis (ajustar estoque, aprovar contagem, mexer na equipe) ele pede a senha de novo — é proposital.
+Dica: com a aba aberta o sistema **não desconecta** (dá para ficar bipando por horas); ele só pede o login de novo depois que você fecha a aba ou o navegador. Para ações sensíveis (ajustar estoque, aprovar contagem, mexer na equipe) ele pede a senha de novo — é proposital.
 
 ## 2. Mapa do sistema (menu da esquerda; no celular, barra de baixo + "Mais")
 

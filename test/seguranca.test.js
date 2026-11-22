@@ -212,3 +212,17 @@ test('troca de senha: senha fraca não gasta tentativa; só a senha atual errada
   const ok = await c.post('/api/senha/trocar', { senha_atual: SENHA_INICIAL, senha_nova: SENHA_FORTE });
   assert.equal(ok.status, 200, ok.texto);
 }));
+
+test('sessão: com o batimento da tela (1 por minuto) não expira nem em 12 h; sem batimento acaba; o cookie some ao fechar o navegador', async () => await com(async (sis) => {
+  const c = sis.cliente(); await c.get('/api/sessao');
+  const r = await c.post('/api/login', { login: LOGIN, senha: SENHA_INICIAL });
+  assert.ok(!r.headers.getSetCookie().some((x) => /Max-Age|Expires/i.test(x)), 'cookie de sessão: sem validade própria, some quando o navegador fecha');
+  assert.equal((await c.post('/api/senha/trocar', { senha_atual: SENHA_INICIAL, senha_nova: SENHA_FORTE })).data.estagio, 'COMPLETA');
+  for (let i = 0; i < 30; i++) { // 30 x 25 min = 12 h 30 min, sempre com o batimento no meio
+    sis.relogio.t += 25 * 60_000;
+    assert.equal((await c.get('/api/sessao')).data.autenticado, true, `batimento ${i}`);
+  }
+  assert.equal((await c.get('/api/produtos')).status, 200, 'depois de mais de 12 h com a aba aberta continua dentro');
+  sis.relogio.t += 31 * 60_000; // fechou a aba: ninguém bate mais
+  assert.equal((await c.get('/api/produtos')).status, 401, 'sem batimento a sessão acaba');
+}));

@@ -38,7 +38,7 @@ export async function criarSessao(cfg, db, ctx, userId, estagio) {
   const token = aleatorio(32);
   const t = cfg.agora();
   await db.run('INSERT INTO sessions (user_id, token_hash, estagio, criado_em, ultimo_uso, expira_abs, ip, user_agent) VALUES (?,?,?,?,?,?,?,?)', userId, sha256(token), estagio, t, t, t + cfg.sessao.absolutaMs, ctx.ip ?? null, String(ctx.req.headers['user-agent'] ?? '').slice(0, 200));
-  ctx.setCookies.push(cookie(cfg, nomesCookie(cfg).sid, token, { maxAgeS: Math.floor(cfg.sessao.absolutaMs / 1000) }));
+  ctx.setCookies.push(cookie(cfg, nomesCookie(cfg).sid, token)); // sem Max-Age: é cookie de sessão e some quando o navegador é fechado
   ctx.sessao = { ...(ctx.sessao ?? {}), user_id: userId, token_hash: sha256(token), estagio };
 }
 

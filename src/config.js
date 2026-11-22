@@ -60,7 +60,7 @@ export function loadConfig(overrides = {}) {
     scrypt: { N: Number(env.SCRYPT_N ?? 32768), r: 8, p: 1 },
     sessao: {
       ociosoMs: Number(env.SESSAO_OCIOSA_MS ?? 30 * 60_000),
-      absolutaMs: Number(env.SESSAO_ABSOLUTA_MS ?? 12 * 3600_000),
+      absolutaMs: Number(env.SESSAO_ABSOLUTA_MS ?? 30 * 24 * 3600_000), // praticamente sem teto: com a aba aberta a tela renova a sessão a cada minuto
       preAuthMs: 15 * 60_000,
     },
     reauthMs: 5 * 60_000,

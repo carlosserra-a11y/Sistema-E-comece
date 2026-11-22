@@ -1,0 +1,106 @@
+/* Tela de acesso: reproduz o layout do componente "sign-in-page" (dois painéis iguais: arte à esquerda, formulário branco à direita).
+   Os valores são os do Tailwind do componente original (slate-900/blue-900/slate-800, gray-*, blue-600, rounded-xl, py-3...).
+   Fica fora das camadas de propósito: vale sobre o resto do sistema, mas só dentro de .lg-pagina. */
+.lg-pagina { color-scheme: light; position: fixed; inset: 0; display: flex; overflow: hidden; font-family: var(--font); color: #111827;
+  background: linear-gradient(to bottom right, #0f172a, #1e3a8a, #1e293b); }
+.lg-pagina *, .lg-pagina *::before, .lg-pagina *::after { box-sizing: border-box; }
+
+/* painel esquerdo */
+.lg-esq { flex: 1; position: relative; overflow: hidden; }
+.lg-arte { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.lg-voltar { position: absolute; top: 1.5rem; left: 1.5rem; z-index: 10; width: 2.5rem; height: 2.5rem; border: 0; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
+  background: rgb(0 0 0 / 0.2); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); color: #fff; cursor: pointer; transition: background-color 0.15s, transform 0.15s; }
+.lg-voltar:hover { background: rgb(0 0 0 / 0.3); }
+.lg-voltar:active { transform: scale(0.94); }
+.lg-voltar[hidden] { display: none; }
+.lg-marca { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 0.75rem; padding: 4rem 2rem 1.75rem; color: #fff;
+  background: linear-gradient(to top, rgb(2 6 23 / 0.7), transparent); }
+.lg-marca img { width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; }
+.lg-marca strong { display: block; font-size: 1.125rem; line-height: 1.2; letter-spacing: -0.02em; }
+.lg-marca small { display: block; font-size: 0.75rem; opacity: 0.8; }
+
+/* ilustração (cores e movimento vêm daqui: a CSP não aceita estilo dentro do SVG) */
+.lg-arte .estr { animation: lg-piscar 3.2s ease-in-out infinite alternate; }
+.lg-arte .estr:nth-child(3n) { animation-delay: 0.9s; }
+.lg-arte .estr:nth-child(4n) { animation-delay: 1.7s; animation-duration: 2.4s; }
+.lg-arte .anel-brilho { animation: lg-pulsar 4s ease-in-out infinite alternate; }
+@keyframes lg-piscar { from { opacity: 0.25; } to { opacity: 1; } }
+@keyframes lg-pulsar { from { opacity: 0.25; } to { opacity: 0.6; } }
+
+/* painel direito */
+.lg-dir { flex: 1; display: flex; align-items: center; justify-content: center; background: #fff; overflow-y: auto; }
+.lg-caixa { width: 100%; max-width: 28rem; padding: 2rem; margin: auto; }
+.lg-caixa > * { animation: lg-sobe 0.32s ease both; }
+.lg-caixa > *:nth-child(2) { animation-delay: 0.04s; }
+.lg-caixa > *:nth-child(3) { animation-delay: 0.08s; }
+@keyframes lg-sobe { from { opacity: 0; transform: translateY(8px); } }
+.lg-voltar-mob { display: none; border: 0; background: none; padding: 0; margin-bottom: 1.25rem; color: #4b5563; font-size: 0.875rem; font-weight: 500; cursor: pointer; align-items: center; gap: 0.375rem; }
+.lg-voltar-mob[hidden] { display: none !important; }
+
+.lg-cab { margin-bottom: 2rem; }
+.lg-cab h1 { font-size: 1.875rem; line-height: 2.25rem; font-weight: 700; letter-spacing: normal; color: #111827; margin: 0 0 0.5rem; }
+.lg-cab p { margin: 0; color: #4b5563; line-height: 1.5; }
+.lg-link { background: none; border: 0; padding: 0; font: inherit; font-weight: 500; color: #2563eb; cursor: pointer; transition: color 0.15s; }
+.lg-link:hover { color: #1d4ed8; }
+.lg-link:disabled { color: #9ca3af; cursor: default; }
+.lg-link.pequeno { font-size: 0.875rem; }
+
+.lg-form { display: grid; gap: 1.5rem; }
+.lg-campo label { display: block; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; color: #374151; margin-bottom: 0.5rem; }
+.lg-campo input[type="text"], .lg-campo input[type="email"], .lg-campo input[type="password"] {
+  width: 100%; min-height: 0; padding: 0.75rem 1rem; border: 1px solid #d1d5db; border-radius: 0.75rem; background: #fff; color: #111827; font-size: 1rem; line-height: 1.5rem; outline: none; box-shadow: none;
+  transition: border-color 0.15s, box-shadow 0.15s; }
+.lg-campo input::placeholder { color: #9ca3af; }
+.lg-campo input:hover { border-color: #9ca3af; }
+.lg-campo input:focus, .lg-campo input:focus-visible { border-color: transparent; box-shadow: 0 0 0 2px #3b82f6; }
+.lg-campo input[aria-invalid="true"] { border-color: #ef4444; }
+.lg-senha { position: relative; }
+.lg-senha input { padding-right: 3rem; }
+.lg-olho { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); padding: 0.25rem; border: 0; border-radius: 9999px; background: none; color: #6b7280; display: flex; cursor: pointer; transition: background-color 0.15s; }
+.lg-olho:hover { background: #f3f4f6; }
+.lg-olho:focus-visible { outline: 2px solid #3b82f6; }
+.lg-campo input.lg-codigo { text-align: center; font-family: var(--mono); font-size: 1.75rem; letter-spacing: 0.4em; font-weight: 700; padding-left: 1.4em; }
+.lg-ajuda { margin: 0.5rem 0 0; font-size: 0.8125rem; color: #6b7280; line-height: 1.4; }
+
+.lg-linha { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.lg-check { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: #4b5563; cursor: pointer; min-height: 0; }
+.lg-check input { width: 1rem; height: 1rem; accent-color: #2563eb; margin: 0; cursor: pointer; }
+
+.lg-preto { width: 100%; border: 0; border-radius: 0.75rem; padding: 0.75rem 1rem; background: #000; color: #fff; font-size: 1rem; font-weight: 500; cursor: pointer; min-height: 0;
+  transition: background-color 0.15s, transform 0.1s, opacity 0.15s; }
+.lg-preto:hover { background: #1f2937; }
+.lg-preto:active { transform: scale(0.985); }
+.lg-preto:disabled { opacity: 0.6; cursor: default; }
+
+.lg-sep { position: relative; margin: 0.5rem 0; text-align: center; font-size: 0.875rem; color: #6b7280; }
+.lg-sep::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid #d1d5db; }
+.lg-sep span { position: relative; padding: 0 0.5rem; background: #fff; }
+.lg-sociais { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.lg-sociais.um { grid-template-columns: 1fr; }
+.lg-social { display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem 1rem; border: 1px solid #d1d5db; border-radius: 0.75rem; background: #fff; color: #374151;
+  font-size: 0.875rem; font-weight: 500; cursor: pointer; min-height: 0; transition: background-color 0.15s, transform 0.1s; }
+.lg-social:hover { background: #f9fafb; }
+.lg-social:active { transform: scale(0.985); }
+.lg-social svg { flex: none; }
+
+.lg-erro { margin: 0; font-size: 0.875rem; color: #dc2626; font-weight: 500; min-height: 0; }
+.lg-erro:empty { display: none; }
+.lg-aviso { margin: 0; font-size: 0.875rem; color: #4b5563; }
+.lg-aviso:empty { display: none; }
+.lg-info { display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.75rem 1rem; border: 1px solid #bfdbfe; border-radius: 0.75rem; background: #eff6ff; color: #1e40af; font-size: 0.875rem; line-height: 1.4; }
+.lg-info[hidden] { display: none; }
+.lg-info svg { flex: none; margin-top: 1px; }
+.lg-info p { margin: 0; }
+.lg-barra { height: 6px; border-radius: 9999px; background: #e5e7eb; overflow: hidden; }
+.lg-barra > span { display: block; height: 100%; width: calc(var(--p, 0) * 1%); background: #2563eb; border-radius: inherit; transition: width 0.3s ease; }
+
+@media (max-width: 767px) {
+  .lg-esq { display: none; }
+  .lg-pagina { background: #fff; }
+  .lg-voltar-mob { display: inline-flex; }
+  .lg-caixa { padding: 1.5rem 1.25rem; }
+  .lg-cab h1 { font-size: 1.625rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lg-caixa > *, .lg-arte .estr, .lg-arte .anel-brilho { animation: none; }
+}
