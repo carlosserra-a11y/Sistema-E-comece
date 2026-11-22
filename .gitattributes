@@ -1,0 +1,3 @@
+# Scripts de servidor precisam de quebra de linha LF mesmo quando o repositório é baixado no Windows (CRLF quebra o bash no Linux).
+*.sh text eol=lf
+deploy/** text eol=lf

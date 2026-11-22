@@ -42,4 +42,8 @@ Não troque o `PUBLIC_ORIGIN` antes: com o DNS ainda errado, o sistema para de r
 
 ## E a VPS da HostGator?
 
-Para ter o sistema **neste domínio** você não precisa de VPS: o domínio aponta para a Vercel (acima). A VPS só vale se você quiser tirar o sistema da Vercel; nesse caso o domínio passa a apontar para o IP da VPS e vale o guia de migração (`docs/GUIA-DO-DONO.md`, seção 7).
+A decisão é hospedar o sistema também na **HostGator (VPS)**, neste mesmo domínio. O passo a passo está em [VPS-HOSTGATOR.md](VPS-HOSTGATOR.md).
+
+- **Caminho rápido (hoje):** domínio → Vercel, com os registros acima. Funciona assim que o domínio for comprado, sem VPS.
+- **Caminho final:** instalar o sistema na VPS (script pronto em `deploy/vps/`) e, na "virada", trocar os registros `A` do domínio para o IP da VPS. A Vercel continua ligada ao mesmo banco e serve de plano B.
+- Um domínio só aponta para um lugar por vez: por isso a virada é uma troca de registros `A`, e voltar atrás é trocar de novo.
