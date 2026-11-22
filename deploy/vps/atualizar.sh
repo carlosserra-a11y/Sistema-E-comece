@@ -11,6 +11,7 @@ USUARIO=wms
 
 sudo -u "$USUARIO" git -C "$APP" pull --ff-only
 (cd "$APP" && sudo -u "$USUARIO" npm ci --omit=dev)
+if grep -q "^DATABASE_URL=postgresql://app_wms:.*@127.0.0.1" /opt/wms/.env; then bash "$APP/deploy/vps/aplicar-esquema.sh"; fi   # banco local: aplica migrations novas
 systemctl restart wms
 sleep 3
 systemctl is-active wms

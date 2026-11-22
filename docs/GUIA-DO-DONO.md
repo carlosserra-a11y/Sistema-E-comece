@@ -45,6 +45,7 @@ Menu **Equipe**:
 O plano grátis do Supabase **não faz backup**. O caminho completo está em [BACKUP.md](BACKUP.md); o resumo:
 - **Assine o Supabase Pro** (backup diário automático, 7 dias de histórico). Quem assina é você, no painel.
 - **`npm run backup`** salva o banco inteiro num arquivo **cifrado** (defina `BACKUP_SENHA`). Agende por dia e guarde uma cópia **fora** do computador. `npm run backup:verificar` confere o arquivo e `npm run restaurar` abre os dados num SQLite novo.
+- Se o banco estiver na **VPS** (PostgreSQL próprio), há também o backup nativo diário cifrado (`deploy/vps/backup-pg.sh`); veja [VPS-HOSTGATOR.md](VPS-HOSTGATOR.md), seção 9.
 - O **código** fica no GitHub (`git push`).
 - O livro-razão (`movimentacoes_estoque`) é **imutável**: o saldo sempre pode ser reconstruído a partir dele.
 

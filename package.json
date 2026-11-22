@@ -19,7 +19,8 @@
     "resetar-dono": "node --disable-warning=ExperimentalWarning scripts/resetar-dono.js",
     "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
     "backup:verificar": "node --disable-warning=ExperimentalWarning scripts/backup-verificar.js",
-    "restaurar": "node --disable-warning=ExperimentalWarning scripts/restaurar-backup.js"
+    "restaurar": "node --disable-warning=ExperimentalWarning scripts/restaurar-backup.js",
+    "verificar-dados": "node --disable-warning=ExperimentalWarning scripts/verificar-dados.js"
   },
   "dependencies": {
     "@vercel/functions": "^3.11.3",

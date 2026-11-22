@@ -33,5 +33,5 @@ Quando `https://friospecaseservicos.com.br` abrir a tela de login:
 A decisão é rodar o sistema também na **VPS da HostGator**, neste mesmo domínio. O passo a passo está em [VPS-HOSTGATOR.md](VPS-HOSTGATOR.md) (script pronto em `deploy/vps/`).
 
 - **Hoje:** domínio → Vercel (acima).
-- **Depois da VPS:** na "virada", os dois registros `A` passam a apontar para o IP da VPS e o `www` vira um `A` com o mesmo IP. A Vercel continua ligada ao mesmo banco e serve de plano B. Para voltar atrás, devolva os registros da tabela acima.
+- **Depois da VPS:** na "virada", os dois registros `A` passam a apontar para o IP da VPS e o `www` vira um `A` com o mesmo IP. O banco passa a ser o da VPS (PostgreSQL local): depois que a equipe trabalhar nele, voltar para a Vercel perderia o que foi digitado (veja a seção "Voltar atrás" em VPS-HOSTGATOR.md).
 - Um domínio só aponta para um lugar por vez: por isso a virada é uma troca de registros.
