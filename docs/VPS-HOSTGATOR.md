@@ -1,6 +1,6 @@
-# Hospedar o sistema na HostGator (VPS) no domínio friospeçaseserviços.com.br
+# Hospedar o sistema na HostGator (VPS) no domínio friospecaseservicos.com.br
 
-O sistema roda numa **VPS** da HostGator (hospedagem compartilhada e Cloud não rodam Node.js). O **banco continua na Supabase**; a VPS só executa o programa. O endereço técnico do domínio (por causa dos acentos) é `xn--friospeaseservios-gsbi.com.br`.
+O sistema roda numa **VPS** da HostGator (hospedagem compartilhada e Cloud não rodam Node.js). O **banco continua na Supabase**; a VPS só executa o programa. O domínio é `friospecaseservicos.com.br`.
 
 ```
 navegador ──HTTPS──> Caddy (VPS) ──> sistema (Node 24, porta 3000, só interna) ──> Supabase (banco)
@@ -12,7 +12,7 @@ navegador ──HTTPS──> Caddy (VPS) ──> sistema (Node 24, porta 3000, s
 
 1. Na HostGator, contrate uma **VPS** (o menor plano, NVMe 2, deve bastar para começar) com **Ubuntu 22.04**.
 2. Anote o **IP** da VPS e a **senha do root** que a HostGator mostrar no painel. Guarde no gerenciador de senhas.
-3. Registre o domínio `friospeçaseserviços.com.br` (e, de preferência, o `friopecaseservicos.com.br` sem acento).
+3. O domínio `friospecaseservicos.com.br` já está registrado na HostGator.
 
 ## 2. Entrar na VPS (você)
 
@@ -30,7 +30,7 @@ Já dentro da VPS:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/carlosserra-a11y/Sistema-E-comece/main/deploy/vps/instalar.sh -o instalar.sh
-DOMINIO=xn--friospeaseservios-gsbi.com.br bash instalar.sh
+DOMINIO=friospecaseservicos.com.br bash instalar.sh
 ```
 
 Ele instala Node 24, o Caddy (HTTPS automático), o firewall, o serviço que sobe sozinho e o **backup diário às 2h** (arquivo cifrado em `/opt/wms/app/backups`). No fim ele avisa que falta preencher os segredos.
@@ -58,7 +58,7 @@ Na zona DNS do domínio (HostGator → *Domínios* → *Zona DNS*), deixe **só*
 | **A** | `@` | `IP_DA_VPS` |
 | **A** | `www` | `IP_DA_VPS` |
 
-Em alguns minutos o Caddy tira sozinho o certificado HTTPS. Teste: `https://friospeçaseserviços.com.br`.
+Em alguns minutos o Caddy tira sozinho o certificado HTTPS. Teste: `https://friospecaseservicos.com.br`.
 
 ## 6. Conferir
 

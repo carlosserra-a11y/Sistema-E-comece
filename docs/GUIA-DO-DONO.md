@@ -60,7 +60,7 @@ O arquivo **`Carlos-Desenvolvedor-de-Sistema-SEGREDOS.txt`** (na sua pasta Docum
 
 ## 7. Migrar para a Hostinger (quando quiser)
 
-> Domínio próprio (friospeçaseserviços.com.br): veja [DOMINIO.md](DOMINIO.md). Hospedagem na HostGator (VPS): veja [VPS-HOSTGATOR.md](VPS-HOSTGATOR.md).
+> Domínio próprio (friospecaseservicos.com.br): veja [DOMINIO.md](DOMINIO.md). Hospedagem na HostGator (VPS): veja [VPS-HOSTGATOR.md](VPS-HOSTGATOR.md).
 
 - A **Hospedagem compartilhada** (a "Hostinger comum") **não roda Node.js** como este sistema precisa. Use **Hostinger VPS** ou o plano com **Node.js** (confira na hora da compra).
 - O que muda: o **código é o mesmo**. Rode com `npm ci --omit=dev` e `npm start`, defina as mesmas variáveis de ambiente (use `TRUST_PROXY=true` atrás de um proxy), aponte o domínio com HTTPS. O banco **continua no Supabase** (ou migra para o Postgres da própria VPS usando `supabase/migrations/`).

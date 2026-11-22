@@ -3,7 +3,7 @@
 #   bash /opt/wms/app/deploy/vps/atualizar.sh
 set -euo pipefail
 
-DOMINIO="${DOMINIO:-xn--friospeaseservios-gsbi.com.br}"
+DOMINIO="${DOMINIO:-friospecaseservicos.com.br}"
 APP=/opt/wms/app
 USUARIO=wms
 

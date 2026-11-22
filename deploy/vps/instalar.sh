@@ -2,12 +2,12 @@
 # Instala o sistema numa VPS Ubuntu (22.04 ou 24.04), como a da HostGator: Node 24, serviço que sobe sozinho (systemd),
 # HTTPS automático (Caddy), firewall e backup diário. Rode como root, UMA vez (pode repetir: ele só completa o que falta):
 #
-#   DOMINIO=xn--friospeaseservios-gsbi.com.br bash instalar.sh
+#   DOMINIO=friospecaseservicos.com.br bash instalar.sh
 #
 # O banco continua na Supabase. Os segredos NÃO ficam neste script: você os cola em /opt/wms/.env (veja docs/VPS-HOSTGATOR.md).
 set -euo pipefail
 
-DOMINIO="${DOMINIO:-xn--friospeaseservios-gsbi.com.br}"          # endereço técnico (punycode) do domínio com acentos
+DOMINIO="${DOMINIO:-friospecaseservicos.com.br}"          # domínio do sistema
 REPO_URL="${REPO_URL:-https://github.com/carlosserra-a11y/Sistema-E-comece.git}"
 RAIZ=/opt/wms
 APP="$RAIZ/app"

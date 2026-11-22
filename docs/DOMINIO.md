@@ -1,49 +1,37 @@
-# Domínio próprio: friospeçaseserviços.com.br
+# Domínio próprio: friospecaseservicos.com.br
 
-O sistema já está preparado para responder neste domínio. Falta só **comprar o domínio** e **apontar o DNS** (a parte que só você pode fazer, na conta da HostGator).
+O domínio foi registrado na HostGator (22/11/2026, renovação em 22/10/2028) e o DNS já aponta para o sistema.
 
-- Nome do domínio: `friospeçaseserviços.com.br`
-- Endereço técnico (é o que o navegador usa por baixo, por causa dos acentos): `xn--friospeaseservios-gsbi.com.br`
+- Domínio do sistema: `friospecaseservicos.com.br` (e `www`, que redireciona para ele).
 - O nome do sistema na tela continua **FRIO Peças e Serviços** (variável `APP_NAME` na Vercel).
+- O endereço antigo `carlos-sistema-carlos-nunes.vercel.app` continua funcionando junto.
 
-> Dica: registre também a versão **sem acento**, `friopecaseservicos.com.br`. Digitar "ç" e "ã" no celular e em e-mails dá problema; o endereço sem acento evita clientes e equipe errarem. Dá para mandar as duas para o mesmo sistema.
+## Como está configurado
 
-## O que já está feito (Vercel)
+**Zona DNS (painel da HostGator → Domínios → Gerenciar → Configurar domínio → Zona avançada de DNS):**
 
-- O domínio e o `www` já estão cadastrados no projeto da Vercel (o `www` redireciona para o endereço sem `www`).
-- O servidor já aceita esses endereços (variável `ORIGENS_EXTRAS`). O endereço antigo `carlos-sistema-carlos-nunes.vercel.app` **continua funcionando** junto.
-
-## O que você faz (depois de comprar o domínio)
-
-No painel onde o domínio fica (HostGator → *Domínios* → *Zona DNS* / *Gerenciar DNS*), crie:
-
-| Tipo | Nome (host) | Valor |
+| Tipo | Nome | Valor |
 |---|---|---|
-| **A** | `@` (o domínio sem nada na frente) | `216.198.79.1` |
-| **A** | `@` | `64.29.17.1` |
-| **CNAME** | `www` | `cb6f3f7969d0cf7e.vercel-dns-017.com.` |
+| A | `@` | `216.198.79.1` |
+| A | `@` | `64.29.17.1` |
+| CNAME | `www` | `cb6f3f7969d0cf7e.vercel-dns-017.com` |
 
-- Apague antes qualquer registro `A` ou `CNAME` antigo de `@` e `www` (a HostGator costuma criar um de "página em construção").
-- Os valores acima são os que a Vercel pediu para este projeto. Se a HostGator não aceitar dois `A`, crie só o primeiro, `216.198.79.1`.
-- A internet leva de alguns minutos a algumas horas para enxergar a mudança.
-- Se o domínio for registrado no **Registro.br** em vez da HostGator, os mesmos registros são feitos lá.
+Os registros `ftp` e `mail` (CNAME) e o MX que a HostGator cria por padrão foram mantidos. Os valores acima são os que a Vercel pediu para este projeto; eles mudam se o projeto mudar de conta.
 
-Quando o DNS pegar, a Vercel libera o HTTPS (cadeado) sozinha. Teste abrindo `https://friospeçaseserviços.com.br`.
+**Vercel:** o domínio e o `www` estão cadastrados no projeto, e a variável `ORIGENS_EXTRAS` lista os endereços aceitos pelo servidor (o domínio, o `www` e o endereço da Vercel). O HTTPS (cadeado) é emitido sozinho pela Vercel.
 
 ## Passo final: trocar o endereço principal
 
-Só **depois** de o domínio abrir com HTTPS:
+Quando `https://friospecaseservicos.com.br` abrir a tela de login:
 
-1. Na Vercel (*Settings → Environment Variables*), mude `PUBLIC_ORIGIN` para `https://xn--friospeaseservios-gsbi.com.br` e deixe o endereço antigo da Vercel dentro de `ORIGENS_EXTRAS`.
+1. Na Vercel (*Settings → Environment Variables*), mude `PUBLIC_ORIGIN` para `https://friospecaseservicos.com.br` (o endereço da Vercel fica em `ORIGENS_EXTRAS`).
 2. Faça um *Redeploy*.
-3. Se usar o Mercado Livre, atualize a URL de redirecionamento no painel do app deles para `https://xn--friospeaseservios-gsbi.com.br/...` (o caminho continua o mesmo de hoje).
+3. Se usar o Mercado Livre, atualize a URL de redirecionamento no painel do app deles para o novo endereço.
 
-Não troque o `PUBLIC_ORIGIN` antes: com o DNS ainda errado, o sistema para de responder.
+## Hospedar na HostGator (VPS)
 
-## E a VPS da HostGator?
+A decisão é rodar o sistema também na **VPS da HostGator**, neste mesmo domínio. O passo a passo está em [VPS-HOSTGATOR.md](VPS-HOSTGATOR.md) (script pronto em `deploy/vps/`).
 
-A decisão é hospedar o sistema também na **HostGator (VPS)**, neste mesmo domínio. O passo a passo está em [VPS-HOSTGATOR.md](VPS-HOSTGATOR.md).
-
-- **Caminho rápido (hoje):** domínio → Vercel, com os registros acima. Funciona assim que o domínio for comprado, sem VPS.
-- **Caminho final:** instalar o sistema na VPS (script pronto em `deploy/vps/`) e, na "virada", trocar os registros `A` do domínio para o IP da VPS. A Vercel continua ligada ao mesmo banco e serve de plano B.
-- Um domínio só aponta para um lugar por vez: por isso a virada é uma troca de registros `A`, e voltar atrás é trocar de novo.
+- **Hoje:** domínio → Vercel (acima).
+- **Depois da VPS:** na "virada", os dois registros `A` passam a apontar para o IP da VPS e o `www` vira um `A` com o mesmo IP. A Vercel continua ligada ao mesmo banco e serve de plano B. Para voltar atrás, devolva os registros da tabela acima.
+- Um domínio só aponta para um lugar por vez: por isso a virada é uma troca de registros.
