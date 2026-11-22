@@ -6,14 +6,14 @@ Base: OWASP ASVS nível 2 e Top 10. Tudo abaixo é coberto por testes automatiza
 
 | Tema | Controle |
 |---|---|
-| Identidade | usuário único (índice sobre expressão constante impede o segundo); login de 11 dígitos guardado só como HMAC; sem tela de cadastro |
+| Identidade | login por e-mail (Gmail), guardado só cifrado (AES-256-GCM) + HMAC; pontos e `+etiqueta` do Gmail contam como o mesmo e-mail; a conta do dono entra com o código de 11 dígitos (só HMAC) |
 | Senha | scrypt (N=32768) com pepper fora do banco; política 12–128 sem datas, sequências ou repetição; troca obrigatória; nova ≠ atual; ao trocar, as outras sessões caem |
 | Enumeração | mesma resposta e mesmo tempo (verificação falsa) para login inexistente e senha errada; o bloqueio vale também para logins que não existem |
-| Força bruta | limite por IP (60/15 min), bloqueio progressivo por login (10 falhas → 1, 2, 4… até 60 min), 10 erros de MFA derrubam a sessão |
-| MFA | TOTP RFC 6238 (vetor oficial testado), janela ±1, **anti-replay** (só aceita passo maior que o último), segredo cifrado AES-256-GCM, 10 códigos de recuperação de uso único (HMAC no banco) |
+| Força bruta | limite por IP (60/15 min), bloqueio progressivo por login/e-mail (10 falhas → 1, 2, 4… até 60 min), cadastro limitado por aparelho (5/h) e no total (30/h) |
+| Confirmação do e-mail | código de 6 dígitos sorteado com `crypto.randomInt`, guardado só como HMAC, vale 10 min, 5 erros o invalidam, reenvio a cada 60 s (máx. 5/h). O código só vale **junto com a senha do cadastro** (ninguém "pré-registra" o e-mail de outra pessoa e o confirma por ela). Conta nova fica **pendente, sem nenhuma permissão**, até o dono liberar; cadastro não confirmado some em 24 h |
 | Sessão | token de 256 bits (só o SHA-256 vai ao banco); cookie `HttpOnly`, `SameSite=Strict`, `Secure` + prefixo `__Host-` em produção; **rotação a cada etapa**; ociosa 30 min, absoluta 12 h; lista e revogação |
 | CSRF | token sem estado (HMAC da sessão) + checagem de `Origin` + `Sec-Fetch-Site`; JSON obrigatório (415 para outros tipos) |
-| Reautenticação | ajuste de estoque, aprovação de contagem e novos códigos de recuperação exigem a senha de novo (janela de 5 min) |
+| Reautenticação | ajuste de estoque, aprovação de contagem e gestão da equipe exigem a senha de novo (janela de 5 min) |
 | Entrada | esquema por rota com lista de campos permitidos (mass assignment), `__proto__` ignorado, limites de tamanho, SQL sempre parametrizado, `LIKE` com escape |
 | Saída | nenhum `innerHTML`; SVG de etiqueta com texto escapado e `Content-Security-Policy: sandbox`; CSV neutraliza `= + - @` |
 | Cabeçalhos | CSP `default-src 'none'` sem `unsafe-inline`/`unsafe-eval`, `nosniff`, `frame-ancestors`/`X-Frame-Options`, COOP/CORP, `Referrer-Policy: no-referrer`, `Permissions-Policy`, HSTS em produção, `no-store` na API |
@@ -49,7 +49,10 @@ Base: OWASP ASVS nível 2 e Top 10. Tudo abaixo é coberto por testes automatiza
 
 ## Limitações conhecidas (honestas)
 
-- **Código de barras lido por leitor real não foi testado.** O QR foi decodificado com OpenCV (versões 1 a 10 e o QR do MFA). EAN-13, EAN-8 e Code 128 foram validados com vetores GS1, estrutura e decodificação própria; o detector de barras do OpenCV não leu as imagens sintéticas. **Imprima uma etiqueta e leia com o seu leitor antes de etiquetar o estoque.**
+- **Sem segunda etapa (decisão do dono em 22/11/2026).** O login é só e-mail + senha: quem descobrir a senha do dono entra como dono. Mitigações que continuam valendo: bloqueio após 10 tentativas, senha com hash forte, sessão curta, reautenticação em ações críticas, auditoria. Use uma senha longa e única. Um próximo passo possível é pedir um código enviado ao e-mail a cada login novo.
+- O envio do código depende de um Gmail com "senha de app" configurado na Vercel; sem isso o cadastro fica desligado (a tela nem mostra "Criar conta").
+
+- **Código de barras lido por leitor real não foi testado.** O QR foi decodificado com OpenCV (versões 1 a 10 ). EAN-13, EAN-8 e Code 128 foram validados com vetores GS1, estrutura e decodificação própria; o detector de barras do OpenCV não leu as imagens sintéticas. **Imprima uma etiqueta e leia com o seu leitor antes de etiquetar o estoque.**
 - scrypt no lugar de Argon2id e sem checagem de senha vazada (HIBP): exigem pacote/rede.
 - Limitador de taxa em memória (um processo). Um invasor pode bloquear o login do dono por até 60 min com tentativas erradas (o IP é limitado, mas é o custo do bloqueio progressivo).
 - Sem WebAuthn/Passkeys, sem alerta de novo dispositivo, sem RBAC (só o admin).
@@ -59,6 +62,6 @@ Base: OWASP ASVS nível 2 e Top 10. Tudo abaixo é coberto por testes automatiza
 
 ## Resposta a incidente (resumo)
 
-1. Suspeita de vazamento: troque `PEPPER`, `HMAC_KEY` e `FIELD_KEY` (invalida sessões e códigos; refaça MFA), rode `npm run criar-admin` após limpar `users`.
+1. Suspeita de vazamento: troque `PEPPER`, `HMAC_KEY` e `FIELD_KEY` (invalida sessões e códigos de confirmação pendentes), rode `npm run criar-admin` após limpar `users`.
 2. Revogue sessões em Configurações → "Sair de todos".
 3. Rode "Verificar integridade" (cadeia de auditoria + estoque) e restaure o último backup se houver divergência.

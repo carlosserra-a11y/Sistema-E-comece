@@ -1,5 +1,5 @@
 import { h, limpar, api, estado, pode, icone, modal, confirmar, campo, toast, tratar, esqueleto, blocoErro, $ } from './core.js';
-import { telaAcesso } from './acesso.js';
+import { telaAcesso, telaPendente } from './acesso.js';
 
 const PAGINAS = [
   ['painel', 'Início', 'home', () => import('./pg-painel.js'), null],
@@ -34,6 +34,7 @@ async function iniciar() {
   estado.permissoes = new Set(sessao.usuario?.permissoes ?? []);
   document.title = sessao.appName;
   if (!sessao.autenticado) return telaAcesso(raiz, sessao, async () => { estado.csrf = null; await iniciar(); });
+  if (sessao.usuario?.pendente) return telaPendente(raiz, sessao, { atualizar: iniciar, sair }); // criou a conta sozinha e o dono ainda não liberou
   montarShell();
   desenharRota();
 }
@@ -188,7 +189,7 @@ estado.aoReautenticar = () => new Promise((resolve) => {
   m = modal('Confirme sua senha', h('form', { class: 'stack', onsubmit: async (e) => {
     e.preventDefault();
     try { await api.post('/api/reautenticar', { senha: s.value }); ok = true; m.fechar(); resolve(true); } catch (x) { erro.textContent = x.message; s.select(); }
-  } }, h('p', { class: 'muted' }, 'Esta ação é sensível (ajuste de estoque, aprovação, códigos de recuperação). Confirme que é você.'), campo('Senha', s), erro,
+  } }, h('p', { class: 'muted' }, 'Esta ação é sensível (ajuste de estoque, aprovação, equipe). Confirme que é você.'), campo('Senha', s), erro,
   h('div', { class: 'row' }, h('button', { class: 'btn primario', type: 'submit' }, 'Confirmar'), h('button', { class: 'btn', type: 'button', onclick: () => { m.fechar(); resolve(false); } }, 'Cancelar'))));
   const obs = new MutationObserver(() => { if (!document.body.contains(m.el)) { obs.disconnect(); if (!ok) resolve(false); } });
   obs.observe(document.body, { childList: true });

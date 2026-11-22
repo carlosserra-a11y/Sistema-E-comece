@@ -16,10 +16,11 @@ Registradas porque o prompt pedia perguntas e não houve resposta: valeu o padr�
 | Lote | `lote_id = 0` significa "sem lote"; FEFO ordena por validade | simplifica a chave do saldo |
 | Capacidade | 0 = sem limite; por itens e por peso; nunca reduz abaixo do que já tem | evita estado inconsistente |
 | Idempotência | obrigatória (`Idempotency-Key`) em receber/transferir/ajustar/baixar/avaria; guardada 2 dias | duplo clique e queda de rede |
-| Reautenticação | senha, janela de 5 min, para ajuste, aprovação de contagem e códigos de recuperação | ações críticas |
+| Reautenticação | senha, janela de 5 min, para ajuste, aprovação de contagem e gestão da equipe | ações críticas |
+| Segunda etapa (QR) | **removida** em 22/11/2026 a pedido do dono; entra com e-mail + senha e o e-mail é confirmado por um código de 6 dígitos | simplicidade; risco aceito e descrito em SEGURANCA.md |
 | Aprovação de inventário | o mesmo usuário cria e aprova (único usuário), registrado como `auto_aprovacao` na auditoria | separação de funções chega com a equipe/RBAC |
 | Contagem | cega por padrão; item achado fora do sistema entra com saldo 0 | evita viés |
-| Sessão | ociosa 30 min, absoluta 12 h, pré-MFA 15 min | equilíbrio segurança/uso |
+| Sessão | ociosa 30 min, absoluta 12 h, pré-login 15 min | equilíbrio segurança/uso |
 | Bloqueio | 10 tentativas erradas → 1 min, dobrando até 60 min (constante `TENTATIVAS_MAX`) | progressivo; senha fraca na troca de senha não conta tentativa |
 | CSV | aceita `;` ou `,`, `12,50` e BOM; só **cria** produtos (SKU existente é ignorado) | seguro por padrão |
 | Datas | milissegundos UTC no banco; exibição em `America/Sao_Paulo` | prompt |

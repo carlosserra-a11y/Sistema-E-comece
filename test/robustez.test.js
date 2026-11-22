@@ -3,7 +3,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { criarSistema, entrarCompleto, novoProduto, criarEnderecos, SENHA_FORTE } from './helpers.js';
-import { codigoTotp, passoAtual } from '../src/security/totp.js';
 import { PAPEIS } from '../src/permissoes.js';
 
 const IDS = ['1', 'abc', '0', '-1', '99999999999999999999', '1.5', '%00', '1%20OR%201=1'];
@@ -37,8 +36,6 @@ async function entrarComo(sis, dono, papel) {
   const c = sis.cliente(); await c.get('/api/sessao');
   await c.post('/api/login', { login: r.data.login, senha: r.data.senha_provisoria });
   await c.post('/api/senha/trocar', { senha_atual: r.data.senha_provisoria, senha_nova: 'Lume!Verde#Telhado59' });
-  const ini = await c.post('/api/mfa/iniciar');
-  await c.post('/api/mfa/confirmar', { codigo: codigoTotp(ini.data.segredo, passoAtual(sis.relogio.t)) });
   return c;
 }
 

@@ -48,6 +48,9 @@ const ICONES = {
   arrows: 'M7 7h13l-4-4 M17 17H4l4 4', activity: 'M3 12h4l3-8 4 16 3-8h4',
   users: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z M2 20c0-3.3 3-5.5 7-5.5s7 2.2 7 5.5 M16 4.2a3.5 3.5 0 0 1 0 6.6 M18 14.7c2.4.6 4 2.3 4 5.3',
   barcode: 'M4 5v14 M7 5v14 M11 5v14 M14 5v14 M18 5v14 M20 5v14',
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+  eyeoff: 'M3 3l18 18 M10.6 5.1A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1 M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.4-1 M9.9 9.9a3 3 0 0 0 4.2 4.2',
+  mail: 'M3 5h18v14H3z M3 7l9 6 9-6',
 };
 export function icone(nome, tam = 20) {
   const s = document.createElementNS(NS, 'svg');
@@ -177,12 +180,25 @@ export function confirmar(titulo, texto, { perigo = false, rotulo = 'Confirmar' 
 
 // ---------- componentes ----------
 export function campo(rotulo, input, { ajuda, erro } = {}) {
-  const id = input.id || (input.id = `c-${Math.random().toString(36).slice(2, 8)}`);
+  const alvo = input.matches('input,select,textarea') ? input : input.querySelector('input,select,textarea') ?? input; // aceita o campo de senha com o botão do olho
+  const id = alvo.id || (alvo.id = `c-${Math.random().toString(36).slice(2, 8)}`);
   const idErro = `${id}-e`;
-  if (erro) { input.setAttribute('aria-invalid', 'true'); input.setAttribute('aria-describedby', idErro); }
+  if (erro) { alvo.setAttribute('aria-invalid', 'true'); alvo.setAttribute('aria-describedby', idErro); }
   return h('div', { class: 'campo' }, h('label', { for: id }, rotulo), input, ajuda && h('span', { class: 'ajuda' }, ajuda), erro && h('span', { class: 'erro', id: idErro, role: 'alert' }, erro));
 }
 export const entrada = (props = {}) => h('input', { type: 'text', autocomplete: 'off', ...props });
+/** Campo de senha com o botão de mostrar/ocultar (olho). Devolve { el, input }: `el` vai no `campo()`, `input` tem o valor. */
+export function senhaInput(props = {}) {
+  const input = h('input', { type: 'password', autocomplete: 'current-password', ...props });
+  const botao = h('button', { class: 'olho', type: 'button', 'aria-label': 'Mostrar senha', 'aria-pressed': 'false', onclick: () => {
+    const ver = input.type === 'password';
+    input.type = ver ? 'text' : 'password';
+    botao.setAttribute('aria-pressed', String(ver)); botao.setAttribute('aria-label', ver ? 'Ocultar senha' : 'Mostrar senha');
+    botao.replaceChildren(icone(ver ? 'eyeoff' : 'eye', 18));
+    input.focus();
+  } }, icone('eye', 18));
+  return { el: h('div', { class: 'com-olho' }, input, botao), input };
+}
 export const selecao = (opcoes, valor, props = {}) => h('select', props, opcoes.map(([v, r]) => h('option', { value: v, selected: String(v) === String(valor) }, r)));
 export function abas(todos, inicial, aoTrocar) {
   const itens = todos.filter(([, , perm]) => pode(perm)); // aba com 3º item = permissão exigida

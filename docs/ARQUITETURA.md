@@ -48,7 +48,7 @@ erDiagram
 | Fase | Conteúdo | Status |
 |---|---|---|
 | 0 | Fundação (config, migrations, logs, testes) | ✅ |
-| 1 | Acesso seguro, usuário único, MFA, auditoria | ✅ |
+| 1 | Acesso seguro, login por e-mail com código de confirmação, auditoria | ✅ |
 | 2 | Cadastros, EAN, fornecedores | ✅ |
 | 2.5 | Design system, shell, paleta, PWA | ✅ (captura de tela automatizada pendente) |
 | 3 | Endereçamento, livro-razão, put-away, transferência, inventário, mapa | ✅ (variações e kits pendentes) |

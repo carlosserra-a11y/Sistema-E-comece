@@ -33,31 +33,18 @@ export async function verificacaoFalsa(cfg, senha) {
   return false;
 }
 
-const SEQUENCIAS = ['0123456789', 'abcdefghijklmnopqrstuvwxyz', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+const COMUNS = new Set(['12345678', '123456789', '1234567890', '87654321', '11111111', '00000000', '12341234', '123123123', 'password', 'password1', 'senha123', 'senha1234', 'qwertyui', 'abcd1234', 'abc12345', 'a1234567', 'iloveyou', 'brasil123', 'mudar123', 'admin123', 'trocar123']);
 
-function temSequencia(s) {
-  const t = s.toLowerCase();
-  for (const base of SEQUENCIAS) {
-    const rev = [...base].reverse().join('');
-    for (let i = 0; i + 4 <= t.length; i++) {
-      const trecho = t.slice(i, i + 4);
-      if (base.includes(trecho) || rev.includes(trecho)) return true;
-    }
-  }
-  return false;
-}
-
-/** Política: 12–128 caracteres, sem datas, sem sequências, sem repetição, sem o login. Retorna a lista de problemas. */
-export function validarPolitica(senha, { login = '' } = {}) {
+/** Política simples: 8 a 128 caracteres (pode ser mais longa, nunca limitada a 8), não ser uma senha muito comum e não conter o e-mail/login. */
+export function validarPolitica(senha, { email = '', login = '' } = {}) {
   const problemas = [];
   const s = String(senha ?? '');
-  if (s.length < 12) problemas.push('Use pelo menos 12 caracteres.');
+  if (s.length < 8) problemas.push('Use pelo menos 8 caracteres.');
   if (s.length > 128) problemas.push('Use no máximo 128 caracteres.');
-  if (/(.)\1{3,}/.test(s)) problemas.push('Evite repetir o mesmo caractere 4 vezes seguidas.');
-  if (temSequencia(s)) problemas.push('Evite sequências como 1234, abcd ou qwer.');
-  if (/(?:0[1-9]|[12]\d|3[01])[\/.\-]?(?:0[1-9]|1[0-2])[\/.\-]?(?:19|20)\d{2}/.test(s) || /(?:19|20)\d{2}[\/.\-]?(?:0[1-9]|1[0-2])[\/.\-]?(?:0[1-9]|[12]\d|3[01])/.test(s)) {
-    problemas.push('Evite datas (como nascimento).');
-  }
+  if (s.length >= 8 && /^(.)\1+$/.test(s)) problemas.push('Não use um único caractere repetido.');
+  if (COMUNS.has(s.toLowerCase())) problemas.push('Essa senha é muito comum. Escolha outra.');
+  const local = String(email).split('@')[0].toLowerCase();
+  if (local.length >= 4 && s.toLowerCase().includes(local)) problemas.push('A senha não pode conter o seu e-mail.');
   if (login && s.includes(login)) problemas.push('A senha não pode conter o seu login.');
   return problemas;
 }

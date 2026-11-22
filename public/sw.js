@@ -1,5 +1,5 @@
 // Service worker: guarda SOMENTE arquivos estáticos (nunca respostas da API com dados). Rede primeiro; cache como reserva offline.
-const CACHE = 'estatico-v2';
+const CACHE = 'estatico-v3';
 const ESTATICO = /\.(?:js|css|svg|png|webmanifest|woff2)$|^\/$/;
 
 self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/css/tokens.css', '/css/app.css', '/css/design.css', '/js/tema.js', '/js/main.js', '/js/core.js', '/js/scanner.js', '/icone.svg', '/icones/icone-192.png'])).catch(() => {})); });

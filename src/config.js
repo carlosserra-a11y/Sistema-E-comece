@@ -74,6 +74,13 @@ export function loadConfig(overrides = {}) {
       pollMin: Number(env.ML_POLL_MIN ?? 10),
       esperar: null,
     },
+    // E-mail do código de confirmação. SMTP (ex.: Gmail com senha de app) em produção; "memoria" só em testes/desenvolvimento.
+    email: {
+      transporte: !prod && env.EMAIL_TRANSPORTE === 'memoria' ? 'memoria' : 'smtp',
+      smtp: env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS ? { host: env.SMTP_HOST, port: Number(env.SMTP_PORT || 465), user: env.SMTP_USER, pass: env.SMTP_PASS } : null,
+      de: env.EMAIL_DE || (env.SMTP_USER ? `"${env.APP_NAME || 'Carlos Desenvolvedor de Sistema'}" <${env.SMTP_USER}>` : ''),
+      dominios: (env.EMAIL_DOMINIOS || 'gmail.com,googlemail.com').toLowerCase().split(',').map((x) => x.trim()).filter(Boolean), // '*' libera qualquer e-mail
+    },
     adminLogin: env.ADMIN_LOGIN || '',
     adminSenha: env.ADMIN_INITIAL_PASSWORD || '',
     agora: () => Date.now(),

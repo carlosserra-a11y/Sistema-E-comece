@@ -21,4 +21,4 @@ if (await db.get('SELECT 1 FROM users WHERE dono = 1')) { console.log('A conta d
 
 await db.run("INSERT INTO users (login_hmac, senha_hash, trocar_senha, dono, papel, nome, criado_em) VALUES (?, ?, 1, 1, 'admin', 'Carlos (dono)', ?)", chaveLogin(cfg, login), await hashSenha(cfg, cfg.adminSenha), cfg.agora());
 await db.fechar();
-console.log('Usuário criado. No primeiro acesso: trocar a senha e ativar o MFA. Apague ADMIN_LOGIN e ADMIN_INITIAL_PASSWORD do .env.');
+console.log('Usuário criado. No primeiro acesso: trocar a senha. Apague ADMIN_LOGIN e ADMIN_INITIAL_PASSWORD do .env.');

@@ -20,7 +20,7 @@ Os dados **não** ficam no GitHub nem na Vercel: ficam no Supabase. A Vercel só
 ## 2. Como você acessa
 
 1. Abra o endereço do sistema (o link que te enviei) no computador **ou no celular**.
-2. Entre com o **login de 11 dígitos** e a **senha provisória**. O sistema obriga a trocar a senha e cadastrar o autenticador de 2 etapas (Google Authenticator, Microsoft Authenticator, Authy…). **Guarde os 10 códigos de recuperação** que ele mostra.
+2. Entre com o **login de 11 dígitos** e a **senha provisória**. O sistema pede para você criar uma senha sua (8 ou mais caracteres). Pronto: não há QR Code nem aplicativo autenticador.
 3. No celular: abra o link no Chrome/Safari e use "Adicionar à tela inicial" — vira um app. O botão redondo **Bipar** (no meio da barra de baixo) abre a câmera para ler código de barras.
    - A câmera só funciona em endereço **https** (o da Vercel é). Na primeira vez, o navegador pede permissão da câmera: permita.
    - Android lê com o recurso nativo do Chrome; iPhone usa uma biblioteca incluída (ZXing). Se a câmera falhar, dá para digitar o código.
@@ -30,7 +30,7 @@ Os dados **não** ficam no GitHub nem na Vercel: ficam no Supabase. A Vercel só
 Menu **Equipe**:
 - **Adicionar pessoa**: escolha um modelo (Gerente, Estoquista, Operador de galpão, Financeiro, Somente consulta) e ajuste item por item. O sistema gera um **login** e uma **senha provisória** — mostrados **uma vez**. Passe para a pessoa.
 - **Financeiro** (custos, preços, valores de pedidos, margens, exportação com valores) é uma permissão separada. Nenhum modelo, exceto "Financeiro", a inclui. Quem não tem **nem vê** esses números: o servidor os remove das respostas.
-- Você pode **mudar permissões a qualquer momento** (vale na próxima ação da pessoa), **redefinir senha**, **resetar o autenticador** e **desativar** (derruba a pessoa de todos os aparelhos na hora).
+- Você pode **mudar permissões a qualquer momento** (vale na próxima ação da pessoa), **redefinir senha**, **liberar o acesso** de quem criou conta pelo e-mail (ela chega como "Aguardando liberação", sem nenhuma permissão) e **desativar** (derruba a pessoa de todos os aparelhos na hora).
 - Só **você** gerencia a equipe. Isso não pode ser delegado, e a sua conta não pode ser alterada por ninguém.
 - Todas as ações ficam no histórico (Configurações → Auditoria), em uma cadeia à prova de adulteração.
 
@@ -72,11 +72,22 @@ Menu **Integrações**: informe o App ID e a chave do seu app (são guardados **
 | Sintoma | O que fazer |
 |---|---|
 | "Sistema indisponível" | Supabase pausado? Abra o painel do Supabase e restaure o projeto. Depois recarregue. |
-| Esqueci a senha (ou perdi tudo: senha, celular e códigos) | Ninguém redefine a conta do dono pela tela (de propósito). Quem tem as variáveis de produção roda `npm run resetar-dono`: gera uma senha provisória nova, zera as 2 etapas e derruba as sessões. O login continua o mesmo. |
-| Perdi o celular do autenticador | Use um dos 10 códigos de recuperação. Gere novos em Configurações. |
+| Esqueci a senha | Ninguém redefine a conta do dono pela tela (de propósito). Quem tem as variáveis de produção roda `npm run resetar-dono`: gera uma senha provisória nova e derruba as sessões. O login continua o mesmo. |
+| O código de confirmação não chega | Veja o spam. A tela do código tem **Reenviar** (a cada 60 s). Se nunca chega, o envio de e-mail pode estar desligado ou com a senha de app errada: veja "Ligar o envio de e-mail" abaixo. |
 | Uma pessoa saiu | Equipe → **Desativar**. |
 | Suspeita de acesso indevido | Configurações → Sessões → "sair de todos"; troque a senha; confira a Auditoria. |
 
 ## 10. Como o sistema se protege (resumo)
 
-Senhas com hash forte + segredo fora do banco; 2 etapas obrigatória para todos; bloqueio por tentativas; sessão com expiração; proteção contra requisições forjadas (CSRF); cabeçalhos de segurança rígidos (CSP); banco com RLS e um papel próprio sem permissão de alterar histórico; livro-razão e auditoria imutáveis; toda função nova nasce **bloqueada** até ganhar uma regra de permissão. Detalhes em `SEGURANCA.md`.
+Senhas com hash forte + segredo fora do banco; e-mail confirmado por código para quem cria conta; bloqueio por tentativas; sessão com expiração; proteção contra requisições forjadas (CSRF); cabeçalhos de segurança rígidos (CSP); banco com RLS e um papel próprio sem permissão de alterar histórico; livro-razão e auditoria imutáveis; toda função nova nasce **bloqueada** até ganhar uma regra de permissão. Detalhes em `SEGURANCA.md`.
+
+## 11. Ligar o envio de e-mail (para as pessoas criarem conta)
+
+Enquanto isso não for feito, a tela de entrada **não mostra "Criar conta"** (o dono continua entrando normalmente). O sistema manda o código por um Gmail seu (grátis, uns 500 e-mails por dia):
+
+1. Na conta Google que vai **enviar** os e-mails, ligue a verificação em duas etapas (o Google exige) e crie uma **senha de app**: https://myaccount.google.com/apppasswords (são 16 letras).
+2. Na Vercel, projeto **carlos-sistema** → **Settings → Environment Variables**, crie no ambiente *Production*: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_USER=<seu gmail>`, `SMTP_PASS=<a senha de app>` e, se quiser, `EMAIL_DE="Carlos Sistema" <seu gmail>`.
+3. Faça um **Redeploy**. Entre como dono → **Configurações → E-mail da conta**, vincule o seu Gmail e toque em **Enviar e-mail de teste para mim**.
+
+- A senha de app fica **só na Vercel** (e no seu gerenciador de senhas): nunca no GitHub nem no Obsidian.
+- Por padrão só `@gmail.com` pode criar conta. Para liberar outros provedores: `EMAIL_DOMINIOS=gmail.com,outlook.com` (ou `*` para qualquer um).

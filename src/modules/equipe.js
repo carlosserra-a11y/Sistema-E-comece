@@ -37,9 +37,11 @@ export function registrarEquipe(app, { cfg, db }) {
   const { rota } = app;
 
   const publico = (u) => ({
-    id: u.id, nome: u.nome, papel: u.papel, dono: !!u.dono, ativo: !!u.ativo, mfa_ativo: !!u.mfa_ativo, trocar_senha: !!u.trocar_senha,
+    id: u.id, nome: u.nome, papel: u.papel, dono: !!u.dono, ativo: !!u.ativo, trocar_senha: !!u.trocar_senha,
+    pendente: u.papel === 'pendente' && !u.dono, // criou a conta sozinha e aguarda o dono liberar o acesso
     permissoes: u.dono ? null : limparPermissoes(JSON.parse(u.permissoes || '[]')), // dono = todas
-    login: u.login_enc ? decifrar(cfg.fieldKey, u.login_enc) : null, criado_em: u.criado_em,
+    login: u.login_enc ? decifrar(cfg.fieldKey, u.login_enc) : null,
+    email: u.email_enc ? decifrar(cfg.fieldKey, u.email_enc) : null, email_verificado: !!u.email_verificado, criado_em: u.criado_em,
   });
   const pessoa = async (db, id) => {
     const u = await db.get('SELECT * FROM users WHERE id = ?', id);
@@ -59,7 +61,7 @@ export function registrarEquipe(app, { cfg, db }) {
     const senha = senhaProvisoria();
     const hash = await hashSenha(cfg, senha);
     return await tx(db, async (db) => {
-      if ((await db.get('SELECT COUNT(*) c FROM users')).c >= MAX_PESSOAS) throw invalido({ nome: `Limite de ${MAX_PESSOAS} pessoas atingido.` });
+      if ((await db.get("SELECT COUNT(*) c FROM users WHERE NOT (papel = 'pendente' AND email_verificado = 0 AND dono = 0)")).c >= MAX_PESSOAS) throw invalido({ nome: `Limite de ${MAX_PESSOAS} pessoas atingido.` });
       let login; let chave;
       do { login = sortearLogin(); chave = chaveLogin(cfg, login); } while (await db.get('SELECT 1 FROM users WHERE login_hmac = ?', chave));
       const id = await db.insert('INSERT INTO users (login_hmac, login_enc, senha_hash, papel, nome, trocar_senha, dono, permissoes, criado_por, criado_em) VALUES (?,?,?,?,?,1,0,?,?,?)',
@@ -102,18 +104,9 @@ export function registrarEquipe(app, { cfg, db }) {
       await db.run('UPDATE users SET senha_hash = ?, trocar_senha = 1, senha_alterada_em = ? WHERE id = ?', hash, cfg.agora(), u.id);
       await revogarTodas(db, u.id);
       if (u.login_enc) await db.run('DELETE FROM login_tentativas WHERE chave_hmac = ?', chaveLogin(cfg, decifrar(cfg.fieldKey, u.login_enc))); // tira o bloqueio por tentativas
+      if (u.email_hmac) await db.run('DELETE FROM login_tentativas WHERE chave_hmac = ?', u.email_hmac); // no login por e-mail a chave do bloqueio é o próprio HMAC do e-mail
       await auditar(db, ctx, 'EQUIPE_SENHA_REDEFINIDA', 'user', u.id);
       return { ...publico(await pessoa(db, u.id)), senha_provisoria: senha };
     });
   });
-
-  rota('POST', '/api/equipe/:id/resetar-mfa', { reauth: true }, async (ctx) => await tx(db, async (db) => {
-    const u = await pessoa(db, Number(ctx.params.id));
-    naoDono(u);
-    await db.run('UPDATE users SET mfa_ativo = 0, mfa_segredo_enc = NULL, mfa_pendente_enc = NULL, mfa_ultimo_passo = 0, mfa_falhas = 0 WHERE id = ?', u.id);
-    await db.run('DELETE FROM recovery_codes WHERE user_id = ?', u.id);
-    await revogarTodas(db, u.id);
-    await auditar(db, ctx, 'EQUIPE_MFA_RESETADO', 'user', u.id);
-    return publico(await pessoa(db, u.id)); // no próximo acesso a pessoa cadastra o autenticador de novo
-  }));
 }

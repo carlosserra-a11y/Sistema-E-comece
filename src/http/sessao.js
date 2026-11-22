@@ -49,7 +49,7 @@ export async function revogarSessao(cfg, db, id) {
 export async function carregarSessao(cfg, db, ctx) {
   const tok = ctx.cookies[nomesCookie(cfg).sid];
   if (!tok || tok.length > 100) return null;
-  const s = await db.get(`SELECT s.*, u.papel, u.nome, u.mfa_ativo, u.trocar_senha, u.dono, u.permissoes FROM sessions s
+  const s = await db.get(`SELECT s.*, u.papel, u.nome, u.trocar_senha, u.dono, u.permissoes FROM sessions s
     JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.revogada_em IS NULL AND u.ativo = 1`, sha256(tok));
   if (!s) return null;
   const t = cfg.agora();

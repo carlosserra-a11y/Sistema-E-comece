@@ -4,7 +4,6 @@ import { montar } from '../src/server.js';
 import { criarLogger } from '../src/log.js';
 import { chaveLogin } from '../src/modules/acesso.js';
 import { hashSenha } from '../src/security/password.js';
-import { codigoTotp, passoAtual } from '../src/security/totp.js';
 
 // Valores sintéticos, só para testes.
 export const LOGIN = '52998224725';
@@ -14,7 +13,7 @@ const hex = () => crypto.randomBytes(32).toString('hex');
 
 export async function criarSistema(opts = {}) {
   const relogio = { t: Date.now() };
-  const cfg = loadConfig({ NODE_ENV: 'test', DB_PATH: ':memory:', PEPPER: hex(), HMAC_KEY: hex(), FIELD_KEY: hex(), SCRYPT_N: '1024', PORT: '0', LOG_LEVEL: 'error', ML_POLL_MIN: '0', ...(process.env.TEST_DB === 'pg' ? { DATABASE_URL: 'pglite://memory' } : {}), ...(opts.env ?? {}), ...(opts.ml ? { ML_API_BASE: opts.ml.base } : {}) });
+  const cfg = loadConfig({ NODE_ENV: 'test', DB_PATH: ':memory:', PEPPER: hex(), HMAC_KEY: hex(), FIELD_KEY: hex(), SCRYPT_N: '1024', PORT: '0', LOG_LEVEL: 'error', ML_POLL_MIN: '0', EMAIL_TRANSPORTE: 'memoria', ...(process.env.TEST_DB === 'pg' ? { DATABASE_URL: 'pglite://memory' } : {}), ...(opts.env ?? {}), ...(opts.ml ? { ML_API_BASE: opts.ml.base } : {}) });
   cfg.agora = () => relogio.t;
   const atrasos = []; // esperas de recuo (backoff) pedidas ao adapter, sem esperar de verdade
   cfg.ml.esperar = async (ms) => { atrasos.push(ms); };
@@ -53,7 +52,7 @@ export class Cliente {
   idem(c, b, chave = crypto.randomBytes(12).toString('hex')) { return this.req('POST', c, b, { headers: { 'Idempotency-Key': chave } }); }
 }
 
-/** Fluxo completo: login -> trocar senha -> ativar MFA. Devolve o cliente já autenticado. */
+/** Fluxo completo do dono: login com a senha provisória -> trocar a senha. Devolve o cliente já autenticado. */
 export async function entrarCompleto(sis) {
   const c = sis.cliente();
   await c.get('/api/sessao');
@@ -61,15 +60,11 @@ export async function entrarCompleto(sis) {
   if (r.status !== 200) throw new Error(`login falhou: ${r.texto}`);
   r = await c.post('/api/senha/trocar', { senha_atual: SENHA_INICIAL, senha_nova: SENHA_FORTE });
   if (r.status !== 200) throw new Error(`troca falhou: ${r.texto}`);
-  const ini = await c.post('/api/mfa/iniciar');
-  const segredo = ini.data.segredo;
-  r = await c.post('/api/mfa/confirmar', { codigo: codigoTotp(segredo, passoAtual(sis.relogio.t)) });
-  if (r.status !== 200) throw new Error(`mfa falhou: ${r.texto}`);
-  c.segredo = segredo; c.codigos = r.data.codigos_recuperacao;
   return c;
 }
 
-export const codigoMfa = (c, sis, deslocamento = 0) => codigoTotp(c.segredo, passoAtual(sis.relogio.t) + deslocamento);
+/** Último código de 6 dígitos enviado para `para` (caixa de e-mail em memória, só nos testes). */
+export const codigoDoEmail = (sis, para) => [...sis.email.caixa].reverse().find((m) => m.para === para)?.assunto.match(/^(\d{6})/)?.[1] ?? null;
 
 /** Cria produto + devolve id. */
 export async function novoProduto(c, extra = {}) {

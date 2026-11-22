@@ -1,4 +1,4 @@
-import { h, limpar, api, carregar, icone, fmt, badge, tratar, toast, tabela, campo, confirmar, copiar, baixarArquivo, selecao, vazio, paginacao, qs } from './core.js';
+import { h, limpar, api, carregar, icone, fmt, badge, tratar, toast, tabela, campo, entrada, senhaInput, selecao, paginacao, qs } from './core.js';
 import { definirTema } from './main.js';
 
 export async function renderizar(el, { sessao }) {
@@ -7,16 +7,35 @@ export async function renderizar(el, { sessao }) {
   const st = selecao([['escuro', 'Escuro (padrão)'], ['claro', 'Claro'], ['auto', 'Automático (segue o sistema)'], ['contraste', 'Alto contraste']], tema, { 'aria-label': 'Tema', onchange: () => definirTema(st.value) });
   const sd = selecao([['confortavel', 'Confortável'], ['compacta', 'Compacta']], dens, { 'aria-label': 'Densidade', onchange: () => { document.documentElement.dataset.densidade = sd.value; try { localStorage.setItem('densidade', sd.value); } catch { /* ignora */ } toast('Densidade salva. Vale nas próximas listas.', 'ok', 2500); } });
 
-  const atual = h('input', { type: 'password', autocomplete: 'current-password' }); const nova = h('input', { type: 'password', autocomplete: 'new-password' });
-  const trocar = sec('Trocar senha', h('p', { class: 'muted' }, 'Mínimo de 12 caracteres, sem datas nem sequências. Encerra as outras sessões.'), campo('Senha atual', atual), campo('Nova senha', nova),
-    h('button', { class: 'btn primario', onclick: async () => { try { await api.post('/api/senha/trocar', { senha_atual: atual.value, senha_nova: nova.value }); atual.value = nova.value = ''; toast('Senha alterada. Outras sessões foram encerradas.', 'ok', 6000); carregarSessoes(); } catch (e) { tratar(e); } } }, 'Trocar senha'));
+  const atual = senhaInput({ autocomplete: 'current-password' }); const nova = senhaInput({ autocomplete: 'new-password' });
+  const trocar = sec('Trocar senha', h('p', { class: 'muted' }, 'Mínimo de 8 caracteres (pode ser mais longa). Encerra as outras sessões.'), campo('Senha atual', atual.el), campo('Nova senha', nova.el),
+    h('button', { class: 'btn primario', onclick: async () => { try { await api.post('/api/senha/trocar', { senha_atual: atual.input.value, senha_nova: nova.input.value }); atual.input.value = nova.input.value = ''; toast('Senha alterada. Outras sessões foram encerradas.', 'ok', 6000); carregarSessoes(); } catch (e) { tratar(e); } } }, 'Trocar senha'));
 
-  const codigos = h('div', { class: 'stack' });
-  const mfa = sec('Verificação em duas etapas', h('p', null, sessao.usuario?.mfa_ativo ? badge('ativa', 'ok') : badge('desligada', 'erro')),
-    h('button', { class: 'btn', onclick: async () => {
-      if (!(await confirmar('Gerar novos códigos de recuperação', 'Os códigos antigos deixam de valer. Os novos aparecem uma única vez.', { rotulo: 'Gerar' }))) return;
-      try { const r = await api.post('/api/mfa/regenerar'); const t = r.codigos_recuperacao.join('\n'); limpar(codigos).append(h('p', { class: 'muted' }, 'Mostrados só agora:'), h('div', { class: 'codigos' }, r.codigos_recuperacao.map((c) => h('span', null, c))), h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => copiar(t) }, 'Copiar'), h('button', { class: 'btn', onclick: () => baixarArquivo('codigos-recuperacao.txt', `${t}\n`) }, 'Baixar'))); } catch (e) { tratar(e); }
-    } }, 'Gerar novos códigos de recuperação'), codigos);
+  // E-mail da conta: serve para entrar só com e-mail e senha. Troca/vínculo confirmado por um código enviado ao próprio e-mail.
+  const u = sessao.usuario;
+  const status = h('p', { class: 'row' });
+  const pintarStatus = (email, ok) => limpar(status).append(email ? [h('span', { class: 'mono' }, email), badge(ok ? 'confirmado' : 'não confirmado', ok ? 'ok' : 'aviso')] : badge('sem e-mail', 'aviso'));
+  pintarStatus(u?.email, u?.email_verificado);
+  const caixaEmail = h('div', { class: 'stack' });
+  const novoEmail = entrada({ inputmode: 'email', autocomplete: 'email', autocapitalize: 'none', placeholder: 'voce@gmail.com' });
+  const pedirCodigo = async () => {
+    const para = novoEmail.value.trim();
+    try { await api.post('/api/conta/email', { email: para }); } catch (e) { return tratar(e); }
+    const cod = entrada({ inputmode: 'numeric', maxlength: 6, autocomplete: 'one-time-code', placeholder: '000000', class: 'codigo-6', autofocus: true });
+    limpar(caixaEmail).append(h('p', { class: 'muted' }, `Enviamos um código de 6 dígitos para ${para}. Vale por 10 minutos.`), campo('Código', cod),
+      h('button', { class: 'btn primario', onclick: async () => {
+        try {
+          await api.post('/api/conta/email/confirmar', { codigo: cod.value.trim() });
+          const s = await api.get('/api/sessao'); pintarStatus(s.usuario?.email, s.usuario?.email_verificado);
+          limpar(caixaEmail); toast('E-mail confirmado. Agora você pode entrar com ele.', 'ok', 6000);
+        } catch (e) { tratar(e); cod.select(); }
+      } }, 'Confirmar e-mail'));
+  };
+  const emailSec = sec('E-mail da conta', status,
+    sessao.cadastro_disponivel
+      ? [campo('Novo e-mail (Gmail)', novoEmail), h('button', { class: 'btn', onclick: pedirCodigo }, icone('mail', 18), 'Enviar código de confirmação'), caixaEmail]
+      : h('p', { class: 'muted' }, 'O envio de e-mail ainda não foi ligado pelo dono do sistema.'),
+    u?.dono && sessao.cadastro_disponivel ? h('button', { class: 'btn fantasma', onclick: async () => { try { await api.post('/api/email/testar', {}); toast('E-mail de teste enviado para você.', 'ok'); } catch (e) { tratar(e); } } }, 'Enviar e-mail de teste para mim') : null);
 
   const alvoSessoes = h('div');
   const carregarSessoes = () => carregar(alvoSessoes, () => api.get('/api/sessoes'), (d) => alvoSessoes.append(tabela([
@@ -33,6 +52,6 @@ export async function renderizar(el, { sessao }) {
   } }, icone('shield'), 'Verificar integridade')), verif, alvoAud);
 
   el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Configurações'))),
-    h('div', { class: 'grid cols-2' }, sec('Aparência', campo('Tema', st), campo('Densidade das tabelas', sd)), mfa), trocar, sec('Sessões ativas', alvoSessoes), podeAud && auditoria);
+    h('div', { class: 'grid cols-2' }, sec('Aparência', campo('Tema', st), campo('Densidade das tabelas', sd)), emailSec), trocar, sec('Sessões ativas', alvoSessoes), podeAud && auditoria);
   carregarSessoes(); if (podeAud) lerAud();
 }

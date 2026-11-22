@@ -15,7 +15,7 @@ npm test               # testes de segurança, estoque, código de barras e cont
 ```
 
 1. Abra o `.env`, leia `ADMIN_LOGIN` (11 dígitos) e `ADMIN_INITIAL_PASSWORD`.
-2. Entre. O sistema obriga a **trocar a senha** e **ativar o MFA** (QR para o aplicativo autenticador) e mostra **10 códigos de recuperação uma única vez**.
+2. Entre. O sistema pede para **trocar a senha** (8 ou mais caracteres). Não existe QR Code nem aplicativo autenticador.
 3. Depois de criar o admin, **apague essas duas linhas do `.env`**.
 
 > O login e a senha inicial **nunca** entram em código, Git, prompt ou logs.
@@ -24,7 +24,7 @@ npm test               # testes de segurança, estoque, código de barras e cont
 
 | Área | Entregue |
 |---|---|
-| Acesso | usuário único, senha scrypt+pepper, troca obrigatória, MFA/TOTP com anti-replay, códigos de recuperação, sessão rotacionada a cada etapa, CSRF + Origin, bloqueio progressivo, reautenticação, lista/revogação de sessões, auditoria encadeada por hash |
+| Acesso | login por **e-mail (Gmail) + senha**; quem cria a conta recebe um **código de 6 dígitos no e-mail** e fica sem nenhuma permissão até o dono liberar; senha scrypt+pepper, sessão rotacionada, CSRF + Origin, bloqueio progressivo (10 tentativas), reautenticação, lista/revogação de sessões, auditoria encadeada por hash |
 | Cadastros | produtos (versão otimista), fornecedores (CNPJ/CPF cifrado), códigos de barras validados, importação/exportação CSV com prévia e proteção contra injeção de fórmula |
 | **Etiquetagem** | **gerador de EAN-13 interno** (prefixo 20, dígito verificador GS1), geração em lote para quem não tem código, etiquetas 40×25, 50×30, 100×50 e 100×150 mm em SVG (impressão pelo navegador) e **ZPL** (Zebra), Code 128, EAN-13/8, UPC-A e **QR Code** |
 | **Reconhecimento** | leitura universal: produto (UPC-A = EAN-13 com zero), endereço, lote; ignora CR/LF, prefixo AIM, travessão tipográfico, minúsculas; avisa leitura com dígito errado; câmera (BarcodeDetector) ou leitor USB/Bluetooth |

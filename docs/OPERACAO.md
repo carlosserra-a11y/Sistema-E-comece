@@ -55,4 +55,4 @@
 | "Saldo insuficiente" | confira o endereço de origem; use **Consulta** para ver onde o produto está |
 | Estoque não bate | **Estoque → Ajustar** (motivo obrigatório, pede senha) ou abra uma **Contagem** |
 | Produto avariado | **Estoque → Avaria** (mova para o endereço de avaria ou baixe) |
-| Esqueceu a senha | use um código de recuperação do MFA para entrar e troque a senha em Configurações |
+| Esqueceu a senha | o dono redefine em **Equipe → Redefinir senha** (senha provisória nova); se for o dono, `npm run resetar-dono` |

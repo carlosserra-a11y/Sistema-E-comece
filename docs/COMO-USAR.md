@@ -5,10 +5,10 @@ Para o dia a dia do galpão (etiquetar, receber, contar) veja também [OPERACAO.
 ## 1. Entrar pela primeira vez (5 minutos)
 
 1. Abra o endereço do sistema no computador **ou no celular**.
-2. **Login:** os 11 dígitos que estão no seu arquivo de segredos. **Senha:** a provisória do mesmo arquivo.
-3. **Nova senha:** o sistema pede para trocar. Use 12 ou mais caracteres; uma frase longa funciona bem ("cafe-quente-na-janela-2026" serve). Evite datas, sequências (1234, abcd) e repetições.
-4. **Autenticador (2 etapas):** instale no celular o *Google Authenticator*, *Microsoft Authenticator* ou *Authy*. Escaneie o QR Code que aparece e digite o código de 6 dígitos.
-5. **Códigos de recuperação:** o sistema mostra 10 códigos **uma única vez**. Copie para o seu gerenciador de senhas. Cada um vale uma vez e salva você se perder o celular.
+2. **Login:** os 11 dígitos que estão no seu arquivo de segredos (conta do dono). **Senha:** a provisória do mesmo arquivo. Quem criou conta pelo e-mail usa o próprio Gmail.
+3. **Nova senha:** o sistema pede para trocar. Use 8 ou mais caracteres; uma frase longa funciona bem ("cafe-quente-na-janela" serve). Não use senhas óbvias como 12345678.
+4. **Não há mais QR Code nem aplicativo autenticador.** Depois de trocar a senha você já entra.
+5. **Criar conta (para a equipe):** na tela de entrada, toque em **Criar conta**, digite nome, Gmail e uma senha de 8 ou mais caracteres. O sistema manda um **código de 6 dígitos** para o seu e-mail (vale 10 minutos); digite para confirmar. Depois o dono precisa **liberar o seu acesso**.
 6. Pronto: você cai na tela **Início**.
 
 Dica: a sessão expira depois de 30 minutos sem uso (o sistema avisa antes) e no máximo em 12 horas. Para ações sensíveis (ajustar estoque, aprovar contagem, mexer na equipe) ele pede a senha de novo — é proposital.
@@ -27,7 +27,7 @@ Dica: a sessão expira depois de 30 minutos sem uso (o sistema avisa antes) e no
 | **Etiquetas** | Gerar e imprimir etiquetas (PDF/navegador ou ZPL para impressora térmica) |
 | **Fornecedores** | Cadastro (CNPJ/CPF guardado cifrado) |
 | **Equipe** | **Só você:** cadastrar pessoas e escolher o que cada uma pode |
-| **Configurações** | Tema, senha, códigos de recuperação, sessões, auditoria |
+| **Configurações** | Tema, e-mail da conta, senha, sessões, auditoria |
 
 Atalhos no computador: `Ctrl+K` abre a paleta de comandos, `/` vai para a busca, `G` e depois `I/P/E/A/C/T/Q` navega, `?` lista os atalhos.
 
@@ -52,7 +52,7 @@ Atalhos no computador: `Ctrl+K` abre a paleta de comandos, `/` vai para a busca,
 - Modelos: **Gerente** (tudo, menos financeiro e equipe), **Estoquista**, **Operador de galpão**, **Financeiro** (vê custos/preços/valores; não mexe no estoque), **Somente consulta**, ou **Personalizado** (você marca item por item).
 - **Financeiro** é uma permissão separada. Quem não tem não vê custo, preço nem valor de pedido — nem por exportação de planilha.
 - Mudou as permissões? Vale na próxima ação da pessoa, sem ela precisar sair.
-- Alguém saiu? **Desativar** derruba a pessoa de todos os aparelhos na hora. Esqueceu a senha? **Redefinir senha** gera uma nova provisória. Perdeu o celular? **Resetar 2 etapas**.
+- Alguém saiu? **Desativar** derruba a pessoa de todos os aparelhos na hora. Esqueceu a senha? **Redefinir senha** gera uma nova provisória. Alguém criou a conta pelo e-mail? Ela aparece como **Aguardando liberação**: toque em **Liberar acesso** e escolha o que a pessoa pode fazer.
 
 ## 6. Mercado Livre
 
@@ -62,7 +62,7 @@ Atalhos no computador: `Ctrl+K` abre a paleta de comandos, `/` vai para a busca,
 
 ## 7. Se você trancar a própria conta
 
-Perdeu senha **e** celular **e** os códigos? Quem tem as variáveis de produção roda `npm run resetar-dono`: ele gera uma senha provisória nova, zera as 2 etapas e derruba as sessões. O login continua o mesmo. (Detalhes no GUIA-DO-DONO.)
+Perdeu a senha do dono? Quem tem as variáveis de produção roda `npm run resetar-dono`: ele gera uma senha provisória nova e derruba as sessões. O login continua o mesmo. (Detalhes no GUIA-DO-DONO.)
 
 ## 8. Pequenos cuidados
 
