@@ -15,7 +15,7 @@ export const TENTATIVAS_MAX = 10;
 export { espera };
 
 /** Contas com senha provisória (criadas pelo dono) trocam a senha no 1º acesso; as demais entram direto. Não há mais 2ª etapa. */
-export const proximoEstagio = (u) => (u.trocar_senha ? 'TROCAR_SENHA' : 'COMPLETA');
+export const proximoEstagio = (u) => (u.trocar_senha && !(u.dono && u.email_verificado) ? 'TROCAR_SENHA' : 'COMPLETA'); // o dono com e-mail confirmado entra pelo código: a senha provisória não é mais a chave dele
 export const chaveLogin = (cfg, digitos) => hmacHex(cfg.hmacKey, `login|${digitos}`);
 
 /** Quem está tentando entrar: e-mail (cadastro novo) ou código de 11 dígitos (conta criada pelo dono). `chave` é o HMAC usado no bloqueio. */
@@ -110,6 +110,24 @@ export function registrarAcesso(app, { cfg, db, email, log }) {
       await auditar(db, ctx, comCodigo ? 'LOGIN_SENHA_OK' : 'LOGIN_OK', 'user', user.id);
     });
     return respostaSessao(ctx, comCodigo ? { email: mascararEmail(decifrar(cfg.fieldKey, user.email_enc)) } : {});
+  });
+
+  // Conta do dono (desenvolvedor): entra só com o e-mail, sem senha. A prova é o código enviado à caixa de entrada dele (mesma etapa CODIGO_EMAIL).
+  // Só vale para a conta de dono com e-mail confirmado, e só com o código ligado: sem ele (LOGIN_CODIGO=0) esta porta fecha, senão não restaria prova nenhuma.
+  rota('POST', '/api/login/email', { auth: 'publica' }, async (ctx) => {
+    limitar(`loginemail:ip:${ctx.ip}`, TENTATIVAS_MAX * 2, 15 * 60_000, 'Muitas tentativas neste aparelho/rede.');
+    const { email: bruto } = validar(ctx.corpo, { email: T({ obrig: true, max: 254 }) });
+    const e = normalizarEmail(bruto);
+    const user = e && cfg.loginCodigo && email.configurado
+      ? await db.get('SELECT * FROM users WHERE email_hmac = ? AND dono = 1 AND ativo = 1 AND email_verificado = 1', chaveEmail(cfg, e.canonico)) : null;
+    if (!user) throw erro(401, 'CREDENCIAIS', 'E-mail ou senha inválidos.'); // mesma resposta para qualquer e-mail que não seja o do dono
+    await enviarCodigoLogin(user);
+    await tx(db, async (db) => {
+      ctx.user = { id: user.id, papel: user.papel, nome: user.nome };
+      await criarSessao(cfg, db, ctx, user.id, 'CODIGO_EMAIL');
+      await auditar(db, ctx, 'LOGIN_EMAIL_DONO', 'user', user.id);
+    });
+    return respostaSessao(ctx, { email: mascararEmail(decifrar(cfg.fieldKey, user.email_enc)) });
   });
 
   // 2ª etapa: o código que foi para o e-mail da conta. A sessão só vira "completa" (ou segue para trocar a senha) depois dele.

@@ -74,14 +74,15 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
       e.preventDefault(); btn.disabled = true; erro.textContent = '';
       const senha = s.input.value;
       try {
-        const r = await api.post('/api/login', { login: l.value.trim(), senha });
+        const soEmail = !senha && l.value.includes('@'); // conta de desenvolvedor: sem senha, o código chega no e-mail
+        const r = soEmail ? await api.post('/api/login/email', { email: l.value.trim() }) : await api.post('/api/login', { login: l.value.trim(), senha });
         if (r.estagio === 'CODIGO_EMAIL') return confirmarEmail({ email: r.email, senha, enviado: true, modo: 'login' });
         if (r.estagio === 'TROCAR_SENHA') trocarSenha(senha); else aoEntrar();
       } catch (x) {
         if (x instanceof ApiError && x.code === 'EMAIL_NAO_CONFIRMADO') return confirmarEmail({ email: l.value.trim(), senha, enviado: false });
         erro.textContent = x.message; btn.disabled = false; s.input.select();
       }
-    } }, campo(sessao.cadastro_disponivel ? 'E-mail ou código de acesso' : 'Código de acesso', l), campo('Senha', s.el), erro, btn));
+    } }, campo(sessao.cadastro_disponivel ? 'E-mail ou código de acesso' : 'Código de acesso', l), campo('Senha', s.el, sessao.cadastro_disponivel ? { ajuda: 'Conta de desenvolvedor: deixe a senha em branco e use o código do e-mail.' } : {}), erro, btn));
   }
 
   function criar() {

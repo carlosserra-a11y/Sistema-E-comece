@@ -12,7 +12,7 @@ import { registrarPedidos } from './modules/pedidos.js';
 import { registrarIntegracoes } from './modules/integracoes.js';
 import { registrarEquipe } from './modules/equipe.js';
 import { registrarCadastro } from './modules/cadastro.js';
-import { criarEmail } from './email.js';
+import { criarEmail, vincularEmailDono } from './email.js';
 import { fileURLToPath } from 'node:url';
 import { iguais } from './security/crypto.js';
 import { erro } from './util.js';
@@ -22,6 +22,7 @@ export async function montar(cfg, { log = criarLogger({ nivel: cfg.logLevel }), 
   const banco = db ?? await abrirBanco(cfg);
   await migrar(banco, cfg.migrationsDir);
   await garantirDeposito(banco, cfg.agora());
+  await vincularEmailDono(cfg, banco, log).catch((e) => log.error('falha ao vincular DONO_EMAIL', { erro: e.message }));
   const app = criarApp({ cfg, db: banco, log });
   const email = criarEmail(cfg);
   const deps = { cfg, db: banco, log, email };

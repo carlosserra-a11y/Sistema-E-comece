@@ -82,6 +82,7 @@ export function loadConfig(overrides = {}) {
       dominios: (env.EMAIL_DOMINIOS || 'gmail.com,googlemail.com').toLowerCase().split(',').map((x) => x.trim()).filter(Boolean), // '*' libera qualquer e-mail
     },
     loginCodigo: env.LOGIN_CODIGO !== '0', // código por e-mail a cada login (2ª etapa). LOGIN_CODIGO=0 desliga (emergência: e-mail fora do ar)
+    donoEmail: (env.DONO_EMAIL || '').trim(), // e-mail da conta de dono (desenvolvedor): vinculado e confirmado na partida; entra só com o código do e-mail
     adminLogin: env.ADMIN_LOGIN || '',
     adminSenha: env.ADMIN_INITIAL_PASSWORD || '',
     agora: () => Date.now(),

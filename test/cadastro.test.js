@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TENTATIVAS_MAX } from '../src/modules/acesso.js';
 import { criarSistema, entrarCompleto, codigoDoEmail, SENHA_FORTE } from './helpers.js';
+import { vincularEmailDono } from '../src/email.js';
 
 const SENHA = 'Cavalo-Azul-77';
 const EMAIL = 'ana.souza@gmail.com';
@@ -301,3 +302,65 @@ test('login com código: conta com senha provisória confirma o código e depois
   const nova = 'Outro-Cavalo-88';
   assert.equal((await c.post('/api/senha/trocar', { senha_atual: red.data.senha_provisoria, senha_nova: nova })).data.estagio, 'COMPLETA');
 }));
+
+// ---------------------------------------------------------------- conta do dono: só e-mail + código, sem senha
+const DONO = 'dev.dono@gmail.com';
+const comDono = (fn) => com(async (sis) => { assert.equal(await vincularEmailDono(sis.cfg, sis.db), true); await fn(sis); }, { env: { DONO_EMAIL: DONO } });
+
+test('dono: o e-mail do desenvolvedor entra só com o código (sem senha) e já tem tudo liberado', async () => await comDono(async (sis) => {
+  assert.equal(await vincularEmailDono(sis.cfg, sis.db), false, 'idempotente');
+  const c = await visitante(sis);
+  const r = await c.post('/api/login/email', { email: 'Dev.Dono@Gmail.com' });
+  assert.equal(r.status, 200, r.texto);
+  assert.equal(r.data.estagio, 'CODIGO_EMAIL');
+  assert.equal((await c.get('/api/equipe')).erro.code, 'ETAPA_INVALIDA', 'sem o código nada abre');
+  assert.equal((await c.post('/api/login/codigo', { codigo: '000000' })).status, 422);
+  const ok = await c.post('/api/login/codigo', { codigo: codigoDoEmail(sis, DONO) });
+  assert.equal(ok.data.estagio, 'COMPLETA', 'mesmo com a senha provisória ainda pendente, o dono não é obrigado a trocá-la');
+  const eu = (await c.get('/api/sessao')).data.usuario;
+  assert.equal(eu.dono, true);
+  for (const rota of ['/api/equipe', '/api/auditoria', '/api/pedidos', '/api/produtos', '/api/integracoes']) assert.equal((await c.get(rota)).status, 200, rota);
+}));
+
+test('dono: só o e-mail do dono entra sem senha; os outros continuam precisando de senha', async () => await comDono(async (sis) => {
+  const { c: ana } = await cadastrar(sis);
+  await confirmar(ana, codigoDoEmail(sis, EMAIL));
+  await ana.post('/api/logout');
+  const antes = sis.email.caixa.length;
+  for (const email of [EMAIL, 'ninguem@gmail.com', 'isto-nao-e-email']) {
+    const r = await (await visitante(sis)).post('/api/login/email', { email });
+    assert.equal(r.status, 401, email);
+    assert.equal(r.erro.message, 'E-mail ou senha inválidos.');
+  }
+  assert.equal(sis.email.caixa.length, antes, 'nenhum e-mail sai para quem não é o dono');
+}));
+
+test('dono: 5 códigos errados invalidam o código e LOGIN_CODIGO=0 fecha a porta sem senha', async () => {
+  await comDono(async (sis) => {
+    const c = await visitante(sis);
+    await c.post('/api/login/email', { email: DONO });
+    const certo = codigoDoEmail(sis, DONO);
+    const errado = certo === '000000' ? '000001' : '000000';
+    for (let i = 0; i < 5; i++) assert.equal((await c.post('/api/login/codigo', { codigo: errado })).status, 422);
+    assert.equal((await c.post('/api/login/codigo', { codigo: certo })).status, 422, 'esgotado: nem o certo vale');
+  });
+  await com(async (sis) => {
+    await vincularEmailDono(sis.cfg, sis.db);
+    const r = await (await visitante(sis)).post('/api/login/email', { email: DONO });
+    assert.equal(r.status, 401, 'sem o código ligado não existe entrada sem senha');
+  }, { env: { DONO_EMAIL: DONO, LOGIN_CODIGO: '0' } });
+});
+
+test('dono: DONO_EMAIL tira da frente quem reservou o e-mail e respeita conta confirmada de outra pessoa', async () => {
+  await com(async (sis) => {
+    await cadastrar(sis, { nome: 'Invasor', email: DONO }); // cadastro não confirmado "reservando" o e-mail do dono
+    assert.equal(await vincularEmailDono(sis.cfg, sis.db), true);
+    const donos = await sis.db.all('SELECT dono, email_verificado FROM users WHERE email_hmac IS NOT NULL');
+    assert.deepEqual(donos.map((u) => [u.dono, u.email_verificado]), [[1, 1]]);
+  }, { env: { DONO_EMAIL: DONO } });
+  await com(async (sis) => {
+    const { c } = await cadastrar(sis, { email: DONO });
+    await confirmar(c, codigoDoEmail(sis, DONO), { email: DONO }); // conta de verdade já confirmada com esse e-mail
+    assert.equal(await vincularEmailDono(sis.cfg, sis.db), false, 'não rouba o e-mail de uma conta confirmada');
+  }, { env: { DONO_EMAIL: DONO } });
+});

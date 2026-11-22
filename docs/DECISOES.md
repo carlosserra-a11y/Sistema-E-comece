@@ -18,6 +18,7 @@ Registradas porque o prompt pedia perguntas e não houve resposta: valeu o padr�
 | Idempotência | obrigatória (`Idempotency-Key`) em receber/transferir/ajustar/baixar/avaria; guardada 2 dias | duplo clique e queda de rede |
 | Reautenticação | senha, janela de 5 min, para ajuste, aprovação de contagem e gestão da equipe | ações críticas |
 | Segunda etapa | QR/TOTP removido em 22/11/2026 a pedido do dono; no lugar, código de 6 dígitos enviado ao e-mail da conta a cada login (só contas com e-mail confirmado) | simples para a equipe; depende do envio de e-mail (interruptor `LOGIN_CODIGO=0`) |
+| Entrada do dono | só e-mail + código (sem senha), via `DONO_EMAIL`, a pedido do dono em 22/11/2026 | conta de desenvolvedor sem senha para lembrar; a segurança passa a ser a do Gmail |
 | Aprovação de inventário | o mesmo usuário cria e aprova (único usuário), registrado como `auto_aprovacao` na auditoria | separação de funções chega com a equipe/RBAC |
 | Contagem | cega por padrão; item achado fora do sistema entra com saldo 0 | evita viés |
 | Sessão | ociosa 30 min, absoluta 12 h, pré-login 15 min | equilíbrio segurança/uso |
