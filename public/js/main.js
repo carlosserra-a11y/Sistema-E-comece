@@ -9,6 +9,7 @@ const PAGINAS = [
   ['enderecos', 'Endereços', 'map', () => import('./pg-enderecos.js'), ['enderecos.ver']],
   ['integracoes', 'Integrações', 'arrows', () => import('./pg-integracoes.js'), ['integracoes.ver', 'pedidos.ver']],
   ['contagem', 'Contagem', 'clipboard', () => import('./pg-contagem.js'), ['contagem.operar']],
+  ['codigos', 'Gerador de códigos', 'barcode', () => import('./pg-codigos.js'), ['etiquetas.imprimir']],
   ['etiquetas', 'Etiquetas', 'tag', () => import('./pg-etiquetas.js'), ['etiquetas.imprimir']],
   ['fornecedores', 'Fornecedores', 'truck', () => import('./pg-fornecedores.js'), ['fornecedores.ver']],
   ['empresa', 'Empresa', 'building', () => import('./pg-empresa.js'), ['empresa.ver']],
@@ -154,7 +155,7 @@ function atalhos() {
     linha('G depois E', 'Estoque'), linha('G depois A', 'Endereços'), linha('G depois C', 'Contagem'), linha('G depois T', 'Etiquetas'), linha('G depois Q', 'Consulta'), linha('N', 'Novo (na tela atual)'), linha('?', 'Esta lista'), linha('Esc', 'Fechar gaveta/janela')));
 }
 
-const IR_PARA = { m: 'integracoes', i: 'painel', p: 'produtos', e: 'estoque', a: 'enderecos', c: 'contagem', t: 'etiquetas', q: 'consulta', f: 'fornecedores' };
+const IR_PARA = { b: 'codigos', m: 'integracoes', i: 'painel', p: 'produtos', e: 'estoque', a: 'enderecos', c: 'contagem', t: 'etiquetas', q: 'consulta', f: 'fornecedores' };
 let esperandoG = 0;
 document.addEventListener('keydown', (e) => {
   if (!sessao?.autenticado) return;

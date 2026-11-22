@@ -42,9 +42,10 @@ Menu **Equipe**:
 
 ## 5. Backup (faça!)
 
-O plano grátis do Supabase não faz backup. Recomendação:
-- **Mensal** (ou antes de mudanças grandes): Supabase → *Database → Backups* mostra o que o plano oferece; no plano Pro há backups diários.
-- Alternativa gratuita: no painel do Supabase, *SQL Editor* → exporte as tabelas importantes (`produtos`, `movimentacoes_estoque`, `saldos_por_endereco`) em CSV.
+O plano grátis do Supabase **não faz backup**. O caminho completo está em [BACKUP.md](BACKUP.md); o resumo:
+- **Assine o Supabase Pro** (backup diário automático, 7 dias de histórico). Quem assina é você, no painel.
+- **`npm run backup`** salva o banco inteiro num arquivo **cifrado** (defina `BACKUP_SENHA`). Agende por dia e guarde uma cópia **fora** do computador. `npm run backup:verificar` confere o arquivo e `npm run restaurar` abre os dados num SQLite novo.
+- O **código** fica no GitHub (`git push`).
 - O livro-razão (`movimentacoes_estoque`) é **imutável**: o saldo sempre pode ser reconstruído a partir dele.
 
 ## 6. Segredos — guarde em um gerenciador de senhas

@@ -16,7 +16,10 @@
     "test": "node --disable-warning=ExperimentalWarning --test",
     "icones": "node scripts/gerar-icones.js",
     "test:pg": "node -e \"process.env.TEST_DB='pg';process.env.DB_LOCK_MS='8000';import('node:child_process').then(({spawnSync})=>process.exit(spawnSync(process.execPath,['--disable-warning=ExperimentalWarning','--test','--test-timeout=60000'],{stdio:'inherit'}).status))\"",
-    "resetar-dono": "node --disable-warning=ExperimentalWarning scripts/resetar-dono.js"
+    "resetar-dono": "node --disable-warning=ExperimentalWarning scripts/resetar-dono.js",
+    "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
+    "backup:verificar": "node --disable-warning=ExperimentalWarning scripts/backup-verificar.js",
+    "restaurar": "node --disable-warning=ExperimentalWarning scripts/restaurar-backup.js"
   },
   "dependencies": {
     "@vercel/functions": "^3.11.3",

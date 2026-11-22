@@ -53,6 +53,7 @@ export function loadConfig(overrides = {}) {
     prod, host, port, publicOrigin, origensPermitidas, hostsPermitidos, dbPath, databaseUrl,
     databaseSslCa: env.DATABASE_SSL_CA || '', dbPoolMax: Number(env.DB_POOL_MAX ?? 3),
     appName: env.APP_NAME || 'Carlos Desenvolvedor de Sistema',
+    backupSenha: env.BACKUP_SENHA || '', // senha que cifra os arquivos de backup (scripts de backup/restauração)
     trustProxy: env.TRUST_PROXY === 'true',
     pepper: chave('PEPPER', env.PEPPER),
     hmacKey: chave('HMAC_KEY', env.HMAC_KEY),
