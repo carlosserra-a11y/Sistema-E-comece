@@ -18,8 +18,10 @@ navegador ──HTTPS──> Caddy ──> sistema (Node 24, porta 3000) ──>
 No PowerShell do seu computador (troque `IP_DA_VPS`):
 
 ```powershell
-ssh root@IP_DA_VPS
+ssh -p 22022 root@IP_DA_VPS
 ```
+
+(Na HostGator o SSH usa a porta **22022**, não a 22. O IP, a porta e o usuário `root` estão no painel: *VPS e Dedicados → Gerenciar → Acesso SSH*.)
 
 ## 3. Instalar (um comando)
 
@@ -28,7 +30,7 @@ curl -fsSL https://raw.githubusercontent.com/carlosserra-a11y/Sistema-E-comece/m
 bash instalar.sh
 ```
 
-Ele instala Node 24, PostgreSQL 17, Caddy (HTTPS automático) e o firewall (só as portas 22, 80 e 443; o banco **não** fica aberto), cria o banco com as mesmas tabelas e cria o serviço que sobe sozinho. Para continuar na Supabase em vez de usar o banco local: `BANCO_TIPO=supabase bash instalar.sh`.
+Ele instala Node 24, PostgreSQL 17, Caddy (HTTPS automático) e o firewall (só o SSH, 80 e 443; o banco **não** fica aberto), cria o banco com as mesmas tabelas e cria o serviço que sobe sozinho. Para continuar na Supabase em vez de usar o banco local: `BANCO_TIPO=supabase bash instalar.sh`.
 
 ## 4. Preencher os segredos
 
@@ -90,7 +92,7 @@ Baixa a versão nova do GitHub, aplica as mudanças de banco que faltarem e rein
 | 2h00 | `npm run backup`: arquivo do sistema, cifrado, bom para conferir e abrir os dados | `/opt/wms/app/backups` |
 | 2h30 | `backup-pg.sh`: backup **nativo do PostgreSQL**, cifrado com a `BACKUP_SENHA`; é o que se restaura num servidor novo | `/opt/wms/backups-pg` |
 
-- **O servidor e o banco estão na mesma máquina.** Se a VPS for perdida, os backups que ficaram nela vão junto. Traga uma cópia para o seu computador toda semana (PowerShell): `scp "root@IP_DA_VPS:/opt/wms/backups-pg/*" .` — o arquivo é cifrado, pode ir para o Google Drive.
+- **O servidor e o banco estão na mesma máquina.** Se a VPS for perdida, os backups que ficaram nela vão junto. Traga uma cópia para o seu computador toda semana (PowerShell): `scp -P 22022 "root@IP_DA_VPS:/opt/wms/backups-pg/*" .` — o arquivo é cifrado, pode ir para o Google Drive.
 - Restaurar num PostgreSQL novo: o comando está no cabeçalho do `deploy/vps/backup-pg.sh`.
 - Confira de vez em quando que existe um arquivo de hoje nas duas pastas.
 - Conferir os dados a qualquer momento: `cd /opt/wms/app && sudo -u wms npm run verificar-dados`.

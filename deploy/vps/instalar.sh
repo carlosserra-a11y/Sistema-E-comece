@@ -145,7 +145,10 @@ $DOMINIO {
 CADDY
 systemctl enable caddy >/dev/null
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
-ufw allow OpenSSH >/dev/null
+# libera a porta do SSH que ESTÁ em uso (na HostGator é a 22022, não a 22): liberar a errada trancaria você para fora da VPS
+SSH_PORTAS="$(ss -H -tlnp 2>/dev/null | awk '/sshd/ { n = split($4, a, ":"); print a[n] }' | sort -u)"
+[ -n "$SSH_PORTAS" ] || SSH_PORTAS=22
+for porta in $SSH_PORTAS; do ufw allow "$porta/tcp" >/dev/null; echo "    SSH liberado na porta $porta"; done
 ufw allow 80/tcp >/dev/null
 ufw allow 443/tcp >/dev/null
 ufw --force enable >/dev/null

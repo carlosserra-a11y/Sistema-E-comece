@@ -79,3 +79,10 @@ test('npm run verificar-dados: confere saldo x livro-razão e a cadeia de audito
     assert.match(ok.stdout, /Estoque: OK/); assert.match(ok.stdout, /Auditoria: OK/); assert.match(ok.stdout, /Integridade OK/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('instalar.sh: o firewall libera a porta do SSH em uso (a HostGator usa 22022), senão o servidor tranca você para fora', () => {
+  const instalar = fs.readFileSync(path.join(VPS, 'instalar.sh'), 'utf8');
+  assert.ok(!/ufw allow OpenSSH/.test(instalar), 'OpenSSH liberaria só a porta 22');
+  assert.ok(instalar.includes('ss -H -tlnp') && instalar.includes('SSH_PORTAS'), 'detecta a porta do sshd');
+  assert.ok(instalar.indexOf('SSH_PORTAS') < instalar.indexOf('ufw --force enable'), 'a porta é liberada antes de ligar o firewall');
+});
