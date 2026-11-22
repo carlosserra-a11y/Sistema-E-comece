@@ -41,6 +41,14 @@ export function loadConfig(overrides = {}) {
     origensPermitidas.add(publicOrigin);
     hostsPermitidos.add(new URL(publicOrigin).host);
   }
+  // Outros endereços https que também servem o sistema (ex.: o domínio próprio e o "www" junto do endereço da Vercel). Aceita acentos: a URL é normalizada para o formato técnico (punycode) que o navegador envia.
+  for (const bruto of String(env.ORIGENS_EXTRAS || '').split(',').map((s) => s.trim()).filter(Boolean)) {
+    let u;
+    try { u = new URL(bruto); } catch { throw new Error(`ORIGENS_EXTRAS: endereço inválido: ${bruto}`); }
+    if (prod && u.protocol !== 'https:') throw new Error(`ORIGENS_EXTRAS: em produção use https (${bruto}).`);
+    origensPermitidas.add(u.origin);
+    hostsPermitidos.add(u.host);
+  }
   if (!prod) {
     for (const h of ['localhost', '127.0.0.1', '[::1]']) {
       hostsPermitidos.add(`${h}:${port}`);

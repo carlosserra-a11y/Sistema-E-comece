@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT } from '../src/config.js';
+import { ROOT, loadConfig } from '../src/config.js';
 import { CSP } from '../src/http/app.js';
 import http from 'node:http';
 import net from 'node:net';
@@ -76,4 +76,16 @@ test('função da Vercel (api/index.js): sobe o sistema sob demanda, responde e 
     for (const k of Object.keys(process.env)) if (!(k in antigo)) delete process.env[k];
     Object.assign(process.env, antigo);
   }
+});
+
+test('vários endereços: o domínio próprio (com acento) e o "www" valem junto do endereço da Vercel; http e lixo não', () => {
+  const hex = () => crypto.randomBytes(32).toString('hex');
+  const base = { NODE_ENV: 'production', PUBLIC_ORIGIN: 'https://carlos-sistema-carlos-nunes.vercel.app', PEPPER: hex(), HMAC_KEY: hex(), FIELD_KEY: hex() };
+  const cfg = loadConfig({ ...base, ORIGENS_EXTRAS: 'https://friospeçaseserviços.com.br, https://www.friospeçaseserviços.com.br' });
+  for (const o of ['https://carlos-sistema-carlos-nunes.vercel.app', 'https://xn--friospeaseservios-gsbi.com.br', 'https://www.xn--friospeaseservios-gsbi.com.br']) assert.ok(cfg.origensPermitidas.has(o), `origem ${o}`);
+  assert.ok(cfg.hostsPermitidos.has('xn--friospeaseservios-gsbi.com.br') && cfg.hostsPermitidos.has('www.xn--friospeaseservios-gsbi.com.br'));
+  assert.ok(!cfg.origensPermitidas.has('https://outro.exemplo.com'));
+  assert.equal(cfg.publicOrigin, 'https://carlos-sistema-carlos-nunes.vercel.app', 'o endereço principal (Mercado Livre) não muda');
+  assert.throws(() => loadConfig({ ...base, ORIGENS_EXTRAS: 'http://exemplo.com.br' }), /use https/);
+  assert.throws(() => loadConfig({ ...base, ORIGENS_EXTRAS: 'isto não é endereço' }), /inválido/);
 });

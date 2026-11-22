@@ -66,6 +66,7 @@ Shopee, NF-e (Bling/Tiny), fluxo do pedido (separação mobile, conferência, em
 
 - [Como usar](docs/COMO-USAR.md) — primeiro acesso, tour pelas telas, celular, equipe, Mercado Livre.
 - [Mapa do galpão (FRIO)](docs/MAPA-DO-GALPAO.md) — ruas, prédios, níveis e produtos de teste.
+- [Domínio próprio](docs/DOMINIO.md) — friospeçaseserviços.com.br: DNS e troca do endereço principal.
 - [Backup](docs/BACKUP.md) — Supabase Pro, backup cifrado (`npm run backup`), agendamento e restauração.
 - [Guia do dono](docs/GUIA-DO-DONO.md) — onde fica tudo, acesso, equipe/permissões, limites do plano grátis, backup, segredos, migração para a Hostinger.
 - [Operação](docs/OPERACAO.md) · [Segurança](docs/SEGURANCA.md) · [Arquitetura](docs/ARQUITETURA.md) · [Integrações](docs/INTEGRACOES.md) · [Decisões](docs/DECISOES.md)
