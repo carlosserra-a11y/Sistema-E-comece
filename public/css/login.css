@@ -2,7 +2,7 @@
    Os valores são os do Tailwind do componente original (slate-900/blue-900/slate-800, gray-*, blue-600, rounded-xl, py-3...).
    Fica fora das camadas de propósito: vale sobre o resto do sistema, mas só dentro de .lg-pagina. */
 .lg-pagina { color-scheme: light; position: fixed; inset: 0; display: flex; overflow: hidden; font-family: var(--font); color: #111827;
-  background: linear-gradient(to bottom right, #0f172a, #1e3a8a, #1e293b); }
+  background: linear-gradient(to bottom right, #0b1430, #142a6b, #0a1226); }
 .lg-pagina *, .lg-pagina *::before, .lg-pagina *::after { box-sizing: border-box; }
 
 /* painel esquerdo */
@@ -13,19 +13,16 @@
 .lg-voltar:hover { background: rgb(0 0 0 / 0.3); }
 .lg-voltar:active { transform: scale(0.94); }
 .lg-voltar[hidden] { display: none; }
-.lg-marca { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 0.75rem; padding: 4rem 2rem 1.75rem; color: #fff;
-  background: linear-gradient(to top, rgb(2 6 23 / 0.7), transparent); }
-.lg-marca img { width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; }
-.lg-marca strong { display: block; font-size: 1.125rem; line-height: 1.2; letter-spacing: -0.02em; }
-.lg-marca small { display: block; font-size: 0.75rem; opacity: 0.8; }
+.lg-logo-bloco { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.25rem; padding: 2rem; text-align: center; }
+.lg-logo { width: min(72%, 440px); height: auto; filter: drop-shadow(0 12px 40px rgb(46 168 250 / 0.35)); animation: lg-flutua 6s ease-in-out infinite alternate; }
+.lg-logo-bloco p { margin: 0; color: #cfe9ff; font-size: 0.8125rem; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.85; }
+.lg-marca { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; padding: 3rem 2rem 1.5rem; text-align: center; color: #fff; background: linear-gradient(to top, rgb(2 6 23 / 0.55), transparent); }
+.lg-marca small { font-size: 0.75rem; opacity: 0.7; }
+@keyframes lg-flutua { to { transform: translateY(-6px); } }
 
 /* ilustração (cores e movimento vêm daqui: a CSP não aceita estilo dentro do SVG) */
-.lg-arte .estr { animation: lg-piscar 3.2s ease-in-out infinite alternate; }
-.lg-arte .estr:nth-child(3n) { animation-delay: 0.9s; }
-.lg-arte .estr:nth-child(4n) { animation-delay: 1.7s; animation-duration: 2.4s; }
-.lg-arte .anel-brilho { animation: lg-pulsar 4s ease-in-out infinite alternate; }
-@keyframes lg-piscar { from { opacity: 0.25; } to { opacity: 1; } }
-@keyframes lg-pulsar { from { opacity: 0.25; } to { opacity: 0.6; } }
+.lg-arte .floco { transform-origin: 0 0; animation: lg-gira 70s linear infinite; }
+@keyframes lg-gira { to { transform: rotate(360deg); } }
 
 /* painel direito */
 .lg-dir { flex: 1; display: flex; align-items: center; justify-content: center; background: #fff; overflow-y: auto; }
@@ -102,5 +99,5 @@
   .lg-cab h1 { font-size: 1.625rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lg-caixa > *, .lg-arte .estr, .lg-arte .anel-brilho { animation: none; }
+  .lg-caixa > *, .lg-arte .floco, .lg-logo { animation: none; }
 }

@@ -21,6 +21,7 @@ export const GRUPOS = [
   { id: 'admin', rotulo: 'Administração', itens: [
     ['auditoria.ver', 'Ver o histórico de ações e verificar a integridade'],
     ['usuarios.gerenciar', 'Gerenciar a equipe e as permissões (somente o dono)'],
+    ['empresa.ver', 'Ver os dados da empresa (CNPJ, endereço, contatos, perfil fiscal)'], ['empresa.editar', 'Editar os dados da empresa'],
   ] },
 ];
 export const TODAS = GRUPOS.flatMap((g) => g.itens.map(([id]) => id));
@@ -31,7 +32,7 @@ export const PAPEIS = {
   gerente: { rotulo: 'Gerente', descricao: 'Tudo, menos financeiro e equipe', permissoes: sem('financeiro.ver', 'usuarios.gerenciar') },
   estoquista: { rotulo: 'Estoquista', descricao: 'Cadastra, recebe, guarda, endereça e conta', permissoes: ['produtos.ver', 'produtos.editar', 'estoque.ver', 'estoque.operar', 'etiquetas.imprimir', 'enderecos.ver', 'enderecos.gerenciar', 'contagem.operar', 'fornecedores.ver'] },
   operador: { rotulo: 'Operador de galpão', descricao: 'Celular: bipar, guardar, transferir e contar', permissoes: ['produtos.ver', 'estoque.ver', 'estoque.operar', 'etiquetas.imprimir', 'enderecos.ver', 'contagem.operar'] },
-  financeiro: { rotulo: 'Financeiro', descricao: 'Vê custos, preços e valores; não mexe no estoque', permissoes: ['financeiro.ver', 'produtos.ver', 'estoque.ver', 'pedidos.ver', 'fornecedores.ver', 'integracoes.ver'] },
+  financeiro: { rotulo: 'Financeiro', descricao: 'Vê custos, preços e valores; não mexe no estoque', permissoes: ['financeiro.ver', 'produtos.ver', 'estoque.ver', 'pedidos.ver', 'fornecedores.ver', 'integracoes.ver', 'empresa.ver'] },
   consulta: { rotulo: 'Somente consulta', descricao: 'Só olha, sem alterar nada', permissoes: ['produtos.ver', 'estoque.ver', 'enderecos.ver', 'pedidos.ver'] },
 };
 
@@ -65,7 +66,7 @@ const R = (metodo, padrao, perm) => [`${metodo} ${padrao}`, perm];
 export const REGRAS = new Map([
   // sessão e conta própria
   R('GET', '/api/sessoes', 'qualquer'), R('DELETE', '/api/sessoes/:id', 'qualquer'), R('POST', '/api/sessoes/sair-todas', 'qualquer'),
-  R('POST', '/api/conta/email', 'qualquer'), R('POST', '/api/conta/email/confirmar', 'qualquer'), R('POST', '/api/reautenticar', 'qualquer'), R('GET', '/api/painel', ['produtos.ver', 'estoque.ver', 'enderecos.ver', 'pedidos.ver', 'contagem.operar', 'fornecedores.ver', 'integracoes.ver']),
+  R('POST', '/api/conta/email', 'qualquer'), R('POST', '/api/conta/email/confirmar', 'qualquer'), R('POST', '/api/reautenticar', 'qualquer'), R('POST', '/api/reautenticar/codigo', 'qualquer'), R('GET', '/api/painel', ['produtos.ver', 'estoque.ver', 'enderecos.ver', 'pedidos.ver', 'contagem.operar', 'fornecedores.ver', 'integracoes.ver']),
   // produtos e fornecedores
   R('GET', '/api/produtos', 'produtos.ver'), R('GET', '/api/produtos/:id', 'produtos.ver'), R('GET', '/api/produtos-exportar', 'produtos.ver'),
   R('POST', '/api/produtos', 'produtos.editar'), R('PUT', '/api/produtos/:id', 'produtos.editar'), R('POST', '/api/produtos/:id/inativar', 'produtos.editar'), R('POST', '/api/produtos/:id/reativar', 'produtos.editar'),
@@ -96,6 +97,7 @@ export const REGRAS = new Map([
   R('POST', '/api/integracoes/ml/sincronizar', 'integracoes.gerenciar'), R('POST', '/api/integracoes/ml/rotacionar-webhook', 'integracoes.gerenciar'),
   R('POST', '/api/produtos/:id/anuncios', 'integracoes.gerenciar'), R('PUT', '/api/anuncios/:id', 'integracoes.gerenciar'), R('DELETE', '/api/anuncios/:id', 'integracoes.gerenciar'),
   // administração
+  R('GET', '/api/empresa', 'empresa.ver'), R('PUT', '/api/empresa', 'empresa.editar'),
   R('GET', '/api/auditoria', 'auditoria.ver'), R('GET', '/api/auditoria/verificar', 'auditoria.ver'),
   R('GET', '/api/equipe', 'usuarios.gerenciar'), R('GET', '/api/equipe/catalogo', 'usuarios.gerenciar'), R('POST', '/api/equipe', 'usuarios.gerenciar'), R('PUT', '/api/equipe/:id', 'usuarios.gerenciar'),
   R('POST', '/api/equipe/:id/desativar', 'usuarios.gerenciar'), R('POST', '/api/equipe/:id/reativar', 'usuarios.gerenciar'), R('POST', '/api/equipe/:id/redefinir-senha', 'usuarios.gerenciar'), R('POST', '/api/email/testar', 'usuarios.gerenciar'),

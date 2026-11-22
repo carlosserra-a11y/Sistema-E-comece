@@ -171,18 +171,30 @@ export function registrarAcesso(app, { cfg, db, email, log }) {
     return respostaSessao(ctx);
   });
 
+  // Confirma uma ação sensível: com a senha OU, para quem entra só pelo e-mail, com um código enviado à caixa de entrada.
   rota('POST', '/api/reautenticar', { auth: 'completa' }, async (ctx) => {
     limitar(`reauth:${ctx.sessao.id}`, TENTATIVAS_MAX, 5 * 60_000);
-    const { senha } = validar(ctx.corpo, { senha: T({ min: 1, max: 1024 }) });
-    if (!(await verificarSenha(cfg, senha, (await usuario(ctx.user.id)).senha_hash))) {
+    const { senha, codigo } = validar(ctx.corpo, { senha: T({ min: 1, max: 1024 }), codigo: T({ min: 1, max: 12 }) });
+    const u = await usuario(ctx.user.id);
+    if (codigo) await conferirCodigo(u, codigo);
+    else if (!senha || !(await verificarSenha(cfg, senha, u.senha_hash))) {
       await tx(db, async (db) => await auditar(db, ctx, 'REAUTENTICACAO_FALHA', 'user', ctx.user.id));
       throw erro(401, 'CREDENCIAIS', 'Senha incorreta.');
     }
     await tx(db, async (db) => {
+      if (codigo) await db.run('UPDATE users SET cod_hash = NULL, cod_expira = NULL, cod_tentativas = 0, cod_enviado_em = NULL WHERE id = ?', u.id);
       await db.run('UPDATE sessions SET reauth_em = ? WHERE id = ?', cfg.agora(), ctx.sessao.id);
       await auditar(db, ctx, 'REAUTENTICACAO_OK', 'user', ctx.user.id);
     });
     return { valido_ate: cfg.agora() + cfg.reauthMs };
+  });
+
+  rota('POST', '/api/reautenticar/codigo', { auth: 'completa' }, async (ctx) => {
+    limitar(`reauthcod:${ctx.sessao.id}`, 10, 10 * 60_000);
+    const u = await usuario(ctx.user.id);
+    if (!u.email_enc || !u.email_verificado || !email.configurado) throw erro(409, 'SEM_EMAIL', 'Esta conta não tem e-mail confirmado para receber o código.');
+    await emitirCodigo(u, decifrar(cfg.fieldKey, u.email_enc), u.nome);
+    return { enviado: true, minutos: VALIDADE_MIN, email: mascararEmail(decifrar(cfg.fieldKey, u.email_enc)) };
   });
 
   rota('POST', '/api/logout', { auth: 'parcial', etapas: ['CODIGO_EMAIL', 'TROCAR_SENHA', 'COMPLETA'] }, async (ctx) => {

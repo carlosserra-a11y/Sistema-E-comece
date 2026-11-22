@@ -83,6 +83,9 @@ export function loadConfig(overrides = {}) {
     },
     loginCodigo: env.LOGIN_CODIGO !== '0', // código por e-mail a cada login (2ª etapa). LOGIN_CODIGO=0 desliga (emergência: e-mail fora do ar)
     donoEmail: (env.DONO_EMAIL || '').trim(), // e-mail da conta de dono (desenvolvedor): vinculado e confirmado na partida; entra só com o código do e-mail
+    provisionar: env.PROVISIONAR || '', // 'frio' = carga inicial do cliente (uma vez): empresa, endereços, produtos e estoque de teste
+    empresaJson: env.EMPRESA_JSON || '', // dados fiscais e de contato da empresa (variável do servidor, nunca no código)
+    donosExtras: env.DONOS_EXTRAS_JSON || '', // contas de dono adicionais: [{"email":"...","nome":"..."}]; entram só com e-mail + código
     adminLogin: env.ADMIN_LOGIN || '',
     adminSenha: env.ADMIN_INITIAL_PASSWORD || '',
     agora: () => Date.now(),

@@ -74,6 +74,14 @@
   .modal { animation: modalEntra 0.22s var(--ease) both; }
   @keyframes modalEntra { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
 
+  /* cabeçalho da página Empresa: a logo do cliente sobre o azul-marinho do uniforme */
+  .empresa-cab { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-5); color: #fff; border-color: color-mix(in oklch, var(--accent) 35%, var(--border));
+    background: radial-gradient(500px 220px at 12% 50%, color-mix(in oklch, var(--accent) 22%, transparent), transparent 70%), linear-gradient(135deg, #0b1430, #142a6b 70%, #0a1226); }
+  .empresa-grade { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
+  .empresa-cab img { width: min(230px, 60%); height: auto; filter: drop-shadow(0 8px 24px rgb(46 168 250 / 0.3)); }
+  .empresa-cab h2 { color: #fff; margin-bottom: var(--s-1); }
+  .empresa-cab .muted { color: #cfe0ff; }
+
   * { scrollbar-width: thin; scrollbar-color: color-mix(in oklch, var(--muted) 45%, transparent) transparent; }
 }
 

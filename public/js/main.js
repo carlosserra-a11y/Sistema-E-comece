@@ -11,6 +11,7 @@ const PAGINAS = [
   ['contagem', 'Contagem', 'clipboard', () => import('./pg-contagem.js'), ['contagem.operar']],
   ['etiquetas', 'Etiquetas', 'tag', () => import('./pg-etiquetas.js'), ['etiquetas.imprimir']],
   ['fornecedores', 'Fornecedores', 'truck', () => import('./pg-fornecedores.js'), ['fornecedores.ver']],
+  ['empresa', 'Empresa', 'building', () => import('./pg-empresa.js'), ['empresa.ver']],
   ['equipe', 'Equipe', 'users', () => import('./pg-equipe.js'), ['usuarios.gerenciar']],
   ['config', 'Configurações', 'settings', () => import('./pg-config.js'), null],
   ['design', 'Design', 'sun', () => import('./pg-design.js'), null],
@@ -177,15 +178,30 @@ window.addEventListener('online', baterBatimento);
 window.addEventListener('pageshow', baterBatimento);
 
 estado.aoExpirar = () => { if (sessao?.autenticado) { sessao = null; toast('Sua sessão expirou. Entre novamente.', 'aviso', 8000); iniciar(); } };
+// Confirmar uma ação sensível: com a senha OU, para quem entra só pelo e-mail, com um código enviado à caixa de entrada.
 estado.aoReautenticar = () => new Promise((resolve) => {
   const s = h('input', { type: 'password', autocomplete: 'current-password', autofocus: true });
+  const c = h('input', { type: 'text', inputmode: 'numeric', maxlength: 6, autocomplete: 'one-time-code', placeholder: '000000', class: 'codigo-6' });
   const erro = h('p', { class: 'erro', role: 'alert' });
-  let m; let ok = false;
-  m = modal('Confirme sua senha', h('form', { class: 'stack', onsubmit: async (e) => {
+  const aviso = h('p', { class: 'muted', role: 'status' });
+  const campoSenha = campo('Senha', s); const campoCodigo = campo('Código enviado ao seu e-mail', c);
+  campoCodigo.hidden = true;
+  let m; let ok = false; let porCodigo = false;
+  const podeCodigo = !!(sessao?.usuario?.email_verificado && sessao?.cadastro_disponivel);
+  const trocarModo = h('button', { class: 'btn fantasma', type: 'button', hidden: !podeCodigo, onclick: async () => {
+    erro.textContent = '';
+    if (!porCodigo) {
+      try {
+        const r = await api.post('/api/reautenticar/codigo');
+        porCodigo = true; campoSenha.hidden = true; campoCodigo.hidden = false; trocarModo.textContent = 'Prefiro usar a senha'; aviso.textContent = `Enviamos um código para ${r.email}.`; c.focus();
+      } catch (x) { erro.textContent = x.message; }
+    } else { porCodigo = false; campoSenha.hidden = false; campoCodigo.hidden = true; trocarModo.textContent = 'Receber um código por e-mail'; aviso.textContent = ''; s.focus(); }
+  } }, 'Receber um código por e-mail');
+  m = modal('Confirme que é você', h('form', { class: 'stack', onsubmit: async (e) => {
     e.preventDefault();
-    try { await api.post('/api/reautenticar', { senha: s.value }); ok = true; m.fechar(); resolve(true); } catch (x) { erro.textContent = x.message; s.select(); }
-  } }, h('p', { class: 'muted' }, 'Esta ação é sensível (ajuste de estoque, aprovação, equipe). Confirme que é você.'), campo('Senha', s), erro,
-  h('div', { class: 'row' }, h('button', { class: 'btn primario', type: 'submit' }, 'Confirmar'), h('button', { class: 'btn', type: 'button', onclick: () => { m.fechar(); resolve(false); } }, 'Cancelar'))));
+    try { await api.post('/api/reautenticar', porCodigo ? { codigo: c.value.trim() } : { senha: s.value }); ok = true; m.fechar(); resolve(true); } catch (x) { erro.textContent = x.message; (porCodigo ? c : s).select(); }
+  } }, h('p', { class: 'muted' }, 'Esta ação é sensível (ajuste de estoque, aprovação, equipe, dados da empresa). Confirme que é você.'), campoSenha, campoCodigo, aviso, erro,
+  h('div', { class: 'row' }, h('button', { class: 'btn primario', type: 'submit' }, 'Confirmar'), h('button', { class: 'btn', type: 'button', onclick: () => { m.fechar(); resolve(false); } }, 'Cancelar')), trocarModo));
   const obs = new MutationObserver(() => { if (!document.body.contains(m.el)) { obs.disconnect(); if (!ok) resolve(false); } });
   obs.observe(document.body, { childList: true });
 });

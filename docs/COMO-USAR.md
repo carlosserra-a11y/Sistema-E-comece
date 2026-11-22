@@ -1,6 +1,6 @@
 # Como usar — primeiro dia e tour pelo sistema
 
-Para o dia a dia do galpão (etiquetar, receber, contar) veja também [OPERACAO.md](OPERACAO.md). Para hospedagem, segredos e planos, [GUIA-DO-DONO.md](GUIA-DO-DONO.md).
+Para o dia a dia do galpão (etiquetar, receber, contar) veja também [OPERACAO.md](OPERACAO.md). Para hospedagem, segredos e planos, [GUIA-DO-DONO.md](GUIA-DO-DONO.md). Endereços do galpão: [MAPA-DO-GALPAO.md](MAPA-DO-GALPAO.md).
 
 ## 1. Entrar pela primeira vez (5 minutos)
 

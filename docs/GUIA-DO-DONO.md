@@ -93,3 +93,14 @@ Enquanto isso não for feito, a tela de entrada **não mostra "Criar conta"** (o
 - Por padrão só `@gmail.com` pode criar conta. Para liberar outros provedores: `EMAIL_DOMINIOS=gmail.com,outlook.com` (ou `*` para qualquer um).
 
 **Entrada do dono (desenvolvedor):** a variável `DONO_EMAIL` (na Vercel) liga o *seu* Gmail à conta de dono, com todas as permissões. Na tela de entrada você digita só o e-mail, **deixa a senha em branco**, e o código de 6 dígitos chega na sua caixa de entrada. Proteja esse Gmail com a verificação em duas etapas do Google, porque ele passa a ser a chave do sistema. Se o envio de e-mail cair e você ficar sem conseguir entrar: entre com o código de 11 dígitos + a senha provisória do arquivo de segredos, ou crie `LOGIN_CODIGO=0` na Vercel e faça um Redeploy (apague depois).
+
+## 12. Variáveis do cliente (FRIO)
+
+Na Vercel (Production):
+
+- `APP_NAME` — nome que aparece no sistema (ex.: `FRIO Peças e Serviços`).
+- `DONO_EMAIL` — e-mail do desenvolvedor, ligado à conta de dono.
+- `DONOS_EXTRAS_JSON` — outros donos, no formato `[{"email":"...","nome":"..."}]`. Entram só com e-mail + código (ninguém conhece a senha).
+- `EMPRESA_JSON` e `PROVISIONAR=frio` — carga inicial **uma única vez** (empresa, endereços do galpão, produtos e estoque de teste). Depois dela, edite tudo pela tela **Empresa** e pelas telas normais; apagar a variável não desfaz nada.
+
+Os dados do cliente ficam só no banco e nessas variáveis. **Não** vão para o GitHub nem para o Obsidian.

@@ -19,6 +19,8 @@ Registradas porque o prompt pedia perguntas e não houve resposta: valeu o padr�
 | Reautenticação | senha, janela de 5 min, para ajuste, aprovação de contagem e gestão da equipe | ações críticas |
 | Segunda etapa | QR/TOTP removido em 22/11/2026 a pedido do dono; no lugar, código de 6 dígitos enviado ao e-mail da conta a cada login (só contas com e-mail confirmado) | simples para a equipe; depende do envio de e-mail (interruptor `LOGIN_CODIGO=0`) |
 | Entrada do dono | só e-mail + código (sem senha), via `DONO_EMAIL`, a pedido do dono em 22/11/2026 | conta de desenvolvedor sem senha para lembrar; a segurança passa a ser a do Gmail |
+| Dois donos | o desenvolvedor e o responsável da empresa cliente são donos (todas as funções); um não altera, desativa nem redefine a conta do outro; o do cliente entra só com e-mail + código (`DONOS_EXTRAS_JSON`) e confirma ações sensíveis com código no e-mail | o cliente administra o próprio sistema sem depender do desenvolvedor |
+| Dados da empresa | tabela `empresa` (CNPJ, endereço, contatos, perfil fiscal) no banco; entram por variável do servidor (`EMPRESA_JSON`) ou pela tela Empresa, nunca pelo código/GitHub; permissões `empresa.ver` e `empresa.editar` | dado fiscal e de contato é do cliente e não vai para o repositório |
 | Aprovação de inventário | o mesmo usuário cria e aprova (único usuário), registrado como `auto_aprovacao` na auditoria | separação de funções chega com a equipe/RBAC |
 | Contagem | cega por padrão; item achado fora do sistema entra com saldo 0 | evita viés |
 | Sessão | sem expiração com a aba aberta (a tela renova a cada minuto); sem batimento, 30 min e acabou; cookie some ao fechar o navegador; teto de 30 dias; pré-login 15 min | equilíbrio segurança/uso |

@@ -4,6 +4,7 @@
 //  - não configurado: `configurado === false` e o cadastro por e-mail fica desligado (a tela nem mostra "Criar conta").
 import nodemailer from 'nodemailer';
 import { hmacHex, cifrar } from './security/crypto.js';
+import { hashSenha, gerarSenhaForte } from './security/password.js';
 
 export function criarEmail(cfg) {
   const e = cfg.email;
@@ -64,4 +65,32 @@ export async function vincularEmailDono(cfg, db, log) {
   if (outra) await db.run("DELETE FROM users WHERE id = ? AND dono = 0 AND papel = 'pendente' AND email_verificado = 0", outra.id);
   await db.run('UPDATE users SET email_enc = ?, email_hmac = ?, email_verificado = 1, email_novo_enc = NULL, email_novo_hmac = NULL WHERE id = ?', cifrar(cfg.fieldKey, e.exibicao), chave, dono.id);
   return true;
+}
+
+/**
+ * Contas de dono adicionais (ex.: o responsável pela empresa cliente), a partir de DONOS_EXTRAS_JSON=[{"email":"...","nome":"..."}].
+ * Quem controla as variáveis do servidor é o dono, então o e-mail já nasce confirmado. A conta nasce com uma senha aleatória que ninguém
+ * conhece: ela só entra pelo código enviado ao e-mail (e confirma ações sensíveis do mesmo jeito). Idempotente.
+ */
+export async function garantirDonosExtras(cfg, db, log) {
+  if (!cfg.donosExtras) return 0;
+  let lista;
+  try { lista = JSON.parse(cfg.donosExtras); } catch { log?.error?.('DONOS_EXTRAS_JSON inválido: ignorado'); return 0; }
+  if (!Array.isArray(lista)) return 0;
+  let feitos = 0;
+  for (const item of lista) {
+    const e = normalizarEmail(item?.email);
+    if (!e) { log?.error?.('DONOS_EXTRAS_JSON: e-mail inválido ignorado'); continue; }
+    const chave = chaveEmail(cfg, e.canonico);
+    const u = await db.get('SELECT id, dono, ativo, email_verificado FROM users WHERE email_hmac = ?', chave);
+    if (u) {
+      if (!u.dono || !u.ativo || !u.email_verificado) { await db.run("UPDATE users SET dono = 1, ativo = 1, email_verificado = 1, papel = 'admin' WHERE id = ?", u.id); feitos++; }
+      continue;
+    }
+    const nome = String(item?.nome ?? '').trim().slice(0, 80) || e.exibicao.split('@')[0];
+    await db.run("INSERT INTO users (login_hmac, email_enc, email_hmac, email_verificado, senha_hash, papel, nome, trocar_senha, dono, permissoes, criado_em) VALUES (?,?,?,1,?,'admin',?,0,1,'[]',?)",
+      hmacHex(cfg.hmacKey, `login|email:${e.canonico}`), cifrar(cfg.fieldKey, e.exibicao), chave, await hashSenha(cfg, gerarSenhaForte(24)), nome, cfg.agora());
+    feitos++;
+  }
+  return feitos;
 }

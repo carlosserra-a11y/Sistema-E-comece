@@ -12,7 +12,9 @@ import { registrarPedidos } from './modules/pedidos.js';
 import { registrarIntegracoes } from './modules/integracoes.js';
 import { registrarEquipe } from './modules/equipe.js';
 import { registrarCadastro } from './modules/cadastro.js';
-import { criarEmail, vincularEmailDono } from './email.js';
+import { criarEmail, vincularEmailDono, garantirDonosExtras } from './email.js';
+import { registrarEmpresa } from './modules/empresa.js';
+import { provisionar } from './provisionar.js';
 import { fileURLToPath } from 'node:url';
 import { iguais } from './security/crypto.js';
 import { erro } from './util.js';
@@ -23,6 +25,8 @@ export async function montar(cfg, { log = criarLogger({ nivel: cfg.logLevel }), 
   await migrar(banco, cfg.migrationsDir);
   await garantirDeposito(banco, cfg.agora());
   await vincularEmailDono(cfg, banco, log).catch((e) => log.error('falha ao vincular DONO_EMAIL', { erro: e.message }));
+  await garantirDonosExtras(cfg, banco, log).catch((e) => log.error('falha nas contas de dono adicionais', { erro: e.message }));
+  await provisionar(cfg, banco, log); // só roda com PROVISIONAR=frio e uma única vez
   const app = criarApp({ cfg, db: banco, log });
   const email = criarEmail(cfg);
   const deps = { cfg, db: banco, log, email };
@@ -35,6 +39,7 @@ export async function montar(cfg, { log = criarLogger({ nivel: cfg.logLevel }), 
   registrarPedidos(app, deps);
   registrarEquipe(app, deps);
   registrarCadastro(app, deps);
+  registrarEmpresa(app, deps);
   const integracoes = await registrarIntegracoes(app, deps);
 
   // Limpeza: sessões vencidas, idempotência antiga, tentativas de login esquecidas. Roda a cada 10 min (servidor fixo) ou pelo cron (Vercel).

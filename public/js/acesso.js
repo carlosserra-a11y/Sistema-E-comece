@@ -14,56 +14,31 @@ const msg = (x) => (x instanceof ApiError && x.campos ? Object.values(x.campos).
 const lerLocal = (k) => { try { return localStorage.getItem(k) ?? ''; } catch { return ''; } };
 const gravarLocal = (k, v) => { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch { /* sem armazenamento */ } };
 
-// ---------------------------------------------------------------- ilustração do painel esquerdo (própria, em SVG, sem imagem externa)
-function arte() {
-  let seed = 7;
-  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  const stops = (...p) => p.map(([o, c]) => sv('stop', { offset: o, 'stop-color': c }));
-  const grad = (id, x2, y2, ...p) => sv('linearGradient', { id, x1: 0, y1: 0, x2, y2 }, ...stops(...p));
-  const defs = sv('defs', {},
-    grad('lgCeu', 0, 1, ['0', '#090c27'], ['0.4', '#17184a'], ['0.62', '#392a68'], ['0.78', '#8c3f6a'], ['0.88', '#d4623f'], ['1', '#f0903f']),
-    grad('lgPele', 1, 0, ['0', '#f6c3a0'], ['0.55', '#d98b6c'], ['1', '#8a4a52']),
-    grad('lgCamisa', 1, 0, ['0', '#fff0dc'], ['0.45', '#f3c9a4'], ['1', '#7a5a86']),
-    grad('lgVisor', 1, 1, ['0', '#fffaf0'], ['1', '#ebcfae']),
-    grad('lgAnel', 1, 0, ['0', '#ff8a3d'], ['0.5', '#ffe0b0'], ['1', '#52c7ff']),
-    grad('lgBrilho', 0, 1, ['0', 'rgb(255 140 60 / 0)'], ['1', 'rgb(255 140 60 / 0.38)']),
-    sv('filter', { id: 'lgDesfoque', x: '-20%', y: '-60%', width: '140%', height: '220%' }, sv('feGaussianBlur', { stdDeviation: 7 })));
-
-  const estrelas = Array.from({ length: 64 }, () => sv('circle', { class: 'estr', cx: (rnd() * 640).toFixed(1), cy: (rnd() * 520).toFixed(1), r: (0.6 + rnd() * 1.1).toFixed(2), fill: '#fff' }));
-  const nuvens = [[110, 300, 150, 26, '#6a3f8f', 0.28], [480, 240, 170, 22, '#6a3f8f', 0.24], [330, 590, 220, 28, '#b25a7a', 0.22]].map(([cx, cy, rx, ry, fill, o]) => sv('ellipse', { cx, cy, rx, ry, fill, opacity: o }));
-
-  const predios = (base, altMin, altMax, cor, chance) => {
-    const g = sv('g', { fill: cor }); const janelas = sv('g', {});
-    for (let x = -10; x < 650;) {
-      const w = 24 + rnd() * 26; const alt = altMin + rnd() * (altMax - altMin);
-      g.append(sv('rect', { x: x.toFixed(1), y: (base - alt).toFixed(1), width: w.toFixed(1), height: alt.toFixed(1) }));
-      for (let jy = base - alt + 8; jy < base - 6; jy += 10) for (let jx = x + 4; jx < x + w - 5; jx += 8) {
-        if (rnd() < chance) janelas.append(sv('rect', { x: jx.toFixed(1), y: jy.toFixed(1), width: 3, height: 4, fill: rnd() < 0.78 ? '#ffcf8a' : '#7fd3ff', opacity: (0.5 + rnd() * 0.5).toFixed(2) }));
-      }
-      x += w + 2;
+// ---------------------------------------------------------------- painel esquerdo: marca do cliente (logo sobre azul-marinho, com flocos e ondas)
+/** Desenho do floco (o mesmo do ícone do app): 6 braços com 2 pares de ramos em V. */
+function flocoPath(L) {
+  const p = [];
+  for (let k = 0; k < 6; k++) {
+    const ang = ((90 + 60 * k) * Math.PI) / 180; const dx = Math.cos(ang); const dy = -Math.sin(ang);
+    p.push(`M0 0L${(dx * L).toFixed(1)} ${(dy * L).toFixed(1)}`);
+    for (const [frac, tam] of [[0.58, 0.3], [0.8, 0.2]]) {
+      const bx = dx * L * frac; const by = dy * L * frac;
+      for (const lado of [-1, 1]) { const a2 = ang + (lado * 50 * Math.PI) / 180; p.push(`M${bx.toFixed(1)} ${by.toFixed(1)}L${(bx + Math.cos(a2) * L * tam).toFixed(1)} ${(by - Math.sin(a2) * L * tam).toFixed(1)}`); }
     }
-    return [g, janelas];
-  };
-  const anel = (largura, extra = {}) => sv('ellipse', { cx: 322, cy: 430, rx: 270, ry: 100, transform: 'rotate(-16 322 430)', fill: 'none', 'stroke-width': largura, ...extra });
-  const faiscas = Array.from({ length: 16 }, () => sv('circle', { class: 'estr', cx: (60 + rnd() * 520).toFixed(1), cy: (250 + rnd() * 340).toFixed(1), r: (1 + rnd() * 1.8).toFixed(2), fill: rnd() < 0.6 ? '#ffb27a' : '#8fdcff' }));
-
-  return sv('svg', { class: 'lg-arte', viewBox: '0 0 640 877', preserveAspectRatio: 'xMidYMid slice', role: 'img', 'aria-label': 'Pessoa com óculos de realidade virtual e um anel de luz diante de uma cidade à noite' },
-    defs, sv('rect', { width: 640, height: 877, fill: 'url(#lgCeu)' }), ...estrelas, ...nuvens,
-    ...predios(877, 90, 250, '#1d2257', 0.2), ...predios(877, 40, 130, '#0c0f2e', 0.26),
-    sv('rect', { y: 640, width: 640, height: 237, fill: 'url(#lgBrilho)' }),
-    anel(14, { class: 'anel-brilho', stroke: 'url(#lgAnel)', filter: 'url(#lgDesfoque)', opacity: 0.4 }), anel(4.5, { stroke: 'url(#lgAnel)' }),
-    sv('ellipse', { cx: 314, cy: 448, rx: 70, ry: 74, fill: '#2b1a2a' }),
-    sv('path', { d: 'M-30 877 C-10 790 100 722 232 696 L408 696 C540 722 650 790 670 877 Z', fill: 'url(#lgCamisa)' }),
-    sv('path', { d: 'M278 600 L278 704 C298 720 342 720 362 704 L362 600 Z', fill: 'url(#lgPele)' }),
-    sv('ellipse', { cx: 320, cy: 482, rx: 68, ry: 88, fill: 'url(#lgPele)' }),
-    sv('path', { d: 'M252 472 C246 386 288 348 340 360 C384 370 396 422 388 474 C372 426 330 406 288 434 C272 446 260 458 252 472 Z', fill: '#2b1a2a' }),
-    sv('path', { d: 'M248 454 L352 420 L404 448 L396 496 L336 522 L258 496 Z', fill: 'url(#lgVisor)' }),
-    sv('path', { d: 'M258 496 L336 522 L396 496 L390 482 L332 508 L262 482 Z', fill: '#c7a07f', opacity: 0.7 }),
-    sv('path', { d: 'M352 420 L404 448', stroke: '#54ccff', 'stroke-width': 3, fill: 'none', 'stroke-linecap': 'round' }),
-    sv('path', { d: 'M352 420 L336 522', stroke: '#54ccff', 'stroke-width': 2.5, fill: 'none', opacity: 0.8 }),
-    sv('path', { d: 'M300 556 Q320 566 340 554', stroke: '#7a3f45', 'stroke-width': 2, fill: 'none', opacity: 0.6, 'stroke-linecap': 'round' }),
-    sv('path', { d: 'M52 430 A270 100 0 0 0 592 430', transform: 'rotate(-16 322 430)', fill: 'none', stroke: 'url(#lgAnel)', 'stroke-width': 4.5 }),
-    ...faiscas);
+  }
+  return p.join('');
+}
+function arte() {
+  const stops = (...p) => p.map(([o, c, op]) => sv('stop', { offset: o, 'stop-color': c, 'stop-opacity': op ?? 1 }));
+  const flocos = [[110, 160, 70, 0.1], [530, 250, 110, 0.07], [90, 560, 120, 0.06], [550, 690, 60, 0.12], [300, 800, 90, 0.07], [340, 80, 38, 0.14]].map(([x, y, L, o]) =>
+    sv('g', { transform: `translate(${x} ${y})`, opacity: o }, sv('g', { class: 'floco' }, sv('path', { d: flocoPath(L), fill: 'none', stroke: '#9fe3ff', 'stroke-width': Math.max(2, L / 10), 'stroke-linecap': 'round' }))));
+  const onda = (y, o) => sv('path', { d: `M-20 ${y} C120 ${y - 40} 260 ${y + 40} 400 ${y} S620 ${y - 30} 700 ${y + 10}`, fill: 'none', stroke: 'url(#frAzul)', 'stroke-width': 3, opacity: o, 'stroke-linecap': 'round' });
+  return sv('svg', { class: 'lg-arte', viewBox: '0 0 640 877', preserveAspectRatio: 'xMidYMid slice', 'aria-hidden': 'true' },
+    sv('defs', {},
+      sv('linearGradient', { id: 'frFundo', x1: 0, y1: 0, x2: 1, y2: 1 }, ...stops(['0', '#0b1430'], ['0.55', '#142a6b'], ['1', '#0a1226'])),
+      sv('linearGradient', { id: 'frAzul', x1: 0, y1: 0, x2: 1, y2: 0 }, ...stops(['0', '#13c6ff', 0], ['0.5', '#13c6ff'], ['1', '#0a8fe0', 0])),
+      sv('radialGradient', { id: 'frBrilho', cx: 0.5, cy: 0.45, r: 0.55 }, ...stops(['0', '#2ea8fa', 0.28], ['1', '#2ea8fa', 0]))),
+    sv('rect', { width: 640, height: 877, fill: 'url(#frFundo)' }), sv('rect', { width: 640, height: 877, fill: 'url(#frBrilho)' }), ...flocos, onda(690, 0.55), onda(725, 0.3), onda(760, 0.18));
 }
 
 function senhaLg(props = {}) {
@@ -103,9 +78,10 @@ function casca(raiz, sessao) {
   const caixa = h('div', { class: 'lg-caixa' });
   const voltarArte = h('button', { class: 'lg-voltar', type: 'button', 'aria-label': 'Voltar', hidden: true }, icone('arrowleft', 20));
   const voltarMob = h('button', { class: 'lg-voltar-mob', type: 'button', hidden: true }, icone('arrowleft', 16), 'Voltar');
-  const [primeiro, ...resto] = sessao.appName.split(' ');
   limpar(raiz).append(h('main', { class: 'lg-pagina' },
-    h('div', { class: 'lg-esq' }, voltarArte, arte(), h('div', { class: 'lg-marca' }, h('img', { src: '/icone.svg', alt: '', width: 40, height: 40 }), h('div', null, h('strong', null, primeiro), h('small', null, resto.join(' '))))),
+    h('div', { class: 'lg-esq' }, voltarArte, arte(),
+      h('div', { class: 'lg-logo-bloco' }, h('img', { class: 'lg-logo', src: '/frio-logo.png', alt: sessao.appName, width: 420, height: 173 }), h('p', null, 'Mais que peças, soluções em refrigeração.')),
+      h('div', { class: 'lg-marca' }, h('small', null, 'Sistema de estoque · desenvolvido por Carlos Desenvolvedor de Sistema'))),
     h('div', { class: 'lg-dir' }, caixa)));
   const definirVoltar = (fn) => {
     for (const b of [voltarArte, voltarMob]) { b.hidden = !fn; b.onclick = fn; }

@@ -1,6 +1,6 @@
 {
-  "name": "Carlos Desenvolvedor de Sistema",
-  "short_name": "Carlos Sistema",
+  "name": "FRIO Peças e Serviços",
+  "short_name": "FRIO",
   "description": "Estoque, endereçamento, etiquetas, contagem e vendas no Mercado Livre — também no celular",
   "lang": "pt-BR",
   "id": "/",
@@ -8,8 +8,8 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0b1020",
-  "theme_color": "#0b1020",
+  "background_color": "#0b1430",
+  "theme_color": "#0b1430",
   "icons": [
     {
       "src": "/icones/icone-192.png",

@@ -52,6 +52,7 @@ const ICONES = {
   eyeoff: 'M3 3l18 18 M10.6 5.1A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1 M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.4-1 M9.9 9.9a3 3 0 0 0 4.2 4.2',
   mail: 'M3 5h18v14H3z M3 7l9 6 9-6',
   arrowleft: 'M19 12H5 M12 19l-7-7 7-7',
+  building: 'M4 21V4l8-2v19 M12 8h8v13 M4 21h16 M8 8h.01 M8 12h.01 M8 16h.01 M16 12h.01 M16 16h.01',
 };
 export function icone(nome, tam = 20) {
   const s = document.createElementNS(NS, 'svg');
