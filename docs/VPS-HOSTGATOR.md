@@ -40,7 +40,7 @@ Ele instala Node 24, PostgreSQL 17, Caddy (HTTPS automático) e o firewall (só 
 nano /opt/wms/.env
 ```
 
-Troque cada `PREENCHER` pelos valores do seu arquivo de segredos: `PEPPER`, `HMAC_KEY`, `FIELD_KEY`, `DONO_EMAIL`, `BACKUP_SENHA`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_DE`. **`PEPPER`, `HMAC_KEY` e `FIELD_KEY` têm de ser idênticos aos de hoje**, senão ninguém consegue entrar. A `DATABASE_URL` já vem preenchida pela instalação (banco local). Salve com `Ctrl+O`, Enter e `Ctrl+X`.
+Troque cada `PREENCHER` pelos valores do seu arquivo de segredos: `PEPPER`, `HMAC_KEY`, `FIELD_KEY`, `DONO_EMAIL`, `BACKUP_SENHA`, `SMTP_USER`, `SMTP_PASS`. **`PEPPER`, `HMAC_KEY` e `FIELD_KEY` têm de ser idênticos aos de hoje**, senão ninguém consegue entrar. A `DATABASE_URL` já vem preenchida pela instalação (banco local). Salve com `Ctrl+O`, Enter e `Ctrl+X`.
 
 ## 5. Copiar os dados da Supabase para a VPS
 

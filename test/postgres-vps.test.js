@@ -92,3 +92,8 @@ test('aplicar-esquema.sh: o usuario postgres nao le /opt/wms, entao o arquivo de
   assert.ok(!/\s-f\s/.test(s), 'nada de -f: o postgres nao consegue abrir arquivos em /opt/wms');
   assert.ok(s.includes('pg < "$APP/deploy/vps/postgres-seguranca.sql"'), 'o root le o arquivo e entrega por stdin');
 });
+
+test('instalar.sh: EMAIL_DE é opcional e nunca pode nascer como PREENCHER (viraria o remetente dos e-mails de login)', () => {
+  const instalar = fs.readFileSync(path.join(VPS, 'instalar.sh'), 'utf8');
+  assert.ok(!instalar.includes('EMAIL_DE=PREENCHER'));
+});
