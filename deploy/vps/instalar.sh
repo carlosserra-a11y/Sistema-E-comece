@@ -22,7 +22,7 @@ case "${ID:-}" in ubuntu|debian) ;; *) echo "Sistema não testado: ${PRETTY_NAME
 echo "==> 1/9 Pacotes básicos"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y ca-certificates curl gnupg git ufw cron openssl debian-keyring debian-archive-keyring apt-transport-https
+apt-get install -y ca-certificates curl gnupg git ufw cron openssl apt-transport-https
 
 echo "==> 2/9 Node.js 24"
 if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" != "24" ]; then
