@@ -21,6 +21,8 @@ No PowerShell do seu computador (troque `IP_DA_VPS`):
 ssh -p 22022 root@IP_DA_VPS
 ```
 
+> **Se o SSH fechar a conexão antes de você terminar de digitar a senha** (acontece: o servidor dá poucos segundos), use uma **chave SSH** em vez da senha: no painel, *VPS e Dedicados → Gerenciar → Chaves SSH → Adicionar chave* (cole a parte **pública**, a que termina em `.pub`) e entre com `ssh -i C:UsersSEU_USUARIO.sshSUA_CHAVE -p 22022 root@IP_DA_VPS`, sem senha.
+
 (Na HostGator o SSH usa a porta **22022**, não a 22. O IP, a porta e o usuário `root` estão no painel: *VPS e Dedicados → Gerenciar → Acesso SSH*.)
 
 ## 3. Instalar (um comando)
