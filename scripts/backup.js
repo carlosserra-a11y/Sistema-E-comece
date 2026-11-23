@@ -15,6 +15,7 @@ const pasta = path.resolve(arg('pasta', 'backups'));
 const manter = Math.max(1, Number(arg('manter', 30)));
 const cfg = loadConfig();
 const senha = cfg.backupSenha;
+if (senha === 'PREENCHER') { console.error('BACKUP_SENHA ainda está como "PREENCHER": defina a senha dos backups (bash /opt/wms/app/deploy/vps/definir-segredo.sh BACKUP_SENHA). Nenhum backup foi feito.'); process.exit(1); }
 const db = await abrirBanco(cfg);
 try {
   const dados = await exportar(db);

@@ -102,3 +102,15 @@ test('comandos: npm run backup / backup:verificar / restaurar funcionam de ponta
     assert.notEqual(rodar('scripts/restaurar-backup.js', [novo], { DB_PATH: path.join(dir, 'x.db') }).status, 0, 'exige --confirmar');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('npm run backup: recusa a BACKUP_SENHA que ainda é o texto PREENCHER (não cifra com um valor de modelo)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wms-bkp-'));
+  const hex = () => crypto.randomBytes(32).toString('hex');
+  const env = { ...process.env, NODE_ENV: 'development', DATABASE_URL: '', DB_PATH: path.join(dir, 't.db'), PEPPER: hex(), HMAC_KEY: hex(), FIELD_KEY: hex(), SCRYPT_N: '1024', BACKUP_SENHA: 'PREENCHER' };
+  try {
+    const r = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', 'scripts/backup.js', '--pasta', path.join(dir, 'bk')], { cwd: ROOT, env, encoding: 'utf8' });
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /PREENCHER/);
+    assert.ok(!fs.existsSync(path.join(dir, 'bk')), 'nenhum arquivo de backup é criado');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
