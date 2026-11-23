@@ -22,6 +22,7 @@ for arquivo in $(ls "$APP"/supabase/migrations/*.sql | sort); do
   { echo "BEGIN;"; cat "$arquivo"; echo; echo "INSERT INTO public.schema_migrations (nome, aplicada_em) VALUES ('$nome', (extract(epoch FROM now()) * 1000)::bigint);"; echo "COMMIT;"; } | pg
 done
 
-pg -f "$APP/deploy/vps/postgres-seguranca.sql"
+# o usuario postgres nao le /opt/wms (pasta restrita): o root le o arquivo e entrega por stdin
+pg < "$APP/deploy/vps/postgres-seguranca.sql"
 pg -c "GRANT CONNECT ON DATABASE \"$BANCO\" TO app_wms"
 echo "Esquema do banco em dia."

@@ -86,3 +86,9 @@ test('instalar.sh: o firewall libera a porta do SSH em uso (a HostGator usa 2202
   assert.ok(instalar.includes('ss -H -tlnp') && instalar.includes('SSH_PORTAS'), 'detecta a porta do sshd');
   assert.ok(instalar.indexOf('SSH_PORTAS') < instalar.indexOf('ufw --force enable'), 'a porta é liberada antes de ligar o firewall');
 });
+
+test('aplicar-esquema.sh: o usuario postgres nao le /opt/wms, entao o arquivo de seguranca entra por stdin (nunca psql -f)', () => {
+  const s = fs.readFileSync(path.join(VPS, 'aplicar-esquema.sh'), 'utf8').replace(/#.*$/gm, '');
+  assert.ok(!/\s-f\s/.test(s), 'nada de -f: o postgres nao consegue abrir arquivos em /opt/wms');
+  assert.ok(s.includes('pg < "$APP/deploy/vps/postgres-seguranca.sql"'), 'o root le o arquivo e entrega por stdin');
+});

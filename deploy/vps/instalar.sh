@@ -19,6 +19,9 @@ BANCO_TIPO="${BANCO_TIPO:-local}"   # local = PostgreSQL nesta VPS | supabase = 
 . /etc/os-release
 case "${ID:-}" in ubuntu|debian) ;; *) echo "Sistema não testado: ${PRETTY_NAME:-?}. Use Ubuntu 22.04 ou 24.04."; exit 1 ;; esac
 
+# o sudo reclama se o nome do servidor nao resolve (acontece em VPS novas); isso so registra o nome em /etc/hosts
+grep -q "$(hostname)" /etc/hosts || echo "127.0.1.1 $(hostname)" >> /etc/hosts
+
 echo "==> 1/9 Pacotes básicos"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
