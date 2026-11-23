@@ -98,26 +98,47 @@ test('instalar.sh: EMAIL_DE é opcional e nunca pode nascer como PREENCHER (vira
   assert.ok(!instalar.includes('EMAIL_DE=PREENCHER'));
 });
 
-test('definir-segredo.sh: grava o valor exato (com caracteres especiais), preserva as outras linhas e recusa valores errados', (t) => {
+test('definir-segredo.sh: grava o valor exato, preserva as outras linhas e recusa o que não é uma chave de verdade', (t) => {
+  const bash = spawnSync('bash', ['--version'], { encoding: 'utf8' });
+  if (bash.status !== 0) return t.skip('bash não encontrado');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wms-seg-'));
+  const arq = path.join(dir, '.env');
+  const rodar = (nome, entrada) => spawnSync('bash', [path.join(VPS, 'definir-segredo.sh'), nome], { input: entrada, encoding: 'utf8', env: { ...process.env, ENV_ARQ: arq } });
+  const lido = () => fs.readFileSync(arq, 'utf8');
+  try {
+    fs.writeFileSync(arq, 'NODE_ENV=production\nPEPPER=PREENCHER\nHMAC_KEY=PREENCHER\nBACKUP_SENHA=PREENCHER\nSMTP_PASS=PREENCHER\nAPP_NAME=FRIO Peças e Serviços\n');
+    const especial = 'a&b|c\d=e/f "x" $HOME';
+    assert.equal(rodar('BACKUP_SENHA', `${especial}  \n`).status, 0);
+    const chave = 'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899';
+    assert.equal(rodar('PEPPER', `${chave}\n`).status, 0);
+    assert.equal(rodar('SMTP_PASS', 'abcd efgh ijkl mnop\n').status, 0);
+    const linhas = lido().split('\n');
+    assert.ok(linhas.includes(`BACKUP_SENHA=${especial}`), 'valor idêntico, sem escapes');
+    assert.ok(linhas.includes(`PEPPER=${chave}`));
+    assert.ok(linhas.includes('SMTP_PASS=abcdefghijklmnop'), 'a senha de app entra sem os espaços');
+    assert.ok(linhas.includes('NODE_ENV=production') && linhas.includes('APP_NAME=FRIO Peças e Serviços'), 'as outras linhas ficam como estavam');
+
+    const antes = lido();
+    const nomeDoArquivo = 'Documentos\Carlos-Desenvolvedor-de-Sistema-SEGREDOS.txt';
+    assert.notEqual(rodar('HMAC_KEY', `${nomeDoArquivo}\n`).status, 0, 'o nome de um arquivo não é uma chave');
+    assert.notEqual(rodar('HMAC_KEY', 'curta\n').status, 0, 'chave curta demais');
+    assert.notEqual(rodar('HMAC_KEY', `${chave}\n`).status, 0, 'chave igual à do PEPPER');
+    assert.notEqual(rodar('SMTP_USER', 'nao-e-email\n').status, 0);
+    assert.notEqual(rodar('SMTP_PASS', 'curta\n').status, 0);
+    assert.notEqual(rodar('OUTRA', 'x\n').status, 0, 'só nomes conhecidos');
+    assert.equal(lido(), antes, 'recusar não altera o arquivo');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('definir-segredo.sh: o ponto do e-mail é literal (um e-mail sem ponto no domínio é recusado)', (t) => {
   const bash = spawnSync('bash', ['--version'], { encoding: 'utf8' });
   if (bash.status !== 0) return t.skip('bash não encontrado');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wms-seg-'));
   const arq = path.join(dir, '.env');
   const rodar = (nome, entrada) => spawnSync('bash', [path.join(VPS, 'definir-segredo.sh'), nome], { input: entrada, encoding: 'utf8', env: { ...process.env, ENV_ARQ: arq } });
   try {
-    fs.writeFileSync(arq, 'NODE_ENV=production\nPEPPER=PREENCHER\nSMTP_PASS=PREENCHER\nAPP_NAME=FRIO Peças e Serviços\n');
-    const especial = 'a&b|c\d=e/f "x" $HOME';
-    assert.equal(rodar('SMTP_PASS', `${especial}  \n`).status, 0);
-    const chave = 'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899';
-    assert.equal(rodar('PEPPER', `${chave}\n`).status, 0);
-    const linhas = fs.readFileSync(arq, 'utf8').split('\n');
-    assert.ok(linhas.includes(`SMTP_PASS=${especial}`), 'valor idêntico, sem escapes');
-    assert.ok(linhas.includes(`PEPPER=${chave}`));
-    assert.ok(linhas.includes('NODE_ENV=production') && linhas.includes('APP_NAME=FRIO Peças e Serviços'), 'as outras linhas ficam como estavam');
-    const antes = fs.readFileSync(arq, 'utf8');
-    assert.notEqual(rodar('PEPPER', 'curta\n').status, 0, 'chave curta demais é recusada');
-    assert.notEqual(rodar('SMTP_USER', 'nao-e-email\n').status, 0);
-    assert.notEqual(rodar('OUTRA', 'x\n').status, 0, 'só nomes conhecidos');
-    assert.equal(fs.readFileSync(arq, 'utf8'), antes, 'recusar não altera o arquivo');
+    fs.writeFileSync(arq, 'DONO_EMAIL=PREENCHER\n');
+    assert.equal(rodar('DONO_EMAIL', 'pessoa@gmail.com\n').status, 0);
+    assert.notEqual(rodar('DONO_EMAIL', 'pessoa@gmailXcom\n').status, 0, '"gmailXcom" não tem ponto de verdade');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
