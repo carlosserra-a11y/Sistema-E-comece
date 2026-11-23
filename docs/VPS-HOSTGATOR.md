@@ -36,11 +36,13 @@ Ele instala Node 24, PostgreSQL 17, Caddy (HTTPS automático) e o firewall (só 
 
 ## 4. Preencher os segredos
 
-```bash
-nano /opt/wms/.env
+Um comando por segredo: ele pede o valor **sem mostrá-lo na tela**, confere o formato e grava só aquela linha do `/opt/wms/.env` (sem editor, sem risco de apagar outra linha). Rode, uma vez para cada nome (troque o caminho da chave se for outro):
+
+```powershell
+ssh -t -i C:UsersSSD.sshwms_vps -p 22022 root@IP_DA_VPS bash /opt/wms/app/deploy/vps/definir-segredo.sh PEPPER
 ```
 
-Troque cada `PREENCHER` pelos valores do seu arquivo de segredos: `PEPPER`, `HMAC_KEY`, `FIELD_KEY`, `DONO_EMAIL`, `BACKUP_SENHA`, `SMTP_USER`, `SMTP_PASS`. **`PEPPER`, `HMAC_KEY` e `FIELD_KEY` têm de ser idênticos aos de hoje**, senão ninguém consegue entrar. A `DATABASE_URL` já vem preenchida pela instalação (banco local). Salve com `Ctrl+O`, Enter e `Ctrl+X`.
+Os nomes: `PEPPER`, `HMAC_KEY`, `FIELD_KEY` (**idênticos aos de hoje**, do seu arquivo de segredos, senão ninguém entra), `BACKUP_SENHA` (uma senha nova e forte; guarde no gerenciador), `SMTP_PASS` (a senha de app do Gmail) e, se precisar mudar, `SMTP_USER` e `DONO_EMAIL`. O instalador já preenche a `DATABASE_URL` do banco local. Para conferir sem ver valores: `grep -c PREENCHER /opt/wms/.env` deve dar 0.
 
 ## 5. Copiar os dados da Supabase para a VPS
 

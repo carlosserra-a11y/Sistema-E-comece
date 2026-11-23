@@ -97,3 +97,27 @@ test('instalar.sh: EMAIL_DE é opcional e nunca pode nascer como PREENCHER (vira
   const instalar = fs.readFileSync(path.join(VPS, 'instalar.sh'), 'utf8');
   assert.ok(!instalar.includes('EMAIL_DE=PREENCHER'));
 });
+
+test('definir-segredo.sh: grava o valor exato (com caracteres especiais), preserva as outras linhas e recusa valores errados', (t) => {
+  const bash = spawnSync('bash', ['--version'], { encoding: 'utf8' });
+  if (bash.status !== 0) return t.skip('bash não encontrado');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wms-seg-'));
+  const arq = path.join(dir, '.env');
+  const rodar = (nome, entrada) => spawnSync('bash', [path.join(VPS, 'definir-segredo.sh'), nome], { input: entrada, encoding: 'utf8', env: { ...process.env, ENV_ARQ: arq } });
+  try {
+    fs.writeFileSync(arq, 'NODE_ENV=production\nPEPPER=PREENCHER\nSMTP_PASS=PREENCHER\nAPP_NAME=FRIO Peças e Serviços\n');
+    const especial = 'a&b|c\d=e/f "x" $HOME';
+    assert.equal(rodar('SMTP_PASS', `${especial}  \n`).status, 0);
+    const chave = 'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899';
+    assert.equal(rodar('PEPPER', `${chave}\n`).status, 0);
+    const linhas = fs.readFileSync(arq, 'utf8').split('\n');
+    assert.ok(linhas.includes(`SMTP_PASS=${especial}`), 'valor idêntico, sem escapes');
+    assert.ok(linhas.includes(`PEPPER=${chave}`));
+    assert.ok(linhas.includes('NODE_ENV=production') && linhas.includes('APP_NAME=FRIO Peças e Serviços'), 'as outras linhas ficam como estavam');
+    const antes = fs.readFileSync(arq, 'utf8');
+    assert.notEqual(rodar('PEPPER', 'curta\n').status, 0, 'chave curta demais é recusada');
+    assert.notEqual(rodar('SMTP_USER', 'nao-e-email\n').status, 0);
+    assert.notEqual(rodar('OUTRA', 'x\n').status, 0, 'só nomes conhecidos');
+    assert.equal(fs.readFileSync(arq, 'utf8'), antes, 'recusar não altera o arquivo');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
