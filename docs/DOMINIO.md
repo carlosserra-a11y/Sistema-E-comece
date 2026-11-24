@@ -6,27 +6,21 @@ O domínio foi registrado na HostGator (22/11/2026, renovação em 22/10/2028) e
 - O nome do sistema na tela continua **FRIO Peças e Serviços** (variável `APP_NAME` na Vercel).
 - O endereço antigo `carlos-sistema-carlos-nunes.vercel.app` continua funcionando junto.
 
-## Como está configurado
+## Como está configurado (24/11/2026: o domínio já aponta para a VPS)
 
-**Zona DNS (painel da HostGator → Domínios → Gerenciar → Configurar domínio → Zona avançada de DNS):**
+**Zona DNS** (painel da HostGator → Domínios → Gerenciar → Configurar domínio → Zona avançada de DNS):
 
-| Tipo | Nome | Valor |
-|---|---|---|
-| A | `@` | `216.198.79.1` |
-| A | `@` | `64.29.17.1` |
-| CNAME | `www` | `cb6f3f7969d0cf7e.vercel-dns-017.com` |
+| Tipo | Nome | Valor | TTL |
+|---|---|---|---|
+| A | `@` | `143.95.190.252` (IP da VPS) | 300 |
+| CNAME | `www` | `friospecaseservicos.com.br` | 300 |
 
-Os registros `ftp` e `mail` (CNAME) e o MX que a HostGator cria por padrão foram mantidos. Os valores acima são os que a Vercel pediu para este projeto; eles mudam se o projeto mudar de conta.
+Os registros `ftp` e `mail` (CNAME) e o MX que a HostGator cria por padrão foram mantidos. O HTTPS é emitido e renovado sozinho pelo Caddy na VPS (Let's Encrypt).
 
-**Vercel:** o domínio e o `www` estão cadastrados no projeto, e a variável `ORIGENS_EXTRAS` lista os endereços aceitos pelo servidor (o domínio, o `www` e o endereço da Vercel). O HTTPS (cadeado) é emitido sozinho pela Vercel.
+**Banco:** o PostgreSQL da própria VPS. Os dados foram copiados da Supabase em 24/11/2026 e conferidos linha a linha. A Supabase fica parada, só como cópia de segurança, até ~24/12/2026.
 
-## Passo final: trocar o endereço principal
+**Vercel:** o endereço antigo `carlos-sistema-carlos-nunes.vercel.app` ainda existe, mas aponta para a Supabase (dados parados em 24/11). Ninguém deve usá-lo; quando quiser, pause o projeto na Vercel.
 
-Quando `https://friospecaseservicos.com.br` abrir a tela de login:
-
-1. Na Vercel (*Settings → Environment Variables*), mude `PUBLIC_ORIGIN` para `https://friospecaseservicos.com.br` (o endereço da Vercel fica em `ORIGENS_EXTRAS`).
-2. Faça um *Redeploy*.
-3. Se usar o Mercado Livre, atualize a URL de redirecionamento no painel do app deles para o novo endereço.
 
 ## Hospedar na HostGator (VPS)
 
