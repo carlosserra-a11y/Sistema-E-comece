@@ -162,6 +162,8 @@ export function traduzirErroSql(e) {
   if (c === '23505' || /UNIQUE constraint failed/.test(msg)) return new HttpError(409, 'DUPLICADO', 'Já existe um registro com esse valor.');
   if (c === '23503' || /FOREIGN KEY constraint failed/.test(msg)) return new HttpError(409, 'REFERENCIA', 'Registro relacionado não existe ou está em uso.');
   if (/constraint failed: qtd >= 0/.test(msg) || /saldos_por_endereco_qtd/.test(cons)) return new HttpError(409, 'ESTOQUE_INSUFICIENTE', 'Saldo insuficiente para a operação.');
+  // duas operações disputando as mesmas linhas: o PostgreSQL desfaz uma delas; basta tentar de novo
+  if (c === '40P01' || c === '40001') return new HttpError(409, 'CONCORRENCIA', 'Outra operação mexeu nos mesmos itens ao mesmo tempo. Tente de novo.');
   if (c === '23514' || /CHECK constraint failed/.test(msg)) return new HttpError(422, 'VALIDACAO', 'Valor fora dos limites permitidos.');
   if (/imutavel|somente inser/i.test(msg)) return new HttpError(409, 'IMUTAVEL', 'Este registro é imutável.');
   return null;

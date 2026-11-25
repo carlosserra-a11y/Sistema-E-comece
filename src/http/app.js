@@ -145,7 +145,8 @@ export function criarApp({ cfg, db, log }) {
   async function idempotente(ctx, r) {
     const chave = ctx.req.headers['idempotency-key'];
     if (!chave || !/^[A-Za-z0-9_-]{16,64}$/.test(chave)) throw erro(400, 'IDEMPOTENCIA', 'Chave de idempotência ausente ou inválida.');
-    const rotaId = `${r.metodo} ${r.padrao}`;
+    // o endereço concreto (com o :id) entra na identificação: a mesma chave não pode "repetir" a resposta de outro registro
+    const rotaId = `${r.metodo} ${r.chaves.reduce((c, k) => c.replace(`:${k}`, ctx.params[k]), r.padrao)}`;
     const corpoHash = sha256(ctx.corpoBruto ?? '');
     const original = ctx.db;
     return await tx(db, async (db) => {

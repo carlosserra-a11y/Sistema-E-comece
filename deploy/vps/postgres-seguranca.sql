@@ -22,6 +22,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_wms;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_wms;
 -- Livro-razão e auditoria: só inserir e ler (além das triggers que já bloqueiam UPDATE/DELETE).
 REVOKE UPDATE, DELETE, TRUNCATE ON auditoria, movimentacoes_estoque FROM app_wms;
+-- Dinheiro registrado no balcão: pagamentos e movimentos de caixa só entram; vendas e caixas nunca são apagados.
+REVOKE UPDATE, DELETE, TRUNCATE ON venda_pagamentos, caixa_movimentos FROM app_wms;
+REVOKE DELETE, TRUNCATE ON vendas, venda_itens, caixas FROM app_wms;
 
 -- Tabelas e sequências criadas depois (por migrations futuras) já nascem com as permissões do app.
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_wms;

@@ -15,6 +15,15 @@ export const GRUPOS = [
     ['pedidos.ver', 'Ver pedidos'], ['pedidos.gerenciar', 'Reprocessar pedidos com problema'],
     ['integracoes.ver', 'Ver o estado do Mercado Livre e dos anúncios'], ['integracoes.gerenciar', 'Conectar, configurar e sincronizar o Mercado Livre'],
   ] },
+  { id: 'balcao', rotulo: 'Balcão (venda presencial)', itens: [
+    ['vendas.registrar', 'Vender no balcão, fazer orçamentos e operar o próprio caixa (vê o preço de venda)'],
+    ['vendas.desconto', 'Dar desconto sem limite e mudar o preço na venda'],
+    ['vendas.cancelar', 'Cancelar venda concluída (pede a senha; devolve o estoque)'],
+    ['vendas.gerenciar', 'Ver todas as vendas e caixas, fechar caixa de outra pessoa e ver relatórios'],
+    ['vendas.configurar', 'Cadastrar a chave Pix, o limite de desconto e o cupom (somente o dono)'],
+    ['clientes.ver', 'Ver clientes'], ['clientes.editar', 'Cadastrar e editar clientes'],
+    ['servicos.editar', 'Cadastrar serviços e seus preços'],
+  ] },
   { id: 'financeiro', rotulo: 'Financeiro (restrito)', itens: [
     ['financeiro.ver', 'Ver custos, preços, valores de pedidos e margens; exportar com valores'],
   ] },
@@ -25,11 +34,13 @@ export const GRUPOS = [
   ] },
 ];
 export const TODAS = GRUPOS.flatMap((g) => g.itens.map(([id]) => id));
-export const SO_DONO = new Set(['usuarios.gerenciar']); // nunca delegável: evita escalada de privilégio
+// nunca delegáveis: gerenciar a equipe (escalada de privilégio) e a chave Pix (define para onde vai o dinheiro)
+export const SO_DONO = new Set(['usuarios.gerenciar', 'vendas.configurar']);
 
 const sem = (...fora) => TODAS.filter((p) => !fora.includes(p));
 export const PAPEIS = {
-  gerente: { rotulo: 'Gerente', descricao: 'Tudo, menos financeiro e equipe', permissoes: sem('financeiro.ver', 'usuarios.gerenciar') },
+  gerente: { rotulo: 'Gerente', descricao: 'Tudo, menos financeiro, equipe e chave Pix', permissoes: sem('financeiro.ver', 'usuarios.gerenciar', 'vendas.configurar') },
+  vendedor: { rotulo: 'Vendedor de balcão', descricao: 'Vende, faz orçamento, cadastra cliente e opera o próprio caixa', permissoes: ['produtos.ver', 'estoque.ver', 'vendas.registrar', 'clientes.ver', 'clientes.editar'] },
   estoquista: { rotulo: 'Estoquista', descricao: 'Cadastra, recebe, guarda, endereça e conta', permissoes: ['produtos.ver', 'produtos.editar', 'estoque.ver', 'estoque.operar', 'etiquetas.imprimir', 'enderecos.ver', 'enderecos.gerenciar', 'contagem.operar', 'fornecedores.ver'] },
   operador: { rotulo: 'Operador de galpão', descricao: 'Celular: bipar, guardar, transferir e contar', permissoes: ['produtos.ver', 'estoque.ver', 'estoque.operar', 'etiquetas.imprimir', 'enderecos.ver', 'contagem.operar'] },
   financeiro: { rotulo: 'Financeiro', descricao: 'Vê custos, preços e valores; não mexe no estoque', permissoes: ['financeiro.ver', 'produtos.ver', 'estoque.ver', 'pedidos.ver', 'fornecedores.ver', 'integracoes.ver', 'empresa.ver'] },
@@ -48,7 +59,8 @@ export function permissoesDe(usuario) {
 }
 
 /** Campos de dinheiro: removidos de TODA resposta de quem não tem `financeiro.ver` (cinto e suspensório além do filtro por rota). */
-export const CAMPOS_FINANCEIROS = new Set(['custo_centavos', 'preco_centavos', 'total_centavos']);
+// O preço de VENDA que o balcão precisa mostrar viaja com outros nomes (preco_unit_centavos, valor_centavos); custo e margem nunca.
+export const CAMPOS_FINANCEIROS = new Set(['custo_centavos', 'preco_centavos', 'total_centavos', 'custo_unit_centavos', 'custo_total_centavos', 'margem_centavos']);
 export function semFinanceiro(v) {
   if (Array.isArray(v)) return v.map(semFinanceiro);
   if (v && typeof v === 'object') {
@@ -66,7 +78,7 @@ const R = (metodo, padrao, perm) => [`${metodo} ${padrao}`, perm];
 export const REGRAS = new Map([
   // sessão e conta própria
   R('GET', '/api/sessoes', 'qualquer'), R('DELETE', '/api/sessoes/:id', 'qualquer'), R('POST', '/api/sessoes/sair-todas', 'qualquer'),
-  R('POST', '/api/conta/email', 'qualquer'), R('POST', '/api/conta/email/confirmar', 'qualquer'), R('POST', '/api/reautenticar', 'qualquer'), R('POST', '/api/reautenticar/codigo', 'qualquer'), R('GET', '/api/painel', ['produtos.ver', 'estoque.ver', 'enderecos.ver', 'pedidos.ver', 'contagem.operar', 'fornecedores.ver', 'integracoes.ver']),
+  R('POST', '/api/conta/email', 'qualquer'), R('POST', '/api/conta/email/confirmar', 'qualquer'), R('POST', '/api/reautenticar', 'qualquer'), R('POST', '/api/reautenticar/codigo', 'qualquer'), R('GET', '/api/painel', ['produtos.ver', 'estoque.ver', 'enderecos.ver', 'pedidos.ver', 'contagem.operar', 'fornecedores.ver', 'integracoes.ver', 'vendas.registrar', 'vendas.gerenciar']),
   // produtos e fornecedores
   R('GET', '/api/produtos', 'produtos.ver'), R('GET', '/api/produtos/:id', 'produtos.ver'), R('GET', '/api/produtos-exportar', 'produtos.ver'),
   R('POST', '/api/produtos', 'produtos.editar'), R('PUT', '/api/produtos/:id', 'produtos.editar'), R('POST', '/api/produtos/:id/inativar', 'produtos.editar'), R('POST', '/api/produtos/:id/reativar', 'produtos.editar'),
@@ -96,6 +108,19 @@ export const REGRAS = new Map([
   R('PUT', '/api/integracoes/ml/config', 'integracoes.gerenciar'), R('POST', '/api/integracoes/ml/conectar', 'integracoes.gerenciar'), R('POST', '/api/integracoes/ml/desconectar', 'integracoes.gerenciar'),
   R('POST', '/api/integracoes/ml/sincronizar', 'integracoes.gerenciar'), R('POST', '/api/integracoes/ml/rotacionar-webhook', 'integracoes.gerenciar'),
   R('POST', '/api/produtos/:id/anuncios', 'integracoes.gerenciar'), R('PUT', '/api/anuncios/:id', 'integracoes.gerenciar'), R('DELETE', '/api/anuncios/:id', 'integracoes.gerenciar'),
+  // balcão: vendas, orçamentos, caixa, clientes, serviços, relatórios
+  R('GET', '/api/balcao/buscar', 'vendas.registrar'), R('POST', '/api/balcao/pix', 'vendas.registrar'),
+  R('GET', '/api/balcao/config', ['vendas.registrar', 'vendas.gerenciar', 'vendas.configurar']), R('PUT', '/api/balcao/config', 'vendas.configurar'),
+  R('GET', '/api/servicos', ['vendas.registrar', 'servicos.editar']), R('POST', '/api/servicos', 'servicos.editar'), R('PUT', '/api/servicos/:id', 'servicos.editar'),
+  R('POST', '/api/servicos/:id/inativar', 'servicos.editar'), R('POST', '/api/servicos/:id/reativar', 'servicos.editar'),
+  R('POST', '/api/vendas', 'vendas.registrar'), R('POST', '/api/orcamentos', 'vendas.registrar'), R('POST', '/api/vendas/:id/concluir', 'vendas.registrar'), R('POST', '/api/vendas/:id/descartar', 'vendas.registrar'),
+  R('POST', '/api/vendas/:id/cancelar', 'vendas.cancelar'),
+  R('GET', '/api/vendas', ['vendas.registrar', 'vendas.gerenciar', 'vendas.cancelar']), R('GET', '/api/vendas/:id', ['vendas.registrar', 'vendas.gerenciar', 'vendas.cancelar']),
+  R('GET', '/api/caixa', 'vendas.registrar'), R('POST', '/api/caixa/abrir', 'vendas.registrar'), R('POST', '/api/caixa/movimento', 'vendas.registrar'),
+  R('POST', '/api/caixas/:id/fechar', ['vendas.registrar', 'vendas.gerenciar']), R('GET', '/api/caixas', 'vendas.gerenciar'), R('GET', '/api/caixas/:id', ['vendas.registrar', 'vendas.gerenciar']),
+  R('GET', '/api/relatorios/vendas', 'vendas.gerenciar'), R('GET', '/api/relatorios/vendas.csv', 'vendas.gerenciar'), R('GET', '/api/relatorios/vendas/integridade', 'vendas.gerenciar'),
+  R('GET', '/api/clientes', 'clientes.ver'), R('GET', '/api/clientes/:id', 'clientes.ver'), R('POST', '/api/clientes', 'clientes.editar'), R('PUT', '/api/clientes/:id', 'clientes.editar'),
+  R('POST', '/api/clientes/:id/inativar', 'clientes.editar'), R('POST', '/api/clientes/:id/reativar', 'clientes.editar'),
   // administração
   R('GET', '/api/empresa', 'empresa.ver'), R('PUT', '/api/empresa', 'empresa.editar'),
   R('GET', '/api/auditoria', 'auditoria.ver'), R('GET', '/api/auditoria/verificar', 'auditoria.ver'),

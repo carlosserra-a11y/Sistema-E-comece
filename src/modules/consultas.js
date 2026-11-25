@@ -8,6 +8,7 @@ import { FORMATOS, avisosEtiqueta, esc, etiquetaEndereco, etiquetaLote, etiqueta
 import { ENDERECO_RE, gerarCodigoInterno } from './catalogo.js';
 import { integridade, ondeEsta } from './estoque.js';
 import { SELECT_ENDERECO } from './deposito.js';
+import { diaDaLoja, inicioDoDia } from './vendas-base.js';
 
 /** Limpa o que leitores e teclados costumam adicionar: CR/LF, prefixo AIM (]E0, ]C1...), travessões "bonitos". */
 export function normalizarLeitura(bruto) {
@@ -112,6 +113,14 @@ export function registrarConsultas(app, { db, cfg }) {
       corpo: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${alt + 8}" width="${w * 2}" height="${(alt + 8) * 2}"><rect width="${w}" height="${alt + 8}" fill="#fff"/><path d="${d}" fill="#000" shape-rendering="crispEdges"/><text x="${w / 2}" y="${alt + 6}" font-size="6" font-family="monospace" text-anchor="middle">${esc(dados)}</text></svg>` };
   });
 
+  // Vendas do dia: quem gerencia vê a loja; quem só vende vê as próprias; os demais não recebem nada.
+  async function vendasDeHoje(ctx) {
+    const gerencia = ctx.pode('vendas.gerenciar');
+    if (!gerencia && !ctx.pode('vendas.registrar')) return null;
+    const r = await db.get(`SELECT COUNT(*) AS n, COALESCE(SUM(valor_centavos),0) AS v FROM vendas WHERE status = 'CONCLUIDA' AND concluida_em >= ?${gerencia ? '' : ' AND vendedor_id = ?'}`, inicioDoDia(diaDaLoja(ctx.agora())), ...(gerencia ? [] : [ctx.user.id]));
+    return { quantidade: Number(r.n), valor_centavos: Number(r.v), minhas: !gerencia };
+  }
+
   rota('GET', '/api/painel', async (ctx) => {
     const um = async (sql, ...a) => await db.get(sql, ...a);
     const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
@@ -137,6 +146,7 @@ export function registrarConsultas(app, { db, cfg }) {
       vencendo_30d: (await um(`SELECT COUNT(DISTINCT l.id) c FROM lotes l JOIN saldos_por_endereco s ON s.lote_id = l.id AND s.qtd > 0 WHERE l.validade IS NOT NULL AND l.validade <= ?`, fmt.format(new Date(ctx.agora() + 30 * 86400000)))).c,
       integridade: (await integridade(db)).ok,
       atividade: await db.all('SELECT id, ts, acao, entidade, entidade_id FROM auditoria ORDER BY id DESC LIMIT 8'),
+      vendas_hoje: await vendasDeHoje(ctx),
     };
   });
 

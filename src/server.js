@@ -14,6 +14,11 @@ import { registrarEquipe } from './modules/equipe.js';
 import { registrarCadastro } from './modules/cadastro.js';
 import { criarEmail, vincularEmailDono, garantirDonosExtras } from './email.js';
 import { registrarEmpresa } from './modules/empresa.js';
+import { registrarVendas } from './modules/vendas.js';
+import { registrarCaixa } from './modules/caixa.js';
+import { registrarBalcao } from './modules/balcao.js';
+import { registrarClientes } from './modules/clientes.js';
+import { registrarRelatorios } from './modules/relatorios.js';
 import { provisionar } from './provisionar.js';
 import { fileURLToPath } from 'node:url';
 import { iguais } from './security/crypto.js';
@@ -40,6 +45,11 @@ export async function montar(cfg, { log = criarLogger({ nivel: cfg.logLevel }), 
   registrarEquipe(app, deps);
   registrarCadastro(app, deps);
   registrarEmpresa(app, deps);
+  registrarVendas(app, deps);
+  registrarCaixa(app, deps);
+  registrarBalcao(app, deps);
+  registrarClientes(app, deps);
+  registrarRelatorios(app, deps);
   const integracoes = await registrarIntegracoes(app, deps);
 
   // Limpeza: sessões vencidas, idempotência antiga, tentativas de login esquecidas. Roda a cada 10 min (servidor fixo) ou pelo cron (Vercel).

@@ -6,6 +6,7 @@ import { loadConfig } from '../src/config.js';
 import { abrirBanco } from '../src/db.js';
 import { integridade } from '../src/modules/estoque.js';
 import { verificarCadeia } from '../src/security/audit.js';
+import { integridadeVendas } from '../src/modules/relatorios.js';
 
 const cfg = loadConfig();
 const db = await abrirBanco(cfg);
@@ -17,7 +18,9 @@ try {
   const eventos = (await db.get('SELECT COUNT(*) c FROM auditoria')).c;
   console.log(`Estoque: ${estoque.ok ? 'OK' : 'DIVERGENTE'} (${linhas} movimentações; ${estoque.divergencias.length} divergência(s), ${estoque.saldos_negativos} saldo(s) negativo(s)).`);
   console.log(`Auditoria: ${auditoria.ok ? 'OK' : 'QUEBRADA'} (${eventos} registros).`);
-  ok = estoque.ok && auditoria.ok;
+  const vendas = await integridadeVendas(db);
+  console.log(`Vendas: ${vendas.ok ? 'OK' : `DIVERGENTE (${vendas.problemas.slice(0, 5).join('; ')})`}.`);
+  ok = estoque.ok && auditoria.ok && vendas.ok;
 } finally { await db.fechar(); }
 if (!ok) { console.error('Integridade FALHOU.'); process.exit(2); }
 console.log('Integridade OK.');
