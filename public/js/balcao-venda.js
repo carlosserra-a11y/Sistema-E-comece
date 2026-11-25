@@ -204,7 +204,8 @@ export async function abaVender(el, { sessao, config }) {
   desenharCliente(); desenhar(); faixaCaixa.append(esqueleto(1)); await verCaixa();
   busca.focus();
 
-  const atalho = (e) => { if (e.key === 'F2') { e.preventDefault(); pagar(); } };
+  // se a pessoa trocou de tela antes de a aba terminar de abrir, o atalho se desliga sozinho (não abre pagamento em outra tela)
+  const atalho = (e) => { if (!el.isConnected) return document.removeEventListener('keydown', atalho); if (e.key === 'F2') { e.preventDefault(); pagar(); } };
   document.addEventListener('keydown', atalho);
   return () => { document.removeEventListener('keydown', atalho); scanner?.fechar(); };
 }

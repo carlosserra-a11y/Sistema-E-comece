@@ -51,7 +51,7 @@ test('função da Vercel (api/index.js): sobe o sistema sob demanda, responde e 
   const livre = await new Promise((ok) => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => ok(p)); }); });
   const hex = () => crypto.randomBytes(32).toString('hex');
   const antigo = { ...process.env };
-  Object.assign(process.env, { NODE_ENV: 'test', DB_PATH: ':memory:', PORT: String(livre), SCRYPT_N: '1024', LOG_LEVEL: 'error', ML_POLL_MIN: '0' });
+  Object.assign(process.env, { NODE_ENV: 'test', DB_PATH: ':memory:', PORT: String(livre), SCRYPT_N: '1024', LOG_LEVEL: 'error', ML_POLL_MIN: '0', APP_NAME: 'Carlos Desenvolvedor de Sistema' });
   process.env.PEPPER = 'curta'; // chave inválida (o .env local, se existir, não pode mascarar o teste)
   delete process.env.DATABASE_URL;
   const { default: handler } = await import('../api/index.js');
