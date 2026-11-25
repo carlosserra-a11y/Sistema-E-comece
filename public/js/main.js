@@ -3,6 +3,8 @@ import { telaAcesso, telaPendente } from './acesso.js';
 
 const PAGINAS = [
   ['painel', 'Início', 'home', () => import('./pg-painel.js'), null],
+  ['balcao', 'Balcão', 'cart', () => import('./pg-balcao.js'), ['vendas.registrar', 'vendas.gerenciar', 'vendas.cancelar', 'servicos.editar', 'vendas.configurar']],
+  ['clientes', 'Clientes', 'person', () => import('./pg-clientes.js'), ['clientes.ver']],
   ['consulta', 'Consulta', 'scan', () => import('./pg-consulta.js'), ['produtos.ver', 'estoque.ver', 'enderecos.ver', 'contagem.operar']],
   ['produtos', 'Produtos', 'box', () => import('./pg-produtos.js'), ['produtos.ver']],
   ['estoque', 'Estoque', 'layers', () => import('./pg-estoque.js'), ['estoque.ver', 'estoque.operar']],
@@ -20,7 +22,9 @@ const PAGINAS = [
 // O servidor confere tudo de novo; aqui só escondemos o que a pessoa não pode usar.
 const permitida = (p) => !p[4] || p[4].some((x) => sessao?.usuario?.permissoes?.includes(x));
 const visiveis = () => PAGINAS.filter(permitida);
-const ABAS_CELULAR = ['painel', 'estoque', 'contagem'];
+const ABAS_CELULAR = ['painel', 'balcao', 'estoque', 'contagem'];
+/** As 3 primeiras que a pessoa pode usar entram na barra do celular; o resto fica em "Mais". */
+const abasDoCelular = () => ABAS_CELULAR.map((n) => PAGINAS.find(([x]) => x === n)).filter(permitida).slice(0, 3);
 const raiz = document.getElementById('raiz');
 let conteudo; let limparPagina = null; let sessao = null;
 
@@ -46,7 +50,7 @@ function montarShell() {
   const busca = h('input', { type: 'search', class: 'busca', placeholder: 'Ler código, SKU ou endereço   ( / )', 'aria-label': 'Busca global', id: 'busca-global', autocomplete: 'off',
     onkeydown: (e) => { if (e.key === 'Enter' && e.target.value.trim()) { ir(`consulta?c=${encodeURIComponent(e.target.value.trim())}`); e.target.value = ''; e.target.blur(); } } });
   const maisAba = h('button', { 'data-rota': 'mais', onclick: abrirMais }, icone('dots'), 'Mais');
-  const abasCel = ABAS_CELULAR.map((n) => PAGINAS.find(([x]) => x === n)).filter(permitida).map(([n, rotulo, ic]) => h('a', { href: `#/${n}`, 'data-rota': n }, icone(ic, 22), rotulo));
+  const abasCel = abasDoCelular().map(([n, rotulo, ic]) => h('a', { href: `#/${n}`, 'data-rota': n }, icone(ic, 22), rotulo));
   const bipar = visiveis().some(([n]) => n === 'consulta') ? h('button', { class: 'tab-bipar', 'aria-label': 'Bipar com a câmera', onclick: biparAgora }, h('span', null, icone('scan', 26)), 'Bipar') : null;
   abasCel.splice(Math.ceil(abasCel.length / 2), 0, bipar);
   conteudo = h('main', { class: 'content', id: 'conteudo', tabindex: '-1' });
@@ -62,7 +66,8 @@ function montarShell() {
 }
 
 function marcarNav(nome) {
-  document.querySelectorAll('[data-rota]').forEach((a) => (a.dataset.rota === nome || (a.dataset.rota === 'mais' && !ABAS_CELULAR.includes(nome)) ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
+  const naBarra = abasDoCelular().map(([n]) => n);
+  document.querySelectorAll('[data-rota]').forEach((a) => (a.dataset.rota === nome || (a.dataset.rota === 'mais' && !naBarra.includes(nome)) ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
 }
 
 async function desenharRota() {
@@ -111,13 +116,15 @@ async function biparAgora() {
 
 function abrirMais() {
   let m;
-  m = modal('Mais', h('div', { class: 'stack' }, visiveis().filter(([n]) => !ABAS_CELULAR.includes(n)).map(([n, r, ic]) => h('a', { class: 'btn', href: `#/${n}`, onclick: () => m.fechar() }, icone(ic), r)),
+  const naBarra = abasDoCelular().map(([n]) => n);
+  m = modal('Mais', h('div', { class: 'stack' }, visiveis().filter(([n]) => !naBarra.includes(n)).map(([n, r, ic]) => h('a', { class: 'btn', href: `#/${n}`, onclick: () => m.fechar() }, icone(ic), r)),
     h('button', { class: 'btn', onclick: () => { m.fechar(); alternarTema(); } }, icone('moon'), 'Alternar tema'), h('button', { class: 'btn', onclick: () => { m.fechar(); sair(); } }, icone('logout'), 'Sair')));
 }
 
 function paleta() {
   const comandos = [
     ...visiveis().map(([n, r, ic]) => ({ rotulo: `Ir para ${r}`, ic, acao: () => ir(n), atalho: '' })),
+    ...(pode('vendas.registrar') ? [{ rotulo: 'Nova venda (balcão)', ic: 'cart', acao: () => ir('balcao') }] : []),
     { rotulo: 'Novo produto', ic: 'plus', acao: () => ir('produtos?novo=1'), atalho: 'N' },
     { rotulo: 'Receber mercadoria', ic: 'download', acao: () => ir('estoque?op=receber') },
     { rotulo: 'Transferir / guardar', ic: 'arrows', acao: () => ir('estoque?op=transferir') },
@@ -151,11 +158,11 @@ function paleta() {
 
 function atalhos() {
   const linha = (t, d) => h('div', null, h('span', null, d), h('span', { class: 'atalho' }, t));
-  modal('Atalhos de teclado', h('div', { class: 'lista' }, linha('Ctrl/⌘ + K', 'Paleta de comandos'), linha('/', 'Ir para a busca global'), linha('G depois I', 'Início'), linha('G depois P', 'Produtos'),
+  modal('Atalhos de teclado', h('div', { class: 'lista' }, linha('Ctrl/⌘ + K', 'Paleta de comandos'), linha('/', 'Ir para a busca global'), linha('G depois I', 'Início'), linha('G depois V', 'Balcão (vender)'), linha('F2', 'Receber pagamento (no balcão)'), linha('G depois L', 'Clientes'), linha('G depois P', 'Produtos'),
     linha('G depois E', 'Estoque'), linha('G depois A', 'Endereços'), linha('G depois C', 'Contagem'), linha('G depois T', 'Etiquetas'), linha('G depois Q', 'Consulta'), linha('N', 'Novo (na tela atual)'), linha('?', 'Esta lista'), linha('Esc', 'Fechar gaveta/janela')));
 }
 
-const IR_PARA = { b: 'codigos', m: 'integracoes', i: 'painel', p: 'produtos', e: 'estoque', a: 'enderecos', c: 'contagem', t: 'etiquetas', q: 'consulta', f: 'fornecedores' };
+const IR_PARA = { v: 'balcao', l: 'clientes', b: 'codigos', m: 'integracoes', i: 'painel', p: 'produtos', e: 'estoque', a: 'enderecos', c: 'contagem', t: 'etiquetas', q: 'consulta', f: 'fornecedores' };
 let esperandoG = 0;
 document.addEventListener('keydown', (e) => {
   if (!sessao?.autenticado) return;

@@ -64,7 +64,7 @@ export async function renderizar(el) {
     seletor.addEventListener('change', () => { if (seletor.value !== 'personalizado') aplicar(catalogo.papeis[seletor.value].permissoes); });
     const grupos = catalogo.grupos.map((g) => h('fieldset', { class: `permissoes ${g.id === 'financeiro' ? 'financeiro' : ''}` }, h('legend', null, g.rotulo),
       g.id === 'financeiro' && h('p', { class: 'aviso-txt' }, 'Dá acesso a custos, preços e valores de pedidos. Marque só para quem você confia.'),
-      g.itens.filter(([id]) => id !== 'usuarios.gerenciar').map(([id, rotulo]) => {
+      g.itens.filter(([id]) => id !== 'usuarios.gerenciar' && id !== 'vendas.configurar').map(([id, rotulo]) => {
         const c = h('input', { type: 'checkbox', checked: u && !u.pendente ? u.permissoes.includes(id) : false, onchange: () => { seletor.value = 'personalizado'; } });
         marcas.set(id, c); return h('label', { class: 'check' }, c, rotulo);
       })));

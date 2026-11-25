@@ -13,7 +13,10 @@ for (const metodo of ['append', 'prepend']) {
 export function h(tag, props, ...filhos) {
   const el = document.createElement(tag);
   if (props) for (const [k, v] of Object.entries(props)) {
-    if (v === undefined || v === null || v === false) continue;
+    if (v === undefined || v === null) continue;
+    // estados de acessibilidade precisam do texto "true"/"false" (é o que o CSS e os leitores de tela leem)
+    if (k.startsWith('aria-') && typeof v === 'boolean') { el.setAttribute(k, String(v)); continue; }
+    if (v === false) continue;
     if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
     else if (k === 'class') el.className = v;
     else if (k === 'value') el.value = v;
@@ -54,6 +57,8 @@ const ICONES = {
   mail: 'M3 5h18v14H3z M3 7l9 6 9-6',
   arrowleft: 'M19 12H5 M12 19l-7-7 7-7',
   building: 'M4 21V4l8-2v19 M12 8h8v13 M4 21h16 M8 8h.01 M8 12h.01 M8 16h.01 M16 12h.01 M16 16h.01',
+  cart: 'M2 3h3l2.5 12h11L21 7H6 M9 19.5a1.5 1.5 0 1 0 .01 0 M17 19.5a1.5 1.5 0 1 0 .01 0',
+  person: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M4 21c0-4 3.6-6 8-6s8 2 8 6',
 };
 export function icone(nome, tam = 20) {
   const s = document.createElementNS(NS, 'svg');
@@ -146,7 +151,8 @@ function overlay(classe, conteudo, aoFechar) {
   const ov = h('div', { class: `overlay ${classe}`, onmousedown: (e) => { if (e.target === ov) fechar(); } }, conteudo);
   const fechar = () => { ov.remove(); document.removeEventListener('keydown', tecla, true); anterior?.focus?.(); aoFechar?.(); };
   const tecla = (e) => {
-    if (e.key === 'Escape') { e.stopPropagation(); fechar(); }
+    if (ov !== [...document.querySelectorAll('.overlay')].at(-1)) return; // só a janela de cima responde ao teclado
+    if (e.key === 'Escape') { e.stopImmediatePropagation(); fechar(); }
     if (e.key === 'Tab') {
       const f = [...ov.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])')].filter((x) => x.offsetParent !== null);
       if (!f.length) return;
@@ -245,7 +251,7 @@ export const paginacao = (total, pagina, por, ir) => {
 };
 
 /** Campo de busca com sugestões (combobox acessível). `buscar(texto)` devolve [{id, rotulo, detalhe, dados}]. */
-export function combobox({ rotulo, buscar, aoEscolher, placeholder = '', valorInicial = '' }) {
+export function combobox({ rotulo, buscar, aoEscolher, placeholder = '', valorInicial = '', camera = true }) {
   const input = h('input', { type: 'text', autocomplete: 'off', placeholder, role: 'combobox', 'aria-expanded': 'false', 'aria-autocomplete': 'list', value: valorInicial });
   const lista = h('ul', { role: 'listbox', hidden: true });
   let itens = []; let ativo = -1; let escolhido = null;
@@ -274,7 +280,7 @@ export function combobox({ rotulo, buscar, aoEscolher, placeholder = '', valorIn
   });
   input.addEventListener('blur', () => setTimeout(() => { lista.hidden = true; }, 150));
   // Câmera do celular: lê o código e escolhe o primeiro resultado (mesma regra do Enter).
-  const botaoCamera = navigator.mediaDevices?.getUserMedia ? h('button', { class: 'btn icone com-camera', type: 'button', 'aria-label': 'Ler com a câmera', onclick: async () => {
+  const botaoCamera = camera && navigator.mediaDevices?.getUserMedia ? h('button', { class: 'btn icone com-camera', type: 'button', 'aria-label': 'Ler com a câmera', onclick: async () => {
     const { abrirScanner } = await import('./scanner.js');
     abrirScanner({ titulo: rotulo || 'Aponte para o código', aoLer: async (codigo) => {
       try { const r = await buscar(codigo); if (r[0]) { escolher(r[0]); return true; } } catch { /* trata abaixo */ }

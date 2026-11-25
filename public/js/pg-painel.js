@@ -31,11 +31,14 @@ const kpi = (rotulo, valor, nota, ic, extra = {}) => h('section', { class: `card
 export async function renderizar(el, { ir, sessao }) {
   const pode = (x) => !!sessao?.usuario?.permissoes?.includes(x);
   el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Início'), h('p', null, 'Visão do galpão agora.')),
-    h('div', { class: 'row' }, pode('estoque.operar') && h('button', { class: 'btn primario', onclick: () => ir('estoque?op=receber') }, icone('download'), 'Receber mercadoria'), pode('contagem.operar') && h('button', { class: 'btn', onclick: () => ir('contagem?novo=1') }, icone('clipboard'), 'Nova contagem'))));
+    h('div', { class: 'row' }, pode('vendas.registrar') && h('button', { class: 'btn primario', onclick: () => ir('balcao') }, icone('cart'), 'Nova venda'), pode('estoque.operar') && h('button', { class: 'btn primario', onclick: () => ir('estoque?op=receber') }, icone('download'), 'Receber mercadoria'), pode('contagem.operar') && h('button', { class: 'btn', onclick: () => ir('contagem?novo=1') }, icone('clipboard'), 'Nova contagem'))));
   const alvo = h('div'); el.append(alvo);
   await carregar(alvo, () => api.get('/api/painel'), (d) => {
     const ocup = d.enderecos ? Math.round((d.enderecos_ocupados / d.enderecos) * 100) : 0;
+    const vh = d.vendas_hoje;
     alvo.append(h('div', { class: 'grid bento' },
+      vh && h('section', { class: 'card w6 faixa-vendas', 'aria-label': 'Vendas de hoje' }, h('div', { class: 'rotulo' }, icone('cart', 16), vh.minhas ? 'Minhas vendas de hoje' : 'Vendas de hoje no balcão'),
+        h('div', { class: 'total-grande' }, fmt.moeda(vh.valor_centavos)), h('div', { class: 'muted' }, `${fmt.num(vh.quantidade)} venda(s)`)),
       kpi('Produtos ativos', d.produtos_ativos, d.sem_codigo ? `${d.sem_codigo} sem código de barras` : 'todos com código', 'box'),
       kpi('Unidades em estoque', d.unidades, null, 'layers'),
       h('section', { class: 'card kpi', 'aria-label': 'Ocupação' }, h('div', { class: 'rotulo' }, icone('map', 16), 'Ocupação do galpão'), h('div', { class: 'valor' }, contar(h('span'), ocup, (n) => `${n}%`)),
