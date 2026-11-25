@@ -5,6 +5,7 @@ import { auditar } from '../security/audit.js';
 import { podeFinanceiro } from '../permissoes.js';
 import { cifrar, hmacHex } from '../security/crypto.js';
 import { ean13Interno, validarGtin, variantes } from '../barcode/gtin.js';
+import { centavosParaTexto, lerCentavos } from '../../public/js/dinheiro.js';
 
 export const SKU_RE = /^[A-Z0-9][A-Z0-9._-]{0,39}$/;
 export const ENDERECO_RE = /^[A-Z0-9]{1,4}-[A-Z]{1,3}-\d{2}-\d{2}-\d{2}-\d{2}$/;
@@ -260,7 +261,7 @@ export function registrarCatalogo(app, { cfg, db: dbPrincipal }) {
   rota('GET', '/api/produtos-exportar', async (ctx) => {
     const fin = podeFinanceiro(ctx); // sem permissão financeira, as colunas de custo e preço nem existem no arquivo
     const cab = ['sku', 'nome', 'marca', 'categoria', 'unidade', ...(fin ? ['custo', 'preco'] : []), 'peso_g', 'estoque_min', 'estoque_max', 'codigo_barras', 'saldo_total'];
-    const linhas = (await db.all(`${SELECT_PRODUTO} WHERE p.ativo = 1 ORDER BY p.sku`)).map((p) => [p.sku, p.nome, p.marca, p.categoria, p.unidade, ...(fin ? [(p.custo_centavos / 100).toFixed(2), (p.preco_centavos / 100).toFixed(2)] : []), p.peso_g, p.estoque_min, p.estoque_max, p.codigo_principal, p.saldo_total]);
+    const linhas = (await db.all(`${SELECT_PRODUTO} WHERE p.ativo = 1 ORDER BY p.sku`)).map((p) => [p.sku, p.nome, p.marca, p.categoria, p.unidade, ...(fin ? [centavosParaTexto(p.custo_centavos), centavosParaTexto(p.preco_centavos)] : []), p.peso_g, p.estoque_min, p.estoque_max, p.codigo_principal, p.saldo_total]);
     await tx(db, async (db) => await auditar(db, ctx, 'PRODUTOS_EXPORTADOS', 'produto', null, { total: linhas.length }));
     return { _raw: true, tipo: 'text/csv; charset=utf-8', headers: { 'Content-Disposition': 'attachment; filename="produtos.csv"' }, corpo: '﻿' + [cab, ...linhas].map((l) => l.map(celulaCsv).join(';')).join('\r\n') };
   });
@@ -270,9 +271,9 @@ export function registrarCatalogo(app, { cfg, db: dbPrincipal }) {
 
 function reais(v) {
   if (v === undefined || v === '') return undefined;
-  const n = Number(String(v).replace(/\./g, '').replace(',', '.'));
-  if (!Number.isFinite(n) || n < 0) throw new Error(`Valor monetário inválido: ${v}`);
-  return Math.round(n * 100);
+  const c = lerCentavos(v);
+  if (c === null) throw new Error(`Valor monetário inválido: ${v}`);
+  return c;
 }
 
 export function lerCsv(texto) {

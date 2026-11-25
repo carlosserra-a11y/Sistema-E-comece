@@ -1,4 +1,5 @@
 // Núcleo do front-end: DOM sem innerHTML (CSP estrita), API, ícones e componentes básicos.
+import { centavosParaTexto, lerCentavos } from './dinheiro.js';
 const NS = 'http://www.w3.org/2000/svg';
 
 // O append/prepend nativo transforma null/undefined/false em TEXTO ("null"). Aqui eles são ignorados e listas são achatadas,
@@ -105,8 +106,9 @@ export const fmt = {
   hora: (ms) => new Intl.DateTimeFormat('pt-BR', { timeZone: TZ, timeStyle: 'short' }).format(new Date(ms)),
   data: (s) => (s ? s.split('-').reverse().join('/') : '—'),
 };
-export const centavos = (txt) => { const n = Number(String(txt).replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? Math.round(n * 100) : 0; };
-export const reais = (c) => (c / 100).toFixed(2).replace('.', ',');
+/** Campo de dinheiro -> centavos. Vazio = 0; texto que não é um valor = -1, para o servidor recusar em vez de gravar errado. */
+export const centavos = (txt) => (String(txt ?? '').trim() === '' ? 0 : lerCentavos(txt) ?? -1);
+export const reais = centavosParaTexto;
 
 // ---------- feedback (cor + som + vibração + texto) ----------
 let audio;
