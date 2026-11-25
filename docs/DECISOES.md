@@ -46,3 +46,14 @@ Registradas porque o prompt pedia perguntas e não houve resposta: valeu o padr�
 - **Papel `app_wms`:** o app nunca usa o `postgres`. RLS ligado com política só para esse papel; `anon`/`authenticated` sem acesso; sem UPDATE/DELETE em `auditoria` e `movimentacoes_estoque`.
 - **Vercel:** função catch-all reaproveita `montar()`; `waitUntil` termina o processamento em segundo plano do webhook; cron diário de manutenção (plano Hobby só permite 1x/dia). Limitador de requisições em memória é por instância (o bloqueio de login é no banco, então vale para todas).
 - **Celular:** PWA (ícones PNG, atalhos), barra inferior com botão **Bipar**, leitor em tela cheia (BarcodeDetector nativo; ZXing local no iPhone, sem CDN por causa da CSP).
+
+## Balcão (25/11/2026)
+
+- **Preço é do servidor.** A tela manda o total que a pessoa viu; se o cadastro mudou, a venda é recusada em vez de gravar outro valor.
+- **Estoque pelo livro-razão**, com o mesmo `mover()` das outras operações; o cancelamento devolve pelas linhas do grupo `venda-<id>`.
+- **Uma tabela para venda e orçamento** (`status`), para os itens e as regras serem os mesmos.
+- **Ordem fixa das travas** (caixa, venda, produtos em ordem de id) para duas operações não se travarem.
+- **Preço de venda não é campo restrito** no balcão (viaja como `preco_unit_centavos`/`valor_centavos`); custo e margem continuam só com o financeiro.
+- **Pix estático**, sem integrar banco: nenhuma credencial financeira no sistema; só o dono muda a chave, confirmando a identidade.
+- **Sem emissão fiscal** nesta fase: depende de certificado e de um emissor contratado.
+

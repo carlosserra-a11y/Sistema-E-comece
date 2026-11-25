@@ -18,6 +18,8 @@ Dica: com a aba aberta o sistema **não desconecta** (dá para ficar bipando por
 | Tela | Para que serve |
 |---|---|
 | **Início** | Visão do galpão agora: produtos, unidades, ocupação, alertas e atividade |
+| **Balcão** | Venda presencial, caixa, orçamentos e relatórios ([guia passo a passo](GUIA-PASSO-A-PASSO.md)) |
+| **Clientes** | Cadastro e histórico de compras |
 | **Consulta** | Leia qualquer código (produto, endereço, lote) e veja **onde está e quanto tem** |
 | **Produtos** | Cadastro, códigos de barras, importar/exportar planilha, anúncios do Mercado Livre |
 | **Estoque** | Receber, guardar/transferir, baixar, avaria, ajustar, saldos, movimentações, reposição |

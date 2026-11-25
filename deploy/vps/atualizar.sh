@@ -9,6 +9,9 @@ USUARIO=wms
 
 [ "$(id -u)" -eq 0 ] || { echo "Rode como root (ou com sudo)."; exit 1; }
 
+# cópia do banco ANTES de mudar qualquer coisa (se o backup falhar, a atualização para aqui)
+if grep -q "^DATABASE_URL=postgresql://app_wms:.*@127.0.0.1" /opt/wms/.env; then bash "$APP/deploy/vps/backup-pg.sh"; fi
+echo "Versão atual (para voltar, se preciso): $(sudo -u "$USUARIO" git -C "$APP" rev-parse --short HEAD)"
 sudo -u "$USUARIO" git -C "$APP" pull --ff-only
 (cd "$APP" && sudo -u "$USUARIO" npm ci --omit=dev)
 if grep -q "^DATABASE_URL=postgresql://app_wms:.*@127.0.0.1" /opt/wms/.env; then bash "$APP/deploy/vps/aplicar-esquema.sh"; fi   # banco local: aplica migrations novas

@@ -1,6 +1,8 @@
 # Carlos Desenvolvedor de Sistema — WMS + vendas (Mercado Livre)
 
-Sistema web para controlar **estoque com endereçamento físico (picking)**, **etiquetar produtos** (gerador de código de barras), **reconhecer o produto na leitura**, **contar o estoque** e preparar o caminho para marketplaces e expedição. Interface em português do Brasil, moeda BRL, fuso `America/Sao_Paulo`.
+**Comece aqui:** [Guia passo a passo](docs/GUIA-PASSO-A-PASSO.md) (uso diário) · [Atualização do balcão](docs/ATUALIZACAO-BALCAO.md) (o que mudou e como publicar).
+
+Sistema web com **venda presencial (balcão)**, para controlar **estoque com endereçamento físico (picking)**, **etiquetar produtos** (gerador de código de barras), **reconhecer o produto na leitura**, **contar o estoque** e preparar o caminho para marketplaces e expedição. Interface em português do Brasil, moeda BRL, fuso `America/Sao_Paulo`.
 
 Node 22+ (testado no 24). **Dois motores de banco atrás da mesma interface:** SQLite (`node:sqlite`, desenvolvimento e testes) e **PostgreSQL na Supabase** (produção). Front-end em HTML/CSS/JS puros com CSP estrita, **PWA para celular** com leitura de código pela câmera.
 
@@ -33,6 +35,19 @@ npm test               # testes de segurança, estoque, código de barras e cont
 | **Contagem** | inventário cíclico, geral ou por endereços; **contagem cega**; detecta movimento no meio da contagem; aprovação com reautenticação |
 | Design | tokens OKLCH, temas escuro/claro/automático/alto contraste (contraste ≥ 4,5:1 testado), navegação lateral + abas no celular, paleta Ctrl+K, atalhos, PWA, galeria em `/#/design` |
 
+## Balcão: venda presencial
+
+| Área | Entregue |
+|---|---|
+| Venda | leitor/câmera, carrinho, desconto com limite, dinheiro/Pix/débito/crédito combinados, troco, cupom (não fiscal), baixa por FEFO, sem vender lote vencido, endereço bloqueado ou unidade reservada para a internet |
+| Caixa | um por pessoa; abertura, sangria, suprimento, devolução, fechamento com conferência cega |
+| Orçamento, clientes, serviços | preço congelado até a validade; CPF/CNPJ cifrado |
+| Pix | QR e copia e cola com valor (BR Code estático); **não confirma pagamento** |
+| Relatórios | período, forma, atendente, mais vendidos, margem (financeiro), CSV |
+| Segurança | preço decidido no servidor; envio idempotente; pagamentos e movimentos de caixa imutáveis; cancelamento com permissão e senha |
+
+Não faz: nota fiscal, integração com maquininha, devolução parcial, venda a prazo, venda sem internet.
+
 ## Fase 5: Mercado Livre
 
 | Área | Entregue |
@@ -56,6 +71,8 @@ Shopee, NF-e (Bling/Tiny), fluxo do pedido (separação mobile, conferência, em
 ## Produção: Supabase + Vercel
 
 **Endereço do sistema:** https://carlos-sistema-carlos-nunes.vercel.app (projeto `carlos-sistema` na Vercel, conectado a este repositório: cada envio à branch `main` publica sozinho).
+
+> **Atenção:** desde 24/11/2026 o sistema oficial é a **VPS** (friospecaseservicos.com.br, PostgreSQL local; veja [docs/VPS-HOSTGATOR.md](docs/VPS-HOSTGATOR.md)). A parte abaixo descreve a hospedagem antiga, mantida como cópia.
 
 - **Banco:** Supabase (PostgreSQL). O esquema fica em `supabase/migrations/` (RLS ligado; o app usa o papel `app_wms`, sem poder alterar livro-razão/auditoria).
 - **Site:** Vercel — a função `api/index.js` (recebe todo `/api/*` por reescrita no `vercel.json`) roda o mesmo sistema; `public/` sai da CDN com os mesmos cabeçalhos de segurança (`vercel.json`, conferido por teste).
