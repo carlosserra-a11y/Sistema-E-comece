@@ -117,6 +117,20 @@ test('sem estoque liberado o Expedir não grava nada; dois "Expedir" ao mesmo te
   assert.equal(await saldo(sis, p), 2);
 }));
 
+test('um pedido a mais não trava os anteriores: quem chegou primeiro fica com as unidades', async () => await com(async ({ sis, dono, pick, p, chegar }) => {
+  const primeiro = await chegar({ qtd: 3 });
+  const segundo = await chegar({ qtd: 3 }); // há 5: faltaria 1 para este
+  assert.deepEqual([primeiro.status, segundo.status], ['PAGO', 'COM_PROBLEMA']);
+  assert.match(segundo.problema, /faltam 1/);
+  assert.equal((await chegar({ id: Number(primeiro.canal), qtd: 3 })).status, 'PAGO', 'o canal avisa de novo e o primeiro continua na fila');
+  assert.deepEqual([ok(await dono.get('/api/expedicao-pedidos')).total, ok(await dono.get('/api/expedicao-pedidos')).com_problema], [1, 1]);
+  for (const etapa of ['SEPARACAO', 'CONFERENCIA', 'EXPEDICAO']) ok(await passo(dono, primeiro.id, etapa, 3));
+  assert.equal(await saldo(sis, p), 2);
+  assert.equal((await chegar({ id: Number(segundo.canal), qtd: 3 })).status, 'COM_PROBLEMA');
+  ok(await dono.idem('/api/estoque/receber', { produto_id: p.id, endereco_id: pick[0].id, qtd: 1 }), 201);
+  assert.equal((await chegar({ id: Number(segundo.canal), qtd: 3 })).status, 'PAGO');
+}));
+
 test('permissões e entradas inválidas', async () => await com(async ({ sis, dono, chegar }) => {
   const a = await chegar();
   const olha = await contratar(sis, dono, { nome: 'Olga Olha', papel: 'personalizado', permissoes: ['expedicao.ver'] });

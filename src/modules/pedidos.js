@@ -53,10 +53,15 @@ async function avaliar(db, ctx, recebido, statusCanal) {
       if (!it.produto_id) { problemas.push(`SKU não mapeado: ${it.sku_canal ?? it.item_id}`); continue; }
       await db.run("INSERT INTO reservas (pedido_item_id, produto_id, qtd, status, criado_em, atualizado_em) VALUES (?,?,?,'ATIVA',?,?) ON CONFLICT DO NOTHING", it.id, it.produto_id, it.qtd, ctx.agora(), ctx.agora());
     }
+    // Quem chegou primeiro fica com a unidade: um item só é problema se o estoque não cobre a reserva dele somada às anteriores.
+    // Assim um pedido a mais não trava na Expedição os que já estavam cobertos.
     for (const it of (await itens()).filter((x) => x.produto_id)) {
-      if (await db.get("SELECT 1 AS ok FROM reservas WHERE pedido_item_id = ? AND status = 'CONSUMIDA'", it.id)) continue; // já saiu: falta de saldo hoje não é problema dele
-      const d = await disponivelDe(db, it.produto_id, diaDaLoja(ctx.agora()));
-      if (d.disponivel < 0) problemas.push(`Estoque insuficiente: ${(await db.get('SELECT sku FROM produtos WHERE id = ?', it.produto_id)).sku} (faltam ${-d.disponivel})`);
+      const r = await db.get('SELECT id, qtd, status FROM reservas WHERE pedido_item_id = ?', it.id);
+      if (r?.status !== 'ATIVA') continue; // já saiu: falta de saldo hoje não é problema dele
+      const { vendavel } = await disponivelDe(db, it.produto_id, diaDaLoja(ctx.agora()));
+      const naFrente = Number((await db.get("SELECT COALESCE(SUM(qtd),0) q FROM reservas WHERE produto_id = ? AND status = 'ATIVA' AND id <= ?", it.produto_id, r.id)).q);
+      const faltam = Math.min(Number(r.qtd), naFrente - Number(vendavel));
+      if (faltam > 0) problemas.push(`Estoque insuficiente: ${(await db.get('SELECT sku FROM produtos WHERE id = ?', it.produto_id)).sku} (faltam ${faltam})`);
     }
     status = problemas.length ? 'COM_PROBLEMA' : novo;
     problema = problemas.length ? [...new Set(problemas)].join('; ').slice(0, 400) : null;
