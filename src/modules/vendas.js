@@ -10,7 +10,7 @@ import { podeFinanceiro } from '../permissoes.js';
 import { ORDEM_ROTA } from './deposito.js';
 import { mover } from './estoque.js';
 import { disponivelDe } from './pedidos.js';
-import { FORMAS, VALOR_MAXIMO, caixaAberto, dadosDaLoja, diaDaLoja, exigirCaixaAberto, inicioDoDia, lerConfig, resumoCaixa, somarDias, travarCaixa } from './vendas-base.js';
+import { FORMAS, TROCO_MAXIMO, VALOR_MAXIMO, caixaAberto, dadosDaLoja, diaDaLoja, exigirCaixaAberto, inicioDoDia, lerConfig, resumoCaixa, somarDias, travarCaixa } from './vendas-base.js';
 
 const MAX_ITENS = 100;
 const grupoDe = (vendaId) => `venda-${vendaId}`;
@@ -67,6 +67,7 @@ export function conferirPagamentos(brutos, total) {
   if (soma < total) throw conflito('PAGAMENTO_INSUFICIENTE', `Faltam ${emReais(total - soma)}.`);
   const troco = soma - total;
   if (troco > 0 && (soma - dinheiro >= total)) throw conflito('PAGAMENTO_EXCEDE', 'Pix e cartão não podem passar do total da venda.');
+  if (troco > TROCO_MAXIMO) throw conflito('TROCO_ALTO', `Troco de ${emReais(troco)} é alto demais: confira o valor recebido em dinheiro.`);
   const finais = lista.filter((p) => p.forma !== 'DINHEIRO').map((p) => ({ ...p, parcelas: p.forma === 'CREDITO' ? p.parcelas : 1 }));
   const liquido = dinheiro - troco; // várias entradas em dinheiro viram uma só, já sem o troco
   if (liquido > 0) finais.unshift({ forma: 'DINHEIRO', valor_centavos: liquido, parcelas: 1 });
@@ -85,7 +86,7 @@ async function origensDeVenda(db, produtoId, hoje) {
 export async function vendavelAgora(db, produtoId, hoje) {
   const origens = await origensDeVenda(db, produtoId, hoje);
   const liberado = origens.reduce((a, o) => a + o.qtd, 0);
-  const { disponivel, reservado } = await disponivelDe(db, produtoId);
+  const { disponivel, reservado } = await disponivelDe(db, produtoId, hoje);
   return { origens, liberado, reservado, maximo: Math.max(0, Math.min(liberado, disponivel)) };
 }
 

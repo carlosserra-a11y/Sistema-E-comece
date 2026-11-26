@@ -145,7 +145,7 @@ export function registrarConsultas(app, { db, cfg }) {
       inventarios_abertos: (await um("SELECT COUNT(*) c FROM inventarios WHERE status = 'ABERTO'")).c,
       vencendo_30d: (await um(`SELECT COUNT(DISTINCT l.id) c FROM lotes l JOIN saldos_por_endereco s ON s.lote_id = l.id AND s.qtd > 0 WHERE l.validade IS NOT NULL AND l.validade <= ?`, fmt.format(new Date(ctx.agora() + 30 * 86400000)))).c,
       integridade: (await integridade(db)).ok,
-      atividade: await db.all('SELECT id, ts, acao, entidade, entidade_id FROM auditoria ORDER BY id DESC LIMIT 8'),
+      atividade: ctx.pode('auditoria.ver') ? await db.all('SELECT id, ts, acao, entidade, entidade_id FROM auditoria ORDER BY id DESC LIMIT 8') : null,
       vendas_hoje: await vendasDeHoje(ctx),
     };
   });

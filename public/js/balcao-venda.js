@@ -205,7 +205,12 @@ export async function abaVender(el, { sessao, config }) {
   busca.focus();
 
   // se a pessoa trocou de tela antes de a aba terminar de abrir, o atalho se desliga sozinho (não abre pagamento em outra tela)
-  const atalho = (e) => { if (!el.isConnected) return document.removeEventListener('keydown', atalho); if (e.key === 'F2') { e.preventDefault(); pagar(); } };
+  const atalho = (e) => {
+    if (!el.isConnected) return document.removeEventListener('keydown', atalho);
+    if (e.key === 'F2') { e.preventDefault(); return pagar(); }
+    // o leitor "digita": se o foco ficou num botão ou fora de um campo, os números vão para a busca
+    if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.target.closest?.('input, textarea, select') && !document.querySelector('.overlay, .scan')) busca.focus();
+  };
   document.addEventListener('keydown', atalho);
   return () => { document.removeEventListener('keydown', atalho); scanner?.fechar(); };
 }

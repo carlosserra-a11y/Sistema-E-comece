@@ -4,6 +4,8 @@ import { conflito, naoEncontrado } from '../util.js';
 export const FORMAS = ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'];
 /** Teto de uma venda (R$ 100 milhões): evita estouro de número por erro de digitação. */
 export const VALOR_MAXIMO = 100_000_000_00;
+/** Troco máximo aceito (R$ 2.000). Acima disso quase sempre é um código de barras lido dentro do campo do dinheiro. */
+export const TROCO_MAXIMO = 2_000_00;
 
 const FMT_DIA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
 /** Data AAAA-MM-DD na loja (fuso de São Paulo). */

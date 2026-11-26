@@ -5,6 +5,7 @@ import { auditar } from '../security/audit.js';
 import { aleatorio, cifrar, decifrar, hmacHex, iguais, sha256 } from '../security/crypto.js';
 import { ErroML, ID_RE, ITEM_RE, criarClienteML } from '../integracoes/mercadolivre.js';
 import { disponivelDe, importarPedido } from './pedidos.js';
+import { diaDaLoja } from './vendas-base.js';
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 const msg = (e) => String(e?.message ?? e).slice(0, 200);
@@ -132,7 +133,7 @@ export async function registrarIntegracoes(app, { cfg, db, log }) {
       try {
         const maps = await db.all('SELECT m.*, p.ativo AS produto_ativo FROM sku_marketplace m JOIN produtos p ON p.id = m.produto_id WHERE m.conta_id = ? AND m.sync_ativo = 1 ORDER BY m.id', c.id);
         for (const m of maps) {
-          const d = await disponivelDe(db, m.produto_id);
+          const d = await disponivelDe(db, m.produto_id, diaDaLoja(cfg.agora()));
           const qtd = m.produto_ativo ? Math.max(0, d.disponivel - c.margem_seguranca) : 0;
           let status = null;
           if (c.pausar_sem_estoque) status = qtd === 0 ? 'paused' : m.ultimo_status_enviado === 'paused' ? 'active' : null;
@@ -287,7 +288,7 @@ export async function registrarIntegracoes(app, { cfg, db, log }) {
   const lerAnuncios = async (where = '1=1', ...args) => {
     const linhas = await db.all(`SELECT m.*, p.sku, p.nome FROM sku_marketplace m JOIN produtos p ON p.id = m.produto_id WHERE ${where} ORDER BY m.id DESC`, ...args);
     const saida = [];
-    for (const m of linhas) saida.push({ ...m, ...(await disponivelDe(db, m.produto_id)) });
+    for (const m of linhas) saida.push({ ...m, ...(await disponivelDe(db, m.produto_id, diaDaLoja(cfg.agora()))) });
     return saida;
   };
   rota('GET', '/api/anuncios', async () => ({ itens: await lerAnuncios() }));

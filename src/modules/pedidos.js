@@ -2,10 +2,12 @@ import { tx } from '../db.js';
 import { invalido, naoEncontrado, paginar } from '../util.js';
 import { auditar } from '../security/audit.js';
 import { ITEM_RE, ID_RE } from '../integracoes/mercadolivre.js';
+import { diaDaLoja } from './vendas-base.js';
 
-/** Disponível = físico em zonas vendáveis - reservas ATIVAS. Pode ficar negativo (venda acima do estoque): vira problema no pedido. */
-export async function disponivelDe(db, produtoId) {
-  const vendavel = (await db.get(`SELECT COALESCE(SUM(s.qtd),0) q FROM saldos_por_endereco s JOIN enderecos e ON e.id = s.endereco_id JOIN zonas z ON z.id = e.zona_id WHERE s.produto_id = ? AND z.vendavel = 1`, produtoId)).q;
+/** Disponível = físico em zonas vendáveis, sem lote vencido, - reservas ATIVAS. Pode ficar negativo (venda acima do estoque): vira problema no pedido. */
+export async function disponivelDe(db, produtoId, hoje = diaDaLoja(Date.now())) {
+  const vendavel = (await db.get(`SELECT COALESCE(SUM(s.qtd),0) q FROM saldos_por_endereco s JOIN enderecos e ON e.id = s.endereco_id JOIN zonas z ON z.id = e.zona_id LEFT JOIN lotes l ON l.id = s.lote_id
+    WHERE s.produto_id = ? AND z.vendavel = 1 AND (l.validade IS NULL OR l.validade >= ?)`, produtoId, hoje)).q;
   const reservado = (await db.get("SELECT COALESCE(SUM(qtd),0) q FROM reservas WHERE produto_id = ? AND status = 'ATIVA'", produtoId)).q;
   return { vendavel, reservado, disponivel: vendavel - reservado };
 }
@@ -45,7 +47,7 @@ async function avaliar(db, ctx, pedido, statusCanal) {
       await db.run("INSERT INTO reservas (pedido_item_id, produto_id, qtd, status, criado_em, atualizado_em) VALUES (?,?,?,'ATIVA',?,?) ON CONFLICT DO NOTHING", it.id, it.produto_id, it.qtd, ctx.agora(), ctx.agora());
     }
     for (const it of (await itens()).filter((x) => x.produto_id)) {
-      const d = await disponivelDe(db, it.produto_id);
+      const d = await disponivelDe(db, it.produto_id, diaDaLoja(ctx.agora()));
       if (d.disponivel < 0) problemas.push(`Estoque insuficiente: ${(await db.get('SELECT sku FROM produtos WHERE id = ?', it.produto_id)).sku} (faltam ${-d.disponivel})`);
     }
     status = problemas.length ? 'COM_PROBLEMA' : novo;

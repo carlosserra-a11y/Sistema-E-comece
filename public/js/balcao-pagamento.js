@@ -2,6 +2,8 @@
 import { h, limpar, api, ApiError, icone, fmt, modal, campo, toast, copiar, centavos, reais, selecao, svgDataUrl, novaChave, feedback } from './core.js';
 import { FORMA } from './balcao-cupom.js';
 
+const TROCO_MAXIMO = 2_000_00; // o mesmo limite do servidor
+
 export async function mostrarPix(valor, { rotuloVoltar = 'Voltar ao pagamento', aviso = 'O sistema não confirma o Pix: confira no aplicativo do banco antes de concluir a venda.' } = {}) {
   try {
     const r = await api.post('/api/balcao/pix', { valor_centavos: valor });
@@ -36,9 +38,10 @@ export function abrirPagamento({ total, pixAtivo, enviar, aoConcluir, envio }) {
     const emDinheiro = ps.filter((p) => p.forma === 'DINHEIRO').reduce((a, p) => a + Math.max(0, p.valor_centavos), 0);
     const falta = total - soma; const troco = Math.max(0, -falta);
     const excede = troco > 0 && soma - emDinheiro >= total;
-    situacao.className = `pagamento-situacao ${falta > 0 || excede ? 'perigo-txt' : 'ok-txt'}`;
-    situacao.textContent = !ps.length ? 'Escolha a forma de pagamento.' : invalido ? 'Confira os valores digitados.' : falta > 0 ? `Falta ${fmt.moeda(falta)}` : excede ? 'Pix e cartão não podem passar do total.' : troco ? `Troco: ${fmt.moeda(troco)}` : 'Valor exato ✓';
-    concluir.disabled = enviando || !ps.length || invalido || falta > 0 || excede;
+    const trocoAlto = troco > TROCO_MAXIMO;
+    situacao.className = `pagamento-situacao ${falta > 0 || excede || trocoAlto ? 'perigo-txt' : 'ok-txt'}`;
+    situacao.textContent = !ps.length ? 'Escolha a forma de pagamento.' : invalido ? 'Confira os valores digitados.' : falta > 0 ? `Falta ${fmt.moeda(falta)}` : excede ? 'Pix e cartão não podem passar do total.' : trocoAlto ? `Troco de ${fmt.moeda(troco)}? Confira o valor recebido.` : troco ? `Troco: ${fmt.moeda(troco)}` : 'Valor exato ✓';
+    concluir.disabled = enviando || !ps.length || invalido || falta > 0 || excede || trocoAlto;
     return { falta };
   }
   function desenhar() {

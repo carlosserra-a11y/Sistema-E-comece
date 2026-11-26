@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { criarSistema, entrarCompleto, novoProduto, criarEnderecos, enderecoDe, SENHA_FORTE } from './helpers.js';
 import { integridade } from '../src/modules/estoque.js';
+import { disponivelDe } from '../src/modules/pedidos.js';
 import { integridadeVendas } from '../src/modules/relatorios.js';
 import { verificarCadeia } from '../src/security/audit.js';
 import { crc16, normalizarChavePix, payloadPix } from '../src/pix.js';
@@ -124,6 +125,29 @@ test('pagamentos: falta dinheiro, cartão acima do total, combinação com troco
   assert.equal(v.troco_centavos, 500);
   const { pagamentos } = ok(await dono.get(`/api/vendas/${v.id}`));
   assert.deepEqual(pagamentos, [{ forma: 'DINHEIRO', valor_centavos: 2000, parcelas: 1 }, { forma: 'CREDITO', valor_centavos: 3000, parcelas: 3 }]);
+}));
+
+test('troco absurdo (código de barras lido no campo do dinheiro) é recusado e nada é gravado', async () => await com(async ({ sis, dono, pick }) => {
+  const p = await comEstoque(dono, pick[0], 2);
+  await abrir(dono, 0);
+  falha(await dono.idem('/api/vendas', corpo([item(p, 1)], 1000, [{ forma: 'DINHEIRO', valor_centavos: 7_891_234_500 }])), 409, 'TROCO_ALTO');
+  assert.equal(await saldoEm(sis, p.id, pick[0].id), 2);
+  assert.equal(ok(await dono.idem('/api/vendas', corpo([item(p, 1)], 1000, [{ forma: 'DINHEIRO', valor_centavos: 201000 }])), 201).troco_centavos, 200000);
+}));
+
+test('lote vencido não conta como disponível para a internet', async () => await com(async ({ sis, dono, pick }) => {
+  const p = await comEstoque(dono, pick[0], 0, { controla_lote: 1, controla_validade: 1 });
+  const dia = (n) => new Date(sis.relogio.t + n * 86_400_000).toISOString().slice(0, 10);
+  ok(await dono.idem('/api/estoque/receber', { produto_id: p.id, endereco_id: pick[0].id, qtd: 4, lote: 'CURTO', validade: dia(3) }), 201);
+  ok(await dono.idem('/api/estoque/receber', { produto_id: p.id, endereco_id: pick[1].id, qtd: 1, lote: 'LONGO', validade: dia(90) }), 201);
+  assert.equal((await disponivelDe(sis.db, p.id, dia(0))).disponivel, 5);
+  assert.equal((await disponivelDe(sis.db, p.id, dia(10))).disponivel, 1);
+}));
+
+test('o Início só mostra o histórico de ações para quem pode ver a auditoria', async () => await com(async ({ sis, dono }) => {
+  const vend = await contratar(sis, dono, { nome: 'Vera Vendas', papel: 'vendedor' });
+  assert.equal(ok(await vend.get('/api/painel')).atividade, null);
+  assert.ok(ok(await dono.get('/api/painel')).atividade.length);
 }));
 
 test('estoque: não vende além do saldo, nem de recebimento/bloqueado, e respeita reservas da internet', async () => await com(async ({ sis, dono, pick }) => {

@@ -57,7 +57,7 @@ export async function renderizar(el, { ir, sessao }) {
       h('section', { class: 'card w4' }, h('h2', null, 'Produtos com estoque baixo'), d.abaixo_minimo.length
         ? h('div', { class: 'lista' }, d.abaixo_minimo.map((p) => h('div', null, h('a', { href: '#/produtos' }, `${p.sku} — ${p.nome}`), badge(`${p.vendavel} / mín. ${p.estoque_min}`, p.vendavel === 0 ? 'erro' : 'aviso'))))
         : vazio('Tudo certo', 'Nenhum produto abaixo do mínimo.')),
-      h('section', { class: 'card w2' }, h('h2', null, 'Atividade recente'), d.atividade.length
+      d.atividade && h('section', { class: 'card w2' }, h('h2', null, 'Atividade recente'), d.atividade.length
         ? h('div', { class: 'lista' }, d.atividade.map((a) => h('div', null, h('span', null, a.acao.replaceAll('_', ' ').toLowerCase()), h('span', { class: 'muted' }, fmt.hora(a.ts)))))
         : vazio('Sem atividade ainda'))));
   });

@@ -74,6 +74,6 @@ export async function abrirCupom(vendaId, { destaque = null, rotuloFechar = 'Fec
     const v = await api.get(`/api/vendas/${vendaId}`);
     let m;
     m = modal(`${titulo(v) === 'VENDA' ? 'Venda' : 'Orçamento'} nº ${v.id}`, h('div', { class: 'stack' }, destaque, botoesCupom(v), h('div', { class: 'cupom-previa' }, montarCupom(v)),
-      h('button', { class: 'btn', type: 'button', onclick: () => { m.fechar(); aoFechar?.(); } }, rotuloFechar)));
+      h('button', { class: 'btn', type: 'button', autofocus: true, onclick: () => { m.fechar(); aoFechar?.(); } }, rotuloFechar)));
   } catch (e) { tratar(e); }
 }
