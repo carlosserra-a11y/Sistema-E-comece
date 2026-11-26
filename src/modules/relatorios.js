@@ -79,7 +79,7 @@ export function registrarRelatorios(app, { db }) {
     for (const x of pags) formas.set(x.venda_id, [...(formas.get(x.venda_id) ?? []), `${x.forma} ${centavosParaTexto(Number(x.valor_centavos))}`]);
     const hora = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
     const cab = ['venda', 'situacao', 'data', 'vendedor', 'cliente', 'subtotal', 'desconto', 'total', 'pagamentos'];
-    const linhas = vendas.map((v) => [v.id, v.status, hora.format(new Date(v.concluida_em)), v.vendedor, v.cliente, centavosParaTexto(Number(v.subtotal_centavos)), centavosParaTexto(Number(v.desconto_centavos)), centavosParaTexto(Number(v.valor_centavos)), (formas.get(v.id) ?? []).join(' + ')]);
+    const linhas = vendas.map((v) => [v.id, v.status, hora.format(new Date(v.concluida_em)), v.vendedor, ctx.pode('clientes.ver') ? v.cliente : null, centavosParaTexto(Number(v.subtotal_centavos)), centavosParaTexto(Number(v.desconto_centavos)), centavosParaTexto(Number(v.valor_centavos)), (formas.get(v.id) ?? []).join(' + ')]);
     await tx(db, async (db) => await auditar(db, ctx, 'VENDAS_EXPORTADAS', 'venda', null, { de: p.de, ate: p.ate, total: linhas.length }));
     return { _raw: true, tipo: 'text/csv; charset=utf-8', headers: { 'Content-Disposition': `attachment; filename="vendas-${p.de}-a-${p.ate}.csv"` }, corpo: '﻿' + [cab, ...linhas].map((l) => l.map(celulaCsv).join(';')).join('\r\n') };
   });

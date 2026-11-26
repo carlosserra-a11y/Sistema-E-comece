@@ -19,16 +19,17 @@ export async function mostrarPix(valor, { rotuloVoltar = 'Voltar ao pagamento', 
 }
 
 /**
- * total: centavos. enviar(pagamentos, chave) grava a venda. `envio` guarda a chave do último envio sem resposta, para a
- * mesma venda não entrar duas vezes mesmo que a janela seja fechada e aberta de novo (devolve e recebe { json, chave }).
+ * total: centavos. enviar(pagamentos, chave) grava a venda. `registro` (opcional) guarda o envio ANTES de mandar:
+ * antes(pagamentos, chave), limpar() quando há resposta, incerto() quando não dá para saber se gravou.
  */
-export function abrirPagamento({ total, pixAtivo, enviar, aoConcluir, envio }) {
+export function abrirPagamento({ total, pixAtivo, enviar, aoConcluir, registro }) {
   const linhas = [];
   const lista = h('div', { class: 'stack' });
   const situacao = h('p', { class: 'pagamento-situacao', role: 'status' });
   const erro = h('p', { class: 'erro', role: 'alert' });
   const concluir = h('button', { class: 'btn primario enorme', type: 'submit' }, 'Concluir venda');
-  let enviando = false; let m;
+  const voltar = h('button', { class: 'btn', type: 'button', onclick: () => m.fechar() }, 'Voltar');
+  let enviando = false; let m; let ultimo = null;
 
   const pagamentos = () => linhas.map((l) => ({ forma: l.forma.value, valor_centavos: centavos(l.valor.value), ...(l.forma.value === 'CREDITO' ? { parcelas: Number(l.parcelas.value) } : {}) }));
   function conta() {
@@ -72,25 +73,27 @@ export function abrirPagamento({ total, pixAtivo, enviar, aoConcluir, envio }) {
   const form = h('form', { class: 'stack', onsubmit: async (e) => {
     e.preventDefault();
     if (concluir.disabled) return;
-    enviando = true; concluir.disabled = true; erro.textContent = ''; concluir.textContent = 'Gravando…';
+    enviando = true; concluir.disabled = true; voltar.disabled = true; erro.textContent = ''; concluir.textContent = 'Gravando…';
     const ps = pagamentos(); const json = JSON.stringify(ps);
-    if (envio.dados?.json !== json) envio.gravar({ json, chave: novaChave() });
+    if (ultimo?.json !== json) ultimo = { json, chave: novaChave() }; // mesmo conteúdo = mesma chave: não grava duas vezes
+    registro?.antes(ps, ultimo.chave);
     try {
-      const r = await enviar(ps, envio.dados.chave);
-      envio.gravar(null);
+      const r = await enviar(ps, ultimo.chave);
+      registro?.limpar();
       feedback('ok', r.troco_centavos ? `Troco ${fmt.moeda(r.troco_centavos)}` : 'Venda concluída ✓');
       m.fechar();
       aoConcluir(r);
     } catch (x) {
       const semResposta = !(x instanceof ApiError) || x.status === 0 || x.status >= 500;
-      if (!semResposta) envio.gravar(null); // o servidor recusou: nada foi gravado, a próxima tentativa é nova
-      erro.textContent = semResposta ? 'Sem resposta do servidor: não sei se a venda foi gravada. Toque em "Concluir venda" de novo (não duplica) ou confira na aba Vendas.' : [x.message, ...Object.values(x.campos ?? {}).filter((c) => c !== x.message)].join(' ');
       feedback('erro', 'Venda não concluída');
+      if (semResposta && registro) { m.fechar(); registro.incerto(); return; }
+      if (!semResposta) registro?.limpar(); // o servidor recusou: nada foi gravado
+      erro.textContent = semResposta ? 'Sem resposta do servidor: não sei se foi gravado. Toque em "Concluir venda" de novo (não duplica) ou confira na aba Vendas.' : [x.message, ...Object.values(x.campos ?? {}).filter((c) => c !== x.message)].join(' ');
       if (x.code === 'PRECO_MUDOU') { m.fechar(); toast(`${x.message} Use "Atualizar preços".`, 'erro', 8000); }
-    } finally { enviando = false; concluir.textContent = 'Concluir venda'; conta(); }
+    } finally { enviando = false; voltar.disabled = false; concluir.textContent = 'Concluir venda'; conta(); }
   } }, h('p', { class: 'muted' }, 'Total a receber'), h('p', null, h('strong', { class: 'total-grande' }, fmt.moeda(total))), botoes, lista, situacao, erro, concluir,
-  h('button', { class: 'btn', type: 'button', onclick: () => m.fechar() }, 'Voltar'));
-  m = modal('Receber pagamento', form, { largo: true });
+  voltar);
+  m = modal('Receber pagamento', form, { largo: true, podeFechar: () => !enviando });
   desenhar();
   return m;
 }

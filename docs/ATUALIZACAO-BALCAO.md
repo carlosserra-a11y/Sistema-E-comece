@@ -23,6 +23,9 @@
 | Janela sobre janela | `Esc` fechava as duas e o `Tab` pulava para a de baixo | Só a de cima responde |
 | Repetição segura | A mesma chave em outro registro devolvia a resposta antiga sem executar | A chave vale por registro |
 | Disputa no PostgreSQL | Duas operações simultâneas podiam virar "erro interno" | Mensagem pedindo para tentar de novo |
+| Lote vencido | Contava como disponível para o anúncio | Não conta |
+| Histórico no Início | Aparecia para toda a equipe | Só para quem vê a auditoria |
+| Reserva de pedido | Segurava as unidades para sempre | Botão **Marcar como enviado** |
 
 > **Confira os preços em produção:** se alguma planilha de produtos já foi exportada e importada de volta (ou um preço digitado com ponto), há preços 100 vezes maiores. Abra **Produtos → Exportar** e procure valores fora do normal.
 
@@ -66,10 +69,10 @@ A Vercel publica sozinha a cada envio ao `main`, mas o banco antigo (Supabase) *
 
 ## Voltar atrás
 
-As tabelas novas não atrapalham a versão antiga. Para voltar o código, use a versão anotada no passo 4 (antes desta atualização era `e4e8b43`):
+As tabelas novas não atrapalham a versão antiga. Para voltar o código, use a versão anotada no passo 4 (em 25/11/2026 a VPS estava em `7e92b3f`):
 
 ```bash
-sudo -u wms git -C /opt/wms/app reset --hard e4e8b43
+sudo -u wms git -C /opt/wms/app reset --hard 7e92b3f
 systemctl restart wms
 ```
 

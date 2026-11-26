@@ -87,7 +87,7 @@ async function desenharRota() {
       limparPagina = (await mod.renderizar(conteudo, { params, ir, sessao })) ?? null;
     } catch (e) { limpar(conteudo).append(blocoErro(e, render)); console.error(e); }
   };
-  if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(render); else await render();
+  if (document.startViewTransition && !document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(render).ready.catch(() => {}); else await render(); // tela escondida: desenha direto
   conteudo.focus({ preventScroll: true });
   window.scrollTo(0, 0);
 }

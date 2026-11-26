@@ -69,11 +69,13 @@ export function botoesCupom(v) {
     h('button', { class: 'btn', type: 'button', onclick: () => copiar(texto) }, 'Copiar texto'));
 }
 
-export async function abrirCupom(vendaId, { destaque = null, rotuloFechar = 'Fechar', aoFechar } = {}) {
+export async function abrirCupom(vendaId, { destaque = null, rotuloFechar = 'Fechar', fecharAoLer = false, aoFechar } = {}) {
   try {
     const v = await api.get(`/api/vendas/${vendaId}`);
     let m;
     m = modal(`${titulo(v) === 'VENDA' ? 'Venda' : 'Orçamento'} nº ${v.id}`, h('div', { class: 'stack' }, destaque, botoesCupom(v), h('div', { class: 'cupom-previa' }, montarCupom(v)),
       h('button', { class: 'btn', type: 'button', autofocus: true, onclick: () => { m.fechar(); aoFechar?.(); } }, rotuloFechar)));
+    // o próximo cliente começa bipando: a leitura fecha o cupom e já cai na busca, sem perder o item
+    if (fecharAoLer) m.el.addEventListener('keydown', (e) => { if (/^[\p{L}\p{N}]$/u.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) { e.stopPropagation(); m.fechar(); aoFechar?.(); } });
   } catch (e) { tratar(e); }
 }

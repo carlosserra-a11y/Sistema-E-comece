@@ -150,6 +150,53 @@ test('o Início só mostra o histórico de ações para quem pode ver a auditori
   assert.ok(ok(await dono.get('/api/painel')).atividade.length);
 }));
 
+test('conferência cega não revela a diferença; quem gerencia vê', async () => await com(async ({ sis, dono }) => {
+  const vend = await contratar(sis, dono, { nome: 'Vera Vendas', papel: 'vendedor' });
+  const cx = await abrir(vend, 35000);
+  assert.doesNotMatch(falha(await vend.idem(`/api/caixas/${cx.id}/fechar`, { contado_centavos: 0 }), 409, 'CAIXA_DIFERENCA').message, /350|faltou|sobrou/);
+  assert.match(falha(await dono.idem(`/api/caixas/${cx.id}/fechar`, { contado_centavos: 0 }), 409, 'CAIXA_DIFERENCA').message, /faltou R\$ 350,00/);
+}));
+
+test('cancelamento diz de qual gaveta sai o dinheiro e reativa o endereço inativado', async () => await com(async ({ sis, dono, pick }) => {
+  const p = await comEstoque(dono, pick[0], 1);
+  const vend = await contratar(sis, dono, { nome: 'Vera Vendas', papel: 'vendedor' });
+  const cx = await abrir(vend, 0);
+  const v = ok(await vend.idem('/api/vendas', corpo([item(p, 1)], 1000)), 201);
+  ok(await dono.post(`/api/enderecos/${pick[0].id}/inativar`));
+  await reautenticar(dono);
+  const r = ok(await dono.idem(`/api/vendas/${v.id}/cancelar`, { motivo: 'cliente desistiu' }));
+  assert.deepEqual(r.gaveta, { caixa_id: cx.id, de: 'Vera Vendas', minha: false });
+  assert.equal((await sis.db.get('SELECT ativo FROM enderecos WHERE id = ?', pick[0].id)).ativo, 1);
+}));
+
+test('permissões soltas: sem clientes.ver não vê nem liga cliente; só com cancelar abre o próprio caixa', async () => await com(async ({ sis, dono, pick }) => {
+  const p = await comEstoque(dono, pick[0], 3);
+  const cliente = ok(await dono.post('/api/clientes', { nome: 'Cliente Reservado', telefone: '48999990000' }), 201);
+  const semCliente = await contratar(sis, dono, { nome: 'Sem Cliente', papel: 'personalizado', permissoes: ['vendas.registrar'] });
+  falha(await semCliente.idem('/api/orcamentos', { itens: [item(p, 1)], valor_esperado_centavos: 1000, cliente_id: cliente.id }), 403, 'SEM_PERMISSAO');
+  await abrir(dono, 0);
+  const o = ok(await dono.idem('/api/orcamentos', { itens: [item(p, 1)], valor_esperado_centavos: 1000, cliente_id: cliente.id }), 201);
+  for (const r of [await semCliente.get(`/api/vendas/${o.id}`), await semCliente.get('/api/vendas?status=ORCAMENTO'), await semCliente.get('/api/vendas?status=ORCAMENTO&q=reservado')]) assert.doesNotMatch(JSON.stringify(ok(r)), /Reservado|48999990000/);
+  const soCancela = await contratar(sis, dono, { nome: 'So Cancela', papel: 'personalizado', permissoes: ['vendas.cancelar'] });
+  await abrir(soCancela, 100);
+  assert.equal(ok(await soCancela.get('/api/caixa')).caixa.abertura_centavos, 100);
+}));
+
+test('pedido marcado como enviado libera a reserva (e não volta a reservar)', async () => await com(async ({ sis, dono, pick }) => {
+  const p = await comEstoque(dono, pick[0], 2);
+  const canal = (await sis.db.get("SELECT id FROM canais WHERE codigo = 'ML'")).id;
+  const conta = (await sis.db.get('SELECT id FROM contas_canal WHERE canal_id = ?', canal))?.id ?? await sis.db.insert('INSERT INTO contas_canal (canal_id, criado_em, atualizado_em) VALUES (?,1,1)', canal);
+  const ped = await sis.db.insert("INSERT INTO pedidos (conta_id, canal_pedido_id, status, total_centavos, criado_em, atualizado_em) VALUES (?,'77','PAGO',0,1,1)", conta);
+  const pi = await sis.db.insert("INSERT INTO pedido_itens (pedido_id, item_id, variacao_id, titulo, qtd, produto_id, preco_centavos) VALUES (?,'MLB7','','x',2,?,0)", ped, p.id);
+  await sis.db.run("INSERT INTO reservas (pedido_item_id, produto_id, qtd, status, criado_em, atualizado_em) VALUES (?,?,2,'ATIVA',1,1)", pi, p.id);
+  assert.equal((await disponivelDe(sis.db, p.id)).disponivel, 0);
+  ok(await dono.post(`/api/pedidos/${ped}/enviado`));
+  assert.equal((await disponivelDe(sis.db, p.id)).disponivel, 2);
+  ok(await dono.post(`/api/pedidos/${ped}/reprocessar`));
+  assert.equal((await disponivelDe(sis.db, p.id)).reservado, 0);
+  falha(await dono.post(`/api/pedidos/${ped}/enviado`), 409, 'SEM_RESERVA');
+}));
+
 test('estoque: não vende além do saldo, nem de recebimento/bloqueado, e respeita reservas da internet', async () => await com(async ({ sis, dono, pick }) => {
   const rec = await enderecoDe(dono, 'RECEBIMENTO');
   const p = await comEstoque(dono, pick[0], 5);

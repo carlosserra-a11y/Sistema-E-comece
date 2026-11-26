@@ -115,7 +115,8 @@ async function baixarEstoque(db, ctx, vendaId, itens) {
   }
 }
 
-async function clienteValido(db, id) {
+async function clienteValido(db, ctx, id) {
+  if (id && !ctx.pode('clientes.ver')) throw erro(403, 'SEM_PERMISSAO', 'Você não tem permissão para ligar um cliente à venda.');
   if (id && !(await db.get('SELECT 1 AS ok FROM clientes WHERE id = ? AND ativo = 1', id))) throw invalido({ cliente_id: 'Cliente inexistente ou inativo.' });
   return id ?? null;
 }
@@ -131,7 +132,7 @@ export async function vender(db, ctx, corpo) {
   const d = validar(corpo, ESPEC_VENDA);
   return await tx(db, async (db) => {
     const caixa = await exigirCaixaAberto(db, ctx.user.id);
-    const clienteId = await clienteValido(db, d.cliente_id);
+    const clienteId = await clienteValido(db, ctx, d.cliente_id);
     const itens = await montarItens(db, ctx, corpo.itens);
     const { subtotal, desconto, total } = await totalizar(db, ctx, itens, d);
     const { pagamentos, troco } = conferirPagamentos(corpo.pagamentos, total);
@@ -148,7 +149,7 @@ export async function vender(db, ctx, corpo) {
 export async function criarOrcamento(db, ctx, corpo) {
   const d = validar(corpo, ESPEC_VENDA);
   return await tx(db, async (db) => {
-    const clienteId = await clienteValido(db, d.cliente_id);
+    const clienteId = await clienteValido(db, ctx, d.cliente_id);
     const itens = await montarItens(db, ctx, corpo.itens);
     const { subtotal, desconto, total } = await totalizar(db, ctx, itens, d);
     const { validade_orcamento_dias: dias } = await lerConfig(db);
@@ -214,14 +215,18 @@ export async function cancelarVenda(db, ctx, id, corpo) {
     if (v.status !== 'CONCLUIDA') throw conflito('STATUS', 'Esta venda já foi cancelada.');
     const dinheiro = Number((await db.get("SELECT COALESCE(SUM(valor_centavos),0) q FROM venda_pagamentos WHERE venda_id = ? AND forma = 'DINHEIRO'", v.id)).q);
     const original = await travarCaixa(db, v.caixa_id);
+    let gaveta = null; // de qual gaveta o dinheiro tem de sair
+    const donoDe = async (caixa) => ({ caixa_id: caixa.id, de: (await db.get('SELECT nome FROM users WHERE id = ?', caixa.aberto_por))?.nome ?? null, minha: caixa.aberto_por === ctx.user.id });
     if (dinheiro > 0) {
       if (original.status === 'ABERTO') {
+        gaveta = await donoDe(original);
         const { esperado_centavos: tem } = await resumoCaixa(db, original);
         if (tem < dinheiro) throw conflito('CAIXA_SEM_DINHEIRO', `Não há ${emReais(dinheiro)} na gaveta para devolver: faça um suprimento no caixa da venda.`);
       } else {
         const atual = await exigirCaixaAberto(db, ctx.user.id); // o caixa da venda já fechou: a devolução sai do caixa de quem cancela
         const { esperado_centavos: tem } = await resumoCaixa(db, atual);
         if (tem < dinheiro) throw conflito('CAIXA_SEM_DINHEIRO', `Não há ${emReais(dinheiro)} na sua gaveta para devolver: faça um suprimento antes.`);
+        gaveta = await donoDe(atual);
         await db.run("INSERT INTO caixa_movimentos (caixa_id, ts, tipo, valor_centavos, motivo, venda_id, user_id) VALUES (?,?,'ESTORNO',?,?,?,?)", atual.id, ctx.agora(), dinheiro, `Cancelamento da venda ${v.id}: ${d.motivo}`, v.id, ctx.user.id);
       }
     }
@@ -231,12 +236,13 @@ export async function cancelarVenda(db, ctx, id, corpo) {
       await mover(db, ctx, { tipo: 'DEVOLUCAO', produto_id: s.produto_id, endereco_id: s.endereco_id, lote_id: s.lote_id, delta: -s.delta, grupo: grupoDe(v.id), documento: `Venda ${v.id}`, motivo: `Cancelamento: ${d.motivo}` });
       // produto inativado depois da venda volta a ficar ativo: não pode existir estoque de produto inativo
       await db.run('UPDATE produtos SET ativo = 1, versao = versao + 1, atualizado_em = ? WHERE id = ? AND ativo = 0', ctx.agora(), s.produto_id);
+      await db.run('UPDATE enderecos SET ativo = 1 WHERE id = ? AND ativo = 0', s.endereco_id); // idem para o endereço inativado depois
       devolver.push({ sku: s.sku, endereco: s.codigo, qtd: -s.delta });
     }
     await db.run("UPDATE vendas SET status = 'CANCELADA', cancelada_em = ?, cancelada_por = ?, motivo_cancelamento = ? WHERE id = ?", ctx.agora(), ctx.user.id, d.motivo, v.id);
     await auditar(db, ctx, 'VENDA_CANCELADA', 'venda', v.id, { motivo: d.motivo, valor_centavos: v.valor_centavos });
     const eletronico = await db.all("SELECT forma, valor_centavos FROM venda_pagamentos WHERE venda_id = ? AND forma <> 'DINHEIRO'", v.id);
-    return { id: v.id, devolver_dinheiro_centavos: dinheiro, estornar_fora: eletronico, devolver };
+    return { id: v.id, devolver_dinheiro_centavos: dinheiro, gaveta, estornar_fora: eletronico, devolver };
   });
 }
 
@@ -250,6 +256,7 @@ export async function detalheVenda(db, ctx, id) {
   if (!v || !visivel(ctx, v)) throw naoEncontrado('Venda');
   const itens = await db.all('SELECT id, tipo, produto_id, servico_id, codigo, descricao, unidade, qtd, preco_tabela_centavos, preco_unit_centavos, custo_unit_centavos FROM venda_itens WHERE venda_id = ? ORDER BY id', v.id);
   const fin = podeFinanceiro(ctx);
+  if (!ctx.pode('clientes.ver')) { delete v.cliente_nome; delete v.cliente_telefone; delete v.cliente_documento; }
   return {
     ...v,
     itens: itens.map(({ custo_unit_centavos: custo, ...i }) => ({ ...i, valor_centavos: i.qtd * i.preco_unit_centavos, ...(fin ? { custo_unit_centavos: custo } : {}) })),
@@ -283,12 +290,15 @@ export function registrarVendas(app, { db }) {
     }
     const busca = String(ctx.query.q ?? '').trim();
     if (/^\d{1,9}$/.test(busca)) { onde.push('v.id = ?'); args.push(Number(busca)); }
+    else if (busca && !ctx.pode('clientes.ver')) onde.push('1 = 0');
     else if (busca) { onde.push("v.cliente_id IN (SELECT id FROM clientes WHERE busca LIKE ? ESCAPE '\\')"); args.push(`%${escaparLike(normalizarTexto(busca))}%`); }
     const from = `FROM vendas v JOIN users u ON u.id = v.vendedor_id LEFT JOIN clientes c ON c.id = v.cliente_id WHERE ${onde.join(' AND ')}`;
-    return {
+    const resposta = {
       total: (await db.get(`SELECT COUNT(*) c ${from}`, ...args)).c, pagina, por_pagina: por,
       itens: await db.all(`SELECT v.id, v.status, v.valor_centavos, v.criado_em, v.concluida_em, v.validade, v.vendedor_id, u.nome AS vendedor_nome, c.nome AS cliente_nome,
         (SELECT COALESCE(SUM(qtd),0) FROM venda_itens i WHERE i.venda_id = v.id) AS unidades ${from} ORDER BY v.id DESC LIMIT ? OFFSET ?`, ...args, por, offset),
     };
+    if (!ctx.pode('clientes.ver')) resposta.itens = resposta.itens.map(({ cliente_nome, ...resto }) => resto);
+    return resposta;
   });
 }

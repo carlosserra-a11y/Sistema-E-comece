@@ -41,7 +41,11 @@ export async function fecharCaixa(db, ctx, caixaId, bruto) {
     if (caixa.status !== 'ABERTO') throw conflito('CAIXA_FECHADO', 'Este caixa já foi fechado.');
     const resumo = await resumoCaixa(db, caixa);
     const diferenca = d.contado_centavos - resumo.esperado_centavos;
-    if (diferenca !== 0 && (d.observacao ?? '').length < 5) throw conflito('CAIXA_DIFERENCA', `O dinheiro contado não bate (${diferenca > 0 ? 'sobrou' : 'faltou'} R$ ${(Math.abs(diferenca) / 100).toFixed(2).replace('.', ',')}). Conte de novo ou escreva uma observação explicando.`);
+    if (diferenca !== 0 && (d.observacao ?? '').length < 5) {
+      // quem faz a conferência cega não recebe o valor: senão bastaria digitar a diferença para "bater"
+      const quanto = ctx.pode('vendas.gerenciar') ? ` (${diferenca > 0 ? 'sobrou' : 'faltou'} R$ ${(Math.abs(diferenca) / 100).toFixed(2).replace('.', ',')})` : '';
+      throw conflito('CAIXA_DIFERENCA', `O dinheiro contado não bate${quanto}. Conte de novo ou escreva uma observação explicando.`);
+    }
     await db.run("UPDATE caixas SET status = 'FECHADO', fechado_por = ?, fechado_em = ?, contado_centavos = ?, esperado_centavos = ?, resumo = ?, observacao = ? WHERE id = ?", ctx.user.id, ctx.agora(), d.contado_centavos, resumo.esperado_centavos, JSON.stringify(resumo), d.observacao ?? null, caixa.id);
     await auditar(db, ctx, 'CAIXA_FECHADO', 'caixa', caixa.id, { esperado_centavos: resumo.esperado_centavos, contado_centavos: d.contado_centavos, diferenca_centavos: diferenca });
     return { id: caixa.id, contado_centavos: d.contado_centavos, diferenca_centavos: diferenca, ...resumo };

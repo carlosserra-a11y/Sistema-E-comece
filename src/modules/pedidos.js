@@ -1,5 +1,5 @@
 import { tx } from '../db.js';
-import { invalido, naoEncontrado, paginar } from '../util.js';
+import { conflito, invalido, naoEncontrado, paginar } from '../util.js';
 import { auditar } from '../security/audit.js';
 import { ITEM_RE, ID_RE } from '../integracoes/mercadolivre.js';
 import { diaDaLoja } from './vendas-base.js';
@@ -17,6 +17,7 @@ const centavos = (v) => { const n = Number(v ?? 0); if (!Number.isFinite(n) || n
 
 /** Resolve o produto de cada item: mapeamento do anúncio; senão SKU do vendedor igual ao SKU interno (e já grava o mapeamento). */
 async function resolverProdutos(db, ctx, contaId, pedidoId) {
+  const mapeados = []; // a auditoria vem depois das travas de produto (mesma ordem da venda no balcão: sem impasse)
   for (const it of await db.all('SELECT * FROM pedido_itens WHERE pedido_id = ? AND produto_id IS NULL', pedidoId)) {
     let produtoId = (await db.get('SELECT produto_id FROM sku_marketplace WHERE conta_id = ? AND item_id = ? AND variacao_id = ?', contaId, it.item_id, it.variacao_id))?.produto_id ?? null;
     if (!produtoId && it.sku_canal) {
@@ -24,11 +25,12 @@ async function resolverProdutos(db, ctx, contaId, pedidoId) {
       if (p) {
         produtoId = p.id;
         await db.run('INSERT INTO sku_marketplace (conta_id, produto_id, item_id, variacao_id, titulo, criado_em) VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING', contaId, p.id, it.item_id, it.variacao_id, it.titulo, ctx.agora());
-        await auditar(db, ctx, 'ANUNCIO_MAPEADO_POR_SKU', 'produto', p.id, { item: it.item_id });
+        mapeados.push({ produtoId: p.id, item: it.item_id });
       }
     }
     if (produtoId) await db.run('UPDATE pedido_itens SET produto_id = ? WHERE id = ?', produtoId, it.id);
   }
+  return mapeados;
 }
 
 /** Reavalia um pedido: resolve SKUs, reserva estoque (uma vez por item) e decide o status. Cancelado é terminal e libera as reservas. */
@@ -40,7 +42,10 @@ async function avaliar(db, ctx, pedido, statusCanal) {
     status = 'CANCELADO';
     await db.run("UPDATE reservas SET status = 'LIBERADA', atualizado_em = ? WHERE status = 'ATIVA' AND pedido_item_id IN (SELECT id FROM pedido_itens WHERE pedido_id = ?)", ctx.agora(), pedido.id);
   } else {
-    await resolverProdutos(db, ctx, pedido.conta_id, pedido.id);
+    const mapeados = await resolverProdutos(db, ctx, pedido.conta_id, pedido.id);
+    // mesma trava da venda no balcão: pedido e balcão não levam a mesma última unidade
+    for (const id of [...new Set((await itens()).map((x) => x.produto_id).filter(Boolean))].sort((a, b) => a - b)) await db.travar(`venda|produto|${id}`);
+    for (const m of mapeados) await auditar(db, ctx, 'ANUNCIO_MAPEADO_POR_SKU', 'produto', m.produtoId, { item: m.item });
     const problemas = [];
     for (const it of await itens()) {
       if (!it.produto_id) { problemas.push(`SKU não mapeado: ${it.sku_canal ?? it.item_id}`); continue; }
@@ -103,6 +108,19 @@ export function registrarPedidos(app, { db }) {
     if (!p) throw naoEncontrado('Pedido');
     const itens = await db.all(`SELECT i.*, pr.sku AS sku_interno, r.status AS reserva FROM pedido_itens i LEFT JOIN produtos pr ON pr.id = i.produto_id LEFT JOIN reservas r ON r.pedido_item_id = i.id WHERE i.pedido_id = ?`, p.id);
     return { ...p, itens };
+  });
+  // Pedido que já saiu da loja (com a baixa feita no Estoque): a reserva deixa de segurar unidades no balcão e no anúncio.
+  rota('POST', '/api/pedidos/:id/enviado', async (ctx) => {
+    const r = await tx(db, async (db) => {
+      const p = await db.get('SELECT * FROM pedidos WHERE id = ?', Number(ctx.params.id));
+      if (!p) throw naoEncontrado('Pedido');
+      const { changes } = await db.run("UPDATE reservas SET status = 'CONSUMIDA', atualizado_em = ? WHERE status = 'ATIVA' AND pedido_item_id IN (SELECT id FROM pedido_itens WHERE pedido_id = ?)", ctx.agora(), p.id);
+      if (!changes) throw conflito('SEM_RESERVA', 'Este pedido não tem reserva ativa.');
+      await auditar(db, ctx, 'PEDIDO_ENVIADO', 'pedido', p.id, { reservas: changes });
+      return { id: p.id, reservas: changes };
+    });
+    app.eventos.emit('estoque');
+    return r;
   });
   rota('POST', '/api/pedidos/:id/reprocessar', async (ctx) => await tx(db, async (db) => {
     const p = await db.get('SELECT * FROM pedidos WHERE id = ?', Number(ctx.params.id));

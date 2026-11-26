@@ -1,11 +1,11 @@
 // Aba "Vender": leitura do código, carrinho, cliente, desconto e fechamento. O carrinho sobrevive à troca de tela e ao recarregar.
-import { h, limpar, api, ApiError, pode, icone, fmt, qs, tratar, toast, campo, badge, vazio, centavos, reais, combobox, gaveta, confirmar, novaChave, feedback, debounce, esqueleto } from './core.js';
+import { h, limpar, api, ApiError, pode, icone, fmt, qs, tratar, toast, campo, badge, vazio, centavos, reais, combobox, gaveta, confirmar, novaChave, feedback, esqueleto } from './core.js';
 import { formulario } from './form.js';
 import { abrirPagamento, pedirDados } from './balcao-pagamento.js';
 import { abrirCupom } from './balcao-cupom.js';
 import { CAMPOS_CLIENTE } from './pg-clientes.js';
 
-const NOVO = () => ({ itens: [], desconto: 0, cliente: null, observacao: '', envio: null, envioOrcamento: null });
+const NOVO = () => ({ itens: [], desconto: 0, cliente: null, observacao: '', pendente: null, envioOrcamento: null });
 
 function guardador(userId) {
   const chave = `balcao-carrinho-${userId}`;
@@ -14,6 +14,9 @@ function guardador(userId) {
     gravar(c) { try { sessionStorage.setItem(chave, JSON.stringify(c)); } catch { /* sem armazenamento: o carrinho vale só nesta tela */ } },
   };
 }
+
+/** 7 dígitos ou mais sem vírgula é código de barras que caiu no campo errado, não quantidade nem preço. */
+const pareceCodigo = (t) => /^\d{7,}$/.test(t);
 
 export async function abaVender(el, { sessao, config }) {
   const guarda = guardador(sessao.usuario?.id ?? sessao.usuario?.nome ?? '0');
@@ -44,6 +47,7 @@ export async function abaVender(el, { sessao, config }) {
   let geracao = 0;
 
   function adicionar(item, qtd = 1) {
+    if (c.pendente) return feedback('erro', 'Resolva a venda sem resposta antes de continuar');
     const ja = c.itens.find((i) => i.tipo === item.tipo && i.id === item.id);
     if (ja) { ja.qtd += qtd; ja.disponivel = item.disponivel; }
     else c.itens.push({ tipo: item.tipo, id: item.id, codigo: item.codigo, nome: item.nome, unidade: item.unidade, tabela: item.preco_unit_centavos, preco: item.preco_unit_centavos, editado: false, disponivel: item.disponivel, qtd });
@@ -66,27 +70,29 @@ export async function abaVender(el, { sessao, config }) {
     try {
       const r = await buscarItens(t);
       if (g !== geracao && !enter) return;
-      if (r.exato) { if (!enter) return mostrarResultados({ produtos: [r.exato], servicos: [] }); adicionar(r.exato); busca.value = ''; return limpar(resultados); }
+      if (r.exato) { if (!enter) return mostrarResultados({ produtos: [r.exato], servicos: [] }); adicionar(r.exato); return limpar(resultados); }
       const todos = [...r.produtos, ...r.servicos];
-      if (enter && todos.length === 1) { adicionar(todos[0]); busca.value = ''; return limpar(resultados); }
+      const soNumeros = /^\d{6,}$/.test(t); // código numérico longo que não bate exatamente nunca entra sozinho no carrinho
+      if (enter && soNumeros) { feedback('erro', 'Código não encontrado'); return limpar(resultados); }
+      if (enter && todos.length === 1) { adicionar(todos[0]); return limpar(resultados); }
       if (enter && !todos.length) feedback('erro', 'Código não encontrado');
       mostrarResultados(r);
     } catch (e) { tratar(e); }
   }
-  const digitando = debounce(() => ler(busca.value), 300);
-  busca.addEventListener('input', () => { geracao++; if (busca.value.trim().length >= 2) digitando(); else limpar(resultados); });
+  let espera = 0;
+  busca.addEventListener('input', () => { geracao++; clearTimeout(espera); if (busca.value.trim().length >= 2) espera = setTimeout(() => ler(busca.value), 300); else limpar(resultados); });
   // O leitor USB/Bluetooth digita o código e envia Enter: o campo é esvaziado na hora para a próxima leitura não se misturar.
   let fila = Promise.resolve();
   busca.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
-    const t = busca.value; busca.value = ''; geracao++;
+    const t = busca.value; busca.value = ''; geracao++; clearTimeout(espera);
     fila = fila.then(() => ler(t, { enter: true }));
   });
   let scanner = null;
   const camera = navigator.mediaDevices?.getUserMedia ? h('button', { class: 'btn', type: 'button', onclick: async () => {
     const { abrirScanner } = await import('./scanner.js');
-    scanner = abrirScanner({ titulo: 'Bipe os itens da venda', continuo: true, aoLer: async (codigo) => {
+    scanner = abrirScanner({ titulo: 'Bipe os itens da venda', continuo: true, exigirSaida: true, aoLer: async (codigo) => {
       try { const r = await buscarItens(codigo); if (r.exato) adicionar(r.exato); else feedback('erro', 'Código não encontrado'); } catch (x) { tratar(x); }
       return false;
     } });
@@ -99,9 +105,9 @@ export async function abaVender(el, { sessao, config }) {
   const total = () => subtotal() - c.desconto;
 
   function linhaItem(i) {
-    const qtd = h('input', { type: 'number', min: 1, max: 100000, step: 1, inputmode: 'numeric', value: i.qtd, 'aria-label': `Quantidade de ${i.nome}`, onchange: (e) => { const n = Math.floor(Number(e.target.value)); i.qtd = n >= 1 ? Math.min(n, 100000) : 1; salvar(); desenhar(); } });
+    const qtd = h('input', { type: 'number', min: 1, max: 100000, step: 1, inputmode: 'numeric', value: i.qtd, 'aria-label': `Quantidade de ${i.nome}`, onchange: (e) => { const txt = e.target.value.trim(); if (pareceCodigo(txt)) { desenhar(); busca.focus(); return ler(txt, { enter: true }); } const n = Math.floor(Number(txt)); i.qtd = n >= 1 ? Math.min(n, 100000) : 1; salvar(); desenhar(); busca.focus(); } });
     const passo = (d) => { i.qtd = Math.max(1, i.qtd + d); salvar(); desenhar(); };
-    const preco = mudaPreco ? h('input', { type: 'text', inputmode: 'decimal', class: 'preco-item', value: reais(i.preco), 'aria-label': `Preço unitário de ${i.nome}`, onchange: (e) => { const v = centavos(e.target.value); if (v >= 0) { i.preco = v; i.editado = v !== i.tabela; salvar(); } else toast('Preço inválido.', 'erro'); desenhar(); } })
+    const preco = mudaPreco ? h('input', { type: 'text', inputmode: 'decimal', class: 'preco-item', value: reais(i.preco), 'aria-label': `Preço unitário de ${i.nome}`, onchange: (e) => { const txt = e.target.value.trim(); if (pareceCodigo(txt)) { desenhar(); busca.focus(); return ler(txt, { enter: true }); } const v = centavos(txt); if (v >= 0) { i.preco = v; i.editado = v !== i.tabela; salvar(); } else toast('Preço inválido.', 'erro'); desenhar(); } })
       : h('span', null, fmt.moeda(i.preco));
     const faltando = i.disponivel !== null && i.qtd > i.disponivel;
     return h('div', { class: 'carrinho-item' },
@@ -128,6 +134,7 @@ export async function abaVender(el, { sessao, config }) {
       h('div', { class: 'total-linha' }, h('strong', null, 'Total'), h('strong', { class: 'total-grande', 'aria-live': 'polite' }, fmt.moeda(total()))));
     const vazioC = !c.itens.length;
     botaoPagar.disabled = vazioC; botaoOrcamento.disabled = vazioC; botaoLimpar.disabled = vazioC && !c.cliente; botaoAtualizar.hidden = vazioC;
+    desenharPendente();
   }
 
   async function atualizarPrecos() {
@@ -140,7 +147,7 @@ export async function abaVender(el, { sessao, config }) {
         const tabela = i.tipo === 'SERVICO' ? atual.valor_centavos : atual.preco_unit_centavos;
         novos.push({ ...i, tabela, preco: tabela, editado: false, disponivel: i.tipo === 'SERVICO' ? null : atual.disponivel, nome: atual.nome });
       }
-      c = { ...c, itens: novos, envio: null }; salvar(); desenhar(); toast('Preços e quantidades atualizados.', 'ok');
+      c = { ...c, itens: novos }; salvar(); desenhar(); toast('Preços e quantidades atualizados.', 'ok');
     } catch (e) { tratar(e); }
   }
 
@@ -171,21 +178,55 @@ export async function abaVender(el, { sessao, config }) {
   });
   const zerar = () => { c = NOVO(); salvar(); observacao.value = ''; limpar(resultados); busca.value = ''; desenharCliente(); desenhar(); busca.focus(); };
 
+  /** Tira o foco do campo em edição para a quantidade, o preço ou o desconto digitados valerem antes de fechar a venda. */
+  const confirmarCampo = () => { if (document.activeElement !== busca && document.activeElement?.matches?.('input')) document.activeElement.blur(); };
+  const concluida = (r) => { zerar(); abrirCupom(r.id, { destaque: r.troco_centavos ? h('p', { class: 'troco' }, `Troco: ${fmt.moeda(r.troco_centavos)}`) : null, rotuloFechar: 'Próxima venda', fecharAoLer: true, aoFechar: () => busca.focus() }); verCaixa(); };
+
   function pagar() {
-    if (!c.itens.length || document.querySelector('.overlay')) return;
+    if (c.pendente) return toast('Há uma venda sem resposta: resolva antes de continuar.', 'aviso');
+    if (document.querySelector('.overlay')) return;
+    confirmarCampo();
+    if (!c.itens.length) return;
     if (!caixaAberto) return abrirCaixa();
     if (total() < 1) return toast('O total precisa ser maior que zero.', 'erro');
-    const corpo = corpoVenda();
-    const base = JSON.stringify(corpo);
+    const corpo = corpoVenda(); const valor = total();
     abrirPagamento({
-      total: total(), pixAtivo: config.pix_ativo,
-      // a chave fica no carrinho junto do conteúdo enviado: fechar a janela ou recarregar a página não duplica a venda
-      envio: { get dados() { return c.envio?.base === base ? c.envio : null; }, gravar: (d) => { c.envio = d ? { ...d, base } : null; salvar(); } },
+      total: valor, pixAtivo: config.pix_ativo,
+      // o envio é anotado no carrinho ANTES de sair: queda de internet ou recarregar a página não duplica a venda
+      registro: {
+        antes: (pagamentos, chave) => { c.pendente = { corpo: { ...corpo, pagamentos }, chave, total: valor }; salvar(); },
+        limpar: () => { c.pendente = null; salvar(); },
+        incerto: () => { desenhar(); toast('Sem resposta do servidor.', 'erro', 7000); },
+      },
       enviar: (pagamentos, chave) => api.idem('/api/vendas', { ...corpo, pagamentos }, chave),
-      aoConcluir: (r) => { zerar(); abrirCupom(r.id, { destaque: r.troco_centavos ? h('p', { class: 'troco' }, `Troco: ${fmt.moeda(r.troco_centavos)}`) : null, rotuloFechar: 'Próxima venda', aoFechar: () => busca.focus() }); verCaixa(); },
+      aoConcluir: concluida,
     });
   }
+
+  const areaPendente = h('div');
+  function desenharPendente() {
+    grade.inert = !!c.pendente; // carrinho travado enquanto não se sabe se a venda foi gravada
+    limpar(areaPendente);
+    if (!c.pendente) return;
+    const reenviar = h('button', { class: 'btn primario', type: 'button', onclick: async () => {
+      reenviar.disabled = true;
+      try { concluida(await api.idem('/api/vendas', c.pendente.corpo, c.pendente.chave)); }
+      catch (x) {
+        // recusa definitiva do servidor = a primeira tentativa não gravou nada
+        if (x instanceof ApiError && ([404, 409, 422].includes(x.status) || x.code === 'DESCONTO')) { c.pendente = null; salvar(); desenhar(); }
+        tratar(x); reenviar.disabled = false;
+      }
+    } }, 'Reenviar (não duplica)');
+    areaPendente.append(h('div', { class: 'card faixa-caixa', role: 'alert' },
+      h('div', null, h('strong', null, `Venda de ${fmt.moeda(c.pendente.total)} sem resposta do servidor`), h('p', { class: 'muted' }, 'Quando a internet voltar, toque em Reenviar. Se ela já tinha sido gravada, o sistema só mostra o cupom.')),
+      h('div', { class: 'row' }, reenviar, h('button', { class: 'btn', type: 'button', onclick: async () => {
+        if (!await confirmar('Liberar o carrinho?', 'Antes, confira a aba Vendas. Se a venda estiver lá, limpe o carrinho depois de liberar; se não estiver, venda de novo.', { rotulo: 'Já conferi: liberar' })) return;
+        c.pendente = null; salvar(); desenhar();
+      } }, 'Já conferi na aba Vendas'))));
+  }
   async function orcar() {
+    if (c.pendente) return;
+    confirmarCampo();
     const corpo = corpoVenda(); const base = JSON.stringify(corpo);
     if (c.envioOrcamento?.base !== base) { c.envioOrcamento = { base, chave: novaChave() }; salvar(); }
     botaoOrcamento.disabled = true;
@@ -198,19 +239,20 @@ export async function abaVender(el, { sessao, config }) {
   const botaoAtualizar = h('button', { class: 'btn', type: 'button', onclick: atualizarPrecos }, icone('refresh', 18), 'Atualizar preços');
   const botaoLimpar = h('button', { class: 'btn fantasma', type: 'button', onclick: async () => { if (await confirmar('Limpar o carrinho?', 'Os itens desta venda serão retirados. Nada foi gravado ainda.', { rotulo: 'Limpar' })) zerar(); } }, 'Limpar carrinho');
 
-  el.append(faixaCaixa, h('div', { class: 'balcao-grid' },
+  const grade = h('div', { class: 'balcao-grid' },
     h('section', { class: 'card stack' }, busca, camera && h('div', { class: 'row' }, camera), resultados, carrinho),
-    h('section', { class: 'card stack balcao-resumo' }, areaCliente, campo('Observação (sai no cupom)', observacao), totais, botaoPagar, botaoOrcamento, h('div', { class: 'row' }, botaoAtualizar, botaoLimpar))));
+    h('section', { class: 'card stack balcao-resumo' }, areaCliente, campo('Observação (sai no cupom)', observacao), totais, botaoPagar, botaoOrcamento, h('div', { class: 'row' }, botaoAtualizar, botaoLimpar)));
+  el.append(faixaCaixa, areaPendente, grade);
   desenharCliente(); desenhar(); faixaCaixa.append(esqueleto(1)); await verCaixa();
   busca.focus();
 
   // se a pessoa trocou de tela antes de a aba terminar de abrir, o atalho se desliga sozinho (não abre pagamento em outra tela)
   const atalho = (e) => {
-    if (!el.isConnected) return document.removeEventListener('keydown', atalho);
+    if (!el.isConnected) return document.removeEventListener('keydown', atalho, true);
     if (e.key === 'F2') { e.preventDefault(); return pagar(); }
-    // o leitor "digita": se o foco ficou num botão ou fora de um campo, os números vão para a busca
-    if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.target.closest?.('input, textarea, select') && !document.querySelector('.overlay, .scan')) busca.focus();
+    // o leitor "digita": com o foco num botão ou fora de um campo, letras e números vão para a busca (e não viram atalho)
+    if (/^[\p{L}\p{N}]$/u.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.target.closest?.('input, textarea, select') && !document.querySelector('.overlay, .scan')) { e.stopPropagation(); busca.focus(); }
   };
-  document.addEventListener('keydown', atalho);
-  return () => { document.removeEventListener('keydown', atalho); scanner?.fechar(); };
+  document.addEventListener('keydown', atalho, true);
+  return () => { document.removeEventListener('keydown', atalho, true); scanner?.fechar(); };
 }

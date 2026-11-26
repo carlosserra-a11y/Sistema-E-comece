@@ -112,6 +112,10 @@ O vendedor só vê quanto deveria ter **depois** de contar (conferência cega).
 | Corrigir quantidade | **Estoque → Ajustar** (pede senha e motivo) |
 | Contar | **Contagem** → nova contagem → um gerente aprova |
 
+## Pedido do Mercado Livre que já saiu
+
+Dê a baixa das peças em **Estoque** e depois abra **Integrações → Pedidos → o pedido → Marcar como enviado**. Sem isso as unidades continuam reservadas.
+
 ## 8. Quando algo dá errado
 
 | Aviso na tela | O que fazer |
@@ -120,7 +124,8 @@ O vendedor só vê quanto deveria ter **depois** de contar (conferência cega).
 | **Estoque insuficiente** | Leia o resto da mensagem: peça em *recebimento* precisa ser guardada; peça *reservada* é de pedido da internet; endereço bloqueado não vende |
 | **Sem preço de venda** | O dono preenche o preço em Produtos |
 | **O total agora é…** | O preço mudou: toque em **Atualizar preços** e confira com o cliente |
-| **Sem resposta do servidor** | Toque em **Concluir venda** de novo (não duplica). Se fechou a janela e mudou o carrinho, olhe antes em **Vendas** |
+| **Venda sem resposta do servidor** (a internet caiu na hora) | O carrinho fica travado. Quando voltar, toque em **Reenviar**: se a venda já tinha sido gravada, só aparece o cupom (não duplica). Ou confira a aba **Vendas** e toque em **Já conferi** |
+| **Troco alto demais** | O valor em dinheiro está errado (muitas vezes um código de barras lido no campo). Troco máximo: R$ 2.000 |
 | **Você não tem permissão** | Peça ao dono em Equipe |
 | **Orçamento vencido** | Faça um novo |
 | **Chave Pix não cadastrada** | O dono configura em Balcão → Ajustes |

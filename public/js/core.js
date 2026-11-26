@@ -146,13 +146,13 @@ export const erroMsg = (e) => (e instanceof ApiError ? e.message : 'Algo deu err
 export const tratar = (e) => { toast(erroMsg(e), 'erro', 7000); };
 
 // ---------- gaveta e modal ----------
-function overlay(classe, conteudo, aoFechar) {
+function overlay(classe, conteudo, aoFechar, podeFechar = () => true) {
   const anterior = document.activeElement;
-  const ov = h('div', { class: `overlay ${classe}`, onmousedown: (e) => { if (e.target === ov) fechar(); } }, conteudo);
+  const ov = h('div', { class: `overlay ${classe}`, onmousedown: (e) => { if (e.target === ov && podeFechar()) fechar(); } }, conteudo);
   const fechar = () => { ov.remove(); document.removeEventListener('keydown', tecla, true); anterior?.focus?.(); aoFechar?.(); };
   const tecla = (e) => {
     if (ov !== [...document.querySelectorAll('.overlay')].at(-1)) return; // só a janela de cima responde ao teclado
-    if (e.key === 'Escape') { e.stopImmediatePropagation(); fechar(); }
+    if (e.key === 'Escape') { e.stopImmediatePropagation(); if (podeFechar()) fechar(); }
     if (e.key === 'Tab') {
       const f = [...ov.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])')].filter((x) => x.offsetParent !== null);
       if (!f.length) return;
@@ -174,9 +174,9 @@ export function gaveta(titulo, corpo, { aoFechar } = {}) {
   ctl.corpo = corpoEl;
   return ctl;
 }
-export function modal(titulo, corpo, { largo = false } = {}) {
+export function modal(titulo, corpo, { largo = false, podeFechar } = {}) {
   const m = h('div', { class: `modal ${largo ? 'largo' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': titulo }, h('h2', null, titulo), corpo);
-  return overlay('centro', m);
+  return overlay('centro', m, undefined, podeFechar);
 }
 export function confirmar(titulo, texto, { perigo = false, rotulo = 'Confirmar' } = {}) {
   return new Promise((resolve) => {

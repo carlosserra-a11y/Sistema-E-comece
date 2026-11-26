@@ -40,6 +40,8 @@ sudo -u postgres pg_restore --dbname="$BANCO" --data-only --disable-triggers --n
 echo "==> 3/4 Conferindo, tabela por tabela, se a quantidade de registros é igual"
 DIFERENTES=0
 for tabela in $(local_pg -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations' ORDER BY 1"); do
+  # tabelas criadas depois (balcão) não existem na origem: não há o que conferir
+  if [ "$(psql "$ORIGEM" -X -q -tA -c "SELECT to_regclass('public.$tabela') IS NOT NULL")" != "t" ]; then printf '    --   %-28s não existe na origem\n' "$tabela"; continue; fi
   origem_n="$(psql "$ORIGEM" -X -q -tA -c "SELECT count(*) FROM public.\"$tabela\"")"
   destino_n="$(local_pg -c "SELECT count(*) FROM public.\"$tabela\"")"
   if [ "$origem_n" = "$destino_n" ]; then printf '    ok   %-28s %s\n' "$tabela" "$destino_n"; else printf '    ERRO %-28s Supabase=%s VPS=%s\n' "$tabela" "$origem_n" "$destino_n"; DIFERENTES=1; fi

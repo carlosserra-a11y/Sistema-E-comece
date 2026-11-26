@@ -57,6 +57,7 @@ export function abaLista(el, { config, orcamentos }) {
       let m;
       m = modal('Venda cancelada', h('div', { class: 'stack' },
         r.devolver_dinheiro_centavos > 0 && h('p', { class: 'troco' }, `Devolva ${fmt.moeda(r.devolver_dinheiro_centavos)} em dinheiro.`),
+        r.gaveta && h('p', { class: 'aviso-txt' }, r.gaveta.minha ? `Tire o dinheiro da SUA gaveta (caixa nº ${r.gaveta.caixa_id}).` : `Tire o dinheiro da gaveta de ${r.gaveta.de} (caixa nº ${r.gaveta.caixa_id}), não da sua.`),
         r.estornar_fora.map((p) => h('p', { class: 'aviso-txt' }, `Estorne ${fmt.moeda(p.valor_centavos)} (${FORMA[p.forma]}) na maquininha ou no banco: o sistema não faz isso.`)),
         r.devolver.length ? h('div', null, h('p', null, 'Guarde os itens de volta:'), h('ul', null, r.devolver.map((i) => h('li', null, `${i.qtd} × ${i.sku} em `, h('strong', { class: 'mono' }, i.endereco))))) : null,
         h('button', { class: 'btn primario', type: 'button', autofocus: true, onclick: () => m.fechar() }, 'Entendi')));

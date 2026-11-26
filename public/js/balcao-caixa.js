@@ -35,7 +35,7 @@ export function abaCaixa(el) {
     await api.idem('/api/caixa/movimento', { tipo, ...d }, chave); toast('Registrado.', 'ok'); recarregar();
   });
 
-  const lerMeu = () => (pode('vendas.registrar') ? carregar(meu, () => api.get('/api/caixa'), ({ caixa }) => meu.append(h('section', { class: 'card stack' }, h('h2', null, 'Meu caixa'), caixa ? [resumo(caixa),
+  const lerMeu = () => (pode('vendas.registrar,vendas.cancelar') ? carregar(meu, () => api.get('/api/caixa'), ({ caixa }) => meu.append(h('section', { class: 'card stack' }, h('h2', null, 'Meu caixa'), caixa ? [resumo(caixa),
     h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: () => movimento('SUPRIMENTO') }, 'Suprimento'), h('button', { class: 'btn', type: 'button', onclick: () => movimento('SANGRIA') }, 'Sangria'), h('button', { class: 'btn primario', type: 'button', onclick: () => fechar(caixa.id) }, 'Fechar caixa'))]
     : vazio('Caixa fechado', 'Abra o caixa para começar a vender.', h('button', { class: 'btn primario', type: 'button', onclick: () => pedirDados('Abrir caixa', 'Conte o dinheiro de troco que está na gaveta agora (pode ser zero).', [['abertura_centavos', 'Dinheiro na gaveta (R$)', 'moeda', '0,00']], 'Abrir caixa', async (d, chave) => { await api.idem('/api/caixa/abrir', d, chave); toast('Caixa aberto.', 'ok'); recarregar(); }) }, 'Abrir caixa'))))) : null);
 

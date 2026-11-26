@@ -48,7 +48,7 @@ async function criarDecodificador() {
  * Abre o leitor em tela cheia. `aoLer(codigo)` pode devolver `false` para manter a câmera aberta (modo contínuo, ex.: contagem)
  * ou qualquer outra coisa para fechar. Devolve { fechar }.
  */
-export function abrirScanner({ titulo = 'Aponte para o código', aoLer, continuo = false } = {}) {
+export function abrirScanner({ titulo = 'Aponte para o código', aoLer, continuo = false, exigirSaida = false } = {}) {
   if (!cameraDisponivel()) { toast('A câmera só funciona em conexão segura (https). Use o leitor ou digite o código.', 'aviso', 7000); return { fechar() {} }; }
   const video = h('video', { class: 'scan-video', playsinline: true, muted: true, autoplay: true, 'aria-label': 'Câmera' });
   const status = h('p', { class: 'scan-status', role: 'status' }, 'Abrindo a câmera…');
@@ -72,7 +72,8 @@ export function abrirScanner({ titulo = 'Aponte para o código', aoLer, continuo
   const tecla = (e) => { if (e.key === 'Escape') { e.stopPropagation(); fechar(); } };
   async function entregar(codigo) {
     const agora = Date.now();
-    if (codigo === ultimo && agora - ultimoEm < REPETIDO_MS) return; // mesmo código ainda na mira: ignora
+    // mesmo código ainda na mira: ignora (com `exigirSaida`, a espera recomeça enquanto ele continuar aparecendo)
+    if (codigo === ultimo && agora - ultimoEm < REPETIDO_MS) { if (exigirSaida) ultimoEm = agora; return; }
     ultimo = codigo; ultimoEm = agora; bipe('ok');
     status.textContent = `Lido: ${codigo}`;
     const r = await aoLer?.(codigo);

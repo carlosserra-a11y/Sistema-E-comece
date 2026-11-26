@@ -9,7 +9,7 @@ const ABAS = [
   ['vender', 'Vender', 'vendas.registrar'],
   ['vendas', 'Vendas', 'vendas.registrar,vendas.gerenciar,vendas.cancelar'],
   ['orcamentos', 'Orçamentos', 'vendas.registrar'],
-  ['caixa', 'Caixa', 'vendas.registrar,vendas.gerenciar'],
+  ['caixa', 'Caixa', 'vendas.registrar,vendas.gerenciar,vendas.cancelar'],
   ['relatorios', 'Relatórios', 'vendas.gerenciar'],
   ['servicos', 'Serviços', 'servicos.editar'],
   ['ajustes', 'Ajustes', 'vendas.configurar'],
