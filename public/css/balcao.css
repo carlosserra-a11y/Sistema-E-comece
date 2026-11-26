@@ -62,6 +62,8 @@
 
 @layer print {
   @media print {
+    /* no papel o fundo é sempre branco: o tema escuro não pode pintar a folha (cupom e etiquetas) */
+    :root, :root[data-theme] { color-scheme: light; background: #fff; }
     body.imprimindo-cupom { background: #fff; }
     body.imprimindo-cupom > *:not(#area-impressao) { display: none !important; }
     body.imprimindo-cupom #area-impressao { display: block; }
