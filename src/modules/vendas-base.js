@@ -59,3 +59,8 @@ export async function dadosDaLoja(db) {
 
 /** Quem marca "cliente levou na hora": quem expede, quem gerencia o balcão ou quem fez a própria venda. */
 export const podeMarcarRetirada = (ctx, venda) => ctx.pode('expedicao.operar') || ctx.pode('vendas.gerenciar') || (ctx.pode('vendas.registrar') && venda.vendedor_id === ctx.user.id);
+
+// Pedidos da internet na expedição (a tabela `pedidos` com o apelido "p").
+export const PEDIDO_EXPEDIDO = "EXISTS (SELECT 1 FROM pedido_etapas e WHERE e.pedido_id = p.id AND e.etapa = 'EXPEDICAO')";
+/** Na fila: pago, sem problema e com a reserva de todos os itens ainda ativa (o marcado como enviado à mão fica de fora). */
+export const PEDIDO_NA_FILA = `p.status = 'PAGO' AND NOT EXISTS (SELECT 1 FROM pedido_itens i LEFT JOIN reservas r ON r.pedido_item_id = i.id WHERE i.pedido_id = p.id AND (r.id IS NULL OR r.status <> 'ATIVA')) AND NOT ${PEDIDO_EXPEDIDO}`;

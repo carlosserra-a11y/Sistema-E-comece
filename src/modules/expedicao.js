@@ -9,26 +9,30 @@ import { normalizarLeitura } from './consultas.js';
 import { podeMarcarRetirada } from './vendas-base.js';
 
 export const ETAPAS = ['SEPARACAO', 'CONFERENCIA', 'EXPEDICAO'];
-const NOME = { SEPARACAO: 'separação', CONFERENCIA: 'conferência', EXPEDICAO: 'expedição' };
+export const NOME = { SEPARACAO: 'separação', CONFERENCIA: 'conferência', EXPEDICAO: 'expedição' };
 
 const etapasDe = async (db, vendaId) => await db.all('SELECT e.etapa, e.ts, e.observacao, e.na_hora, e.user_id, u.nome AS quem FROM etapas e JOIN users u ON u.id = e.user_id WHERE e.venda_id = ? ORDER BY e.id', vendaId);
+
+/** Códigos que valem na leitura de um produto. `aceitos` inclui as variações do código de barras: a tela confere na hora e o servidor confere de novo. */
+export async function codigosDe(db, produtoId, sku) {
+  const barras = (await db.all('SELECT codigo FROM codigos_barras WHERE produto_id = ?', produtoId)).map((c) => c.codigo);
+  const codigos = [...new Set([sku, ...barras].filter(Boolean))];
+  return { codigos, aceitos: [...new Set(codigos.flatMap((c) => variantes(c.toUpperCase())))] };
+}
 
 /** Produtos da venda (serviços não passam pelo estoque), com os códigos que valem na leitura. */
 async function itensDe(db, vendaId) {
   const itens = await db.all("SELECT produto_id, MAX(codigo) AS sku, MAX(descricao) AS descricao, SUM(qtd) AS qtd FROM venda_itens WHERE venda_id = ? AND tipo = 'PRODUTO' GROUP BY produto_id ORDER BY produto_id", vendaId);
   const saida = [];
   for (const i of itens) {
-    const codigos = (await db.all('SELECT codigo FROM codigos_barras WHERE produto_id = ?', i.produto_id)).map((c) => c.codigo);
     const enderecos = await db.all("SELECT DISTINCT e.codigo FROM movimentacoes_estoque m JOIN enderecos e ON e.id = m.endereco_id WHERE m.grupo = ? AND m.produto_id = ? AND m.tipo = 'SAIDA'", `venda-${vendaId}`, i.produto_id);
-    const todos = [...new Set([i.sku, ...codigos].filter(Boolean))];
-    // `aceitos`: tudo o que vale como leitura deste item (a tela confere na hora; o servidor confere de novo ao confirmar)
-    saida.push({ ...i, qtd: Number(i.qtd), codigos: todos, aceitos: [...new Set(todos.flatMap((c) => variantes(c.toUpperCase())))], enderecos: enderecos.map((e) => e.codigo) });
+    saida.push({ ...i, qtd: Number(i.qtd), ...(await codigosDe(db, i.produto_id, i.sku)), enderecos: enderecos.map((e) => e.codigo) });
   }
   return saida;
 }
 
 /** Soma as leituras por produto. Código que não é da venda é recusado na hora. */
-function conferirLeituras(itens, leituras) {
+export function conferirLeituras(itens, leituras, { de = 'desta venda', verbo = 'vendido' } = {}) {
   if (!Array.isArray(leituras) || !leituras.length) throw invalido({ leituras: 'Bipe os produtos antes de confirmar.' }, 'Bipe os produtos antes de confirmar.');
   if (leituras.length > 500) throw invalido({ leituras: 'Leituras demais.' });
   const porCodigo = new Map();
@@ -38,10 +42,10 @@ function conferirLeituras(itens, leituras) {
     const d = validar(bruto, { codigo: T({ obrig: true, max: 80 }), qtd: I({ min: 1, max: 100_000, padrao: 1 }) });
     const codigo = normalizarLeitura(d.codigo).toUpperCase();
     const produto = porCodigo.get(codigo);
-    if (!produto) throw conflito('LEITURA_ERRADA', `O código ${codigo} não é de nenhum produto desta venda.`);
+    if (!produto) throw conflito('LEITURA_ERRADA', `O código ${codigo} não é de nenhum produto ${de}.`);
     lido.set(produto, (lido.get(produto) ?? 0) + d.qtd);
   }
-  const diferencas = itens.filter((i) => (lido.get(i.produto_id) ?? 0) !== i.qtd).map((i) => `${i.sku}: lido ${lido.get(i.produto_id) ?? 0}, vendido ${i.qtd}`);
+  const diferencas = itens.filter((i) => (lido.get(i.produto_id) ?? 0) !== i.qtd).map((i) => `${i.sku}: lido ${lido.get(i.produto_id) ?? 0}, ${verbo} ${i.qtd}`);
   if (diferencas.length) throw conflito('QUANTIDADE_DIFERENTE', `A leitura não bate. ${diferencas.slice(0, 5).join('; ')}.`);
 }
 

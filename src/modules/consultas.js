@@ -8,7 +8,7 @@ import { FORMATOS, avisosEtiqueta, esc, etiquetaEndereco, etiquetaLote, etiqueta
 import { ENDERECO_RE, gerarCodigoInterno } from './catalogo.js';
 import { integridade, ondeEsta } from './estoque.js';
 import { SELECT_ENDERECO } from './deposito.js';
-import { diaDaLoja, inicioDoDia } from './vendas-base.js';
+import { PEDIDO_NA_FILA, diaDaLoja, inicioDoDia } from './vendas-base.js';
 import { atividade } from './atividade.js';
 
 /** Limpa o que leitores e teclados costumam adicionar: CR/LF, prefixo AIM (]E0, ]C1...), travessões "bonitos". */
@@ -169,7 +169,7 @@ export function registrarConsultas(app, { db, cfg }) {
       atividade: ctx.pode('auditoria.ver') ? await db.all('SELECT id, ts, acao, entidade, entidade_id FROM auditoria ORDER BY id DESC LIMIT 8') : null,
       vendas_hoje: await vendasDeHoje(ctx),
       vendas_7_dias: await vendasDaSemana(ctx),
-      expedicao_pendente: ctx.pode('expedicao.ver') ? Number((await um("SELECT COUNT(*) c FROM vendas v WHERE v.status = 'CONCLUIDA' AND EXISTS (SELECT 1 FROM venda_itens i WHERE i.venda_id = v.id AND i.tipo = 'PRODUTO') AND NOT EXISTS (SELECT 1 FROM etapas e WHERE e.venda_id = v.id AND e.etapa = 'EXPEDICAO')")).c) : null,
+      expedicao_pendente: ctx.pode('expedicao.ver') ? Number((await um("SELECT COUNT(*) c FROM vendas v WHERE v.status = 'CONCLUIDA' AND EXISTS (SELECT 1 FROM venda_itens i WHERE i.venda_id = v.id AND i.tipo = 'PRODUTO') AND NOT EXISTS (SELECT 1 FROM etapas e WHERE e.venda_id = v.id AND e.etapa = 'EXPEDICAO')")).c) + Number((await um(`SELECT COUNT(*) c FROM pedidos p WHERE ${PEDIDO_NA_FILA}`)).c) : null,
       equipe_hoje: ctx.pode('atividade.ver') ? (await atividade(db, ctx, {})).pessoas.filter((x) => x.bipagens + x.separacoes + x.conferencias + x.expedicoes + x.vendas > 0 || x.caixa_aberto) : null,
     };
   });

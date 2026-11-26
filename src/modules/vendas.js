@@ -75,7 +75,7 @@ export function conferirPagamentos(brutos, total) {
 }
 
 /** Endereços de onde a venda pode tirar o produto, na ordem: vence antes primeiro; depois o picking designado; depois a rota. */
-async function origensDeVenda(db, produtoId, hoje) {
+export async function origensDeVenda(db, produtoId, hoje) {
   return await db.all(`SELECT s.endereco_id, s.lote_id, s.qtd, e.codigo
     FROM saldos_por_endereco s JOIN enderecos e ON e.id = s.endereco_id JOIN zonas z ON z.id = e.zona_id LEFT JOIN lotes l ON l.id = s.lote_id
     WHERE s.produto_id = ? AND s.qtd > 0 AND z.vendavel = 1 AND e.ativo = 1 AND e.bloqueado = 0 AND (l.validade IS NULL OR l.validade >= ?)

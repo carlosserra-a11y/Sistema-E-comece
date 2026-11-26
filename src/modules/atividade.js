@@ -14,8 +14,8 @@ function periodo(query, agora) {
   return { de, ate, ini, fim };
 }
 
-// leituras de estoque feitas à mão: fora as baixas automáticas de venda; a transferência conta uma vez (pela entrada)
-const BIPAGENS = "m.user_id IS NOT NULL AND (m.grupo IS NULL OR m.grupo NOT LIKE 'venda-%') AND m.tipo <> 'TRANSF_SAIDA'";
+// leituras de estoque feitas à mão: fora as baixas automáticas de venda e de pedido; a transferência conta uma vez (pela entrada)
+const BIPAGENS = "m.user_id IS NOT NULL AND (m.grupo IS NULL OR (m.grupo NOT LIKE 'venda-%' AND m.grupo NOT LIKE 'pedido-%')) AND m.tipo <> 'TRANSF_SAIDA'";
 
 export async function atividade(db, ctx, query) {
   const p = periodo(query, ctx.agora());
@@ -30,6 +30,7 @@ export async function atividade(db, ctx, query) {
   for (const l of await db.all(`SELECT m.user_id, COUNT(*) AS c, SUM(ABS(m.delta)) AS u FROM movimentacoes_estoque m WHERE ${BIPAGENS} AND m.ts >= ? AND m.ts < ? GROUP BY m.user_id`, p.ini, p.fim)) if (de(l.user_id)) Object.assign(de(l.user_id), { bipagens: n(l.c), unidades: n(l.u) });
   const campo = { SEPARACAO: 'separacoes', CONFERENCIA: 'conferencias', EXPEDICAO: 'expedicoes' };
   for (const l of await db.all('SELECT user_id, etapa, COUNT(*) AS c FROM etapas WHERE na_hora = 0 AND ts >= ? AND ts < ? GROUP BY user_id, etapa', p.ini, p.fim)) if (de(l.user_id)) de(l.user_id)[campo[l.etapa]] = n(l.c);
+  for (const l of await db.all('SELECT user_id, etapa, COUNT(*) AS c FROM pedido_etapas WHERE ts >= ? AND ts < ? GROUP BY user_id, etapa', p.ini, p.fim)) if (de(l.user_id)) de(l.user_id)[campo[l.etapa]] += n(l.c);
   for (const l of await db.all("SELECT user_id, COUNT(*) AS c FROM auditoria WHERE acao = 'PEDIDO_ENVIADO' AND ts >= ? AND ts < ? GROUP BY user_id", p.ini, p.fim)) if (de(l.user_id)) de(l.user_id).expedicoes += n(l.c);
   for (const l of await db.all("SELECT vendedor_id, COUNT(*) AS c, SUM(valor_centavos) AS v FROM vendas WHERE status = 'CONCLUIDA' AND concluida_em >= ? AND concluida_em < ? GROUP BY vendedor_id", p.ini, p.fim)) if (de(l.vendedor_id)) Object.assign(de(l.vendedor_id), { vendas: n(l.c), valor_centavos: n(l.v) });
   for (const c of await db.all("SELECT id, aberto_por, aberto_em FROM caixas WHERE status = 'ABERTO'")) if (de(c.aberto_por)) de(c.aberto_por).caixa_aberto = { id: c.id, desde: c.aberto_em };
@@ -42,7 +43,8 @@ export async function atividade(db, ctx, query) {
   const ETAPA = { SEPARACAO: 'separou', CONFERENCIA: 'conferiu', EXPEDICAO: 'expediu' };
   for (const e of await db.all(`SELECT ts, user_id, etapa, venda_id, na_hora FROM etapas WHERE ts >= ? AND ts < ?${so('user_id')} ORDER BY id DESC LIMIT 60`, p.ini, p.fim, ...arg)) add(e.ts, e.user_id, e.na_hora ? 'retirada' : e.etapa.toLowerCase(), e.na_hora ? `marcou que o cliente levou na hora a venda nº ${e.venda_id}` : `${ETAPA[e.etapa]} a venda nº ${e.venda_id}`, `expedicao?venda=${e.venda_id}`);
   // pedidos da internet enviados também são expedição: aparecem na linha do tempo, não só na contagem
-  for (const e of await db.all(`SELECT ts, user_id, entidade_id FROM auditoria WHERE acao = 'PEDIDO_ENVIADO' AND ts >= ? AND ts < ?${so('user_id')} ORDER BY id DESC LIMIT 60`, p.ini, p.fim, ...arg)) add(e.ts, e.user_id, 'expedicao', `expediu o pedido da internet nº ${e.entidade_id}`, 'integracoes');
+  for (const e of await db.all(`SELECT ts, user_id, entidade_id FROM auditoria WHERE acao = 'PEDIDO_ENVIADO' AND ts >= ? AND ts < ?${so('user_id')} ORDER BY id DESC LIMIT 60`, p.ini, p.fim, ...arg)) add(e.ts, e.user_id, 'expedicao', 'marcou como enviado um pedido da internet (baixa à mão)', 'integracoes');
+  for (const e of await db.all(`SELECT e.ts, e.user_id, e.etapa, e.pedido_id, p.canal_pedido_id FROM pedido_etapas e JOIN pedidos p ON p.id = e.pedido_id WHERE e.ts >= ? AND e.ts < ?${so('e.user_id')} ORDER BY e.id DESC LIMIT 60`, p.ini, p.fim, ...arg)) add(e.ts, e.user_id, e.etapa.toLowerCase(), `${ETAPA[e.etapa]} o pedido da internet nº ${e.canal_pedido_id}`, `expedicao?pedido=${e.pedido_id}`);
   const comValor = ctx.pode('vendas.gerenciar');
   const emReais = (c) => `R$ ${(n(c) / 100).toFixed(2).replace('.', ',')}`;
   for (const v of await db.all(`SELECT id, vendedor_id, caixa_id, concluida_em, valor_centavos FROM vendas WHERE status IN ('CONCLUIDA','CANCELADA') AND concluida_em >= ? AND concluida_em < ?${so('vendedor_id')} ORDER BY concluida_em DESC, id DESC LIMIT 60`, p.ini, p.fim, ...arg)) add(v.concluida_em, v.vendedor_id, 'venda', `vendeu no caixa nº ${v.caixa_id} (venda nº ${v.id}${comValor ? `, ${emReais(v.valor_centavos)}` : ''})`, 'balcao?aba=vendas');

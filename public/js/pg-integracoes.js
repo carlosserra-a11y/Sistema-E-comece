@@ -1,4 +1,4 @@
-import { h, limpar, api, carregar, icone, fmt, badge, qs, tratar, toast, tabela, paginacao, abas, vazio, campo, confirmar, copiar, modal } from './core.js';
+import { h, limpar, api, carregar, icone, fmt, badge, qs, tratar, toast, tabela, paginacao, abas, vazio, campo, confirmar, copiar, modal, pode } from './core.js';
 
 const COR = { verde: 'ok', amarelo: 'aviso', vermelho: 'erro', cinza: '' };
 const ROTULO_COR = { verde: 'Saudável', amarelo: 'Atenção', vermelho: 'Com problema', cinza: 'Inativa' };
@@ -91,7 +91,8 @@ export async function renderizar(el, { params, sessao }) {
       const p = await api.get(`/api/pedidos/${id}`);
       const m = modal(`Pedido ${p.canal_pedido_id}`, h('div', { class: 'stack' }, h('div', { class: 'row' }, badge(...ST_PEDIDO[p.status]), h('span', { class: 'muted' }, `Comprador ${p.comprador_apelido ?? '—'}${veFin ? ` · ${fmt.moeda(p.total_centavos)}` : ''}`)), p.problema ? h('p', { class: 'perigo-txt' }, p.problema) : null,
         tabela([{ titulo: 'Anúncio', render: (i) => h('span', { class: 'mono' }, i.item_id) }, { titulo: 'SKU do vendedor', render: (i) => i.sku_canal ?? '—' }, { titulo: 'Produto', render: (i) => i.sku_interno ?? badge('sem mapeamento', 'erro') }, { titulo: 'Qtd', num: true, chave: 'qtd' }, { titulo: 'Reserva', render: (i) => (i.reserva ? badge(i.reserva.toLowerCase(), i.reserva === 'ATIVA' ? 'ok' : '') : '—') }], p.itens, { compacta: true }),
-        p.itens.some((i) => i.reserva === 'ATIVA') ? h('button', { class: 'btn', 'data-requer': 'pedidos.gerenciar', onclick: async () => { if (!await confirmar('Marcar como enviado?', 'Faça antes a baixa das peças em Estoque. Isto libera a reserva do pedido.', { rotulo: 'Marcar como enviado' })) return; try { await api.post(`/api/pedidos/${id}/enviado`, {}); m.fechar(); toast('Reserva baixada.', 'ok'); } catch (e) { tratar(e); } } }, 'Marcar como enviado') : null,
+        p.status === 'PAGO' && p.itens.every((i) => i.reserva === 'ATIVA') && pode('expedicao.ver') ? h('a', { class: 'btn primario', href: `#/expedicao?pedido=${id}` }, icone('send', 18), 'Separar na Expedição') : null,
+        p.itens.some((i) => i.reserva === 'ATIVA') ? h('button', { class: 'btn', 'data-requer': 'pedidos.gerenciar', onclick: async () => { if (!await confirmar('Marcar como enviado sem a Expedição?', 'O normal é separar e expedir pela tela Expedição, que dá a baixa sozinha. Use isto só se as peças já saíram e a baixa foi feita à mão em Estoque: aqui nada é baixado.', { rotulo: 'Marcar como enviado' })) return; try { await api.post(`/api/pedidos/${id}/enviado`, {}); m.fechar(); toast('Reserva liberada.', 'ok'); } catch (e) { tratar(e); } } }, 'Já dei baixa à mão') : null,
         p.status === 'COM_PROBLEMA' ? h('button', { class: 'btn primario', 'data-requer': 'pedidos.gerenciar', onclick: async () => { try { const r = await api.post(`/api/pedidos/${id}/reprocessar`, {}); m.fechar(); toast(r.problema ? `Ainda com problema: ${r.problema}` : 'Pedido reprocessado.', r.problema ? 'aviso' : 'ok', 6000); ler(); } catch (e) { tratar(e); } } }, 'Reprocessar') : null), { largo: true });
     } catch (e) { tratar(e); }
   }

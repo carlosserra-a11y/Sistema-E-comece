@@ -112,7 +112,7 @@ O vendedor só vê quanto deveria ter **depois** de contar (conferência cega).
 
 ## Separar, conferir e expedir
 
-Toda venda concluída com produtos entra na fila de **Expedição**. Venda só de serviço não entra.
+Toda venda concluída com produtos entra na fila de **Expedição** (botão **Balcão**). Venda só de serviço não entra. Os pedidos da internet ficam no botão **Internet** (veja *Pedidos do Mercado Livre*).
 
 **Cliente levou a peça na hora?** Toque em **Cliente levou na hora** na janela que abre depois da venda. A venda não vai para a fila. O botão também aparece na **Expedição** e no detalhe da venda (**Balcão → Vendas**), e ali pede confirmação.
 
@@ -166,9 +166,20 @@ A pessoa é desconectada, e o login, o e-mail e a senha são apagados. **Não d�
 | Corrigir quantidade | **Estoque → Ajustar** (pede senha e motivo) |
 | Contar | **Contagem** → nova contagem → um gerente aprova |
 
-## Pedido do Mercado Livre que já saiu
+## Pedidos do Mercado Livre
 
-Dê a baixa das peças em **Estoque** e depois abra **Integrações → Pedidos → o pedido → Marcar como enviado**. Sem isso as unidades continuam reservadas.
+Pedido **pago** entra sozinho na **Expedição**, no botão **Internet**.
+
+1. **Expedição → Internet** → **Separar pedido**.
+2. Pegue as peças nos endereços de **Pegar em** e bipe cada uma. **Confirmar separação**.
+3. **Conferir** bipando de novo.
+4. **Expedir e dar baixa**. O sistema tira as peças do estoque (vence antes sai antes) e libera a reserva.
+
+- **Não dê baixa à mão** quando for expedir por aqui: sairia duas vezes.
+- Também dá para abrir o pedido em **Integrações → Pedidos → Separar na Expedição**.
+- Pedido **com problema** (produto sem ligação com o anúncio ou falta de estoque) fica fora da fila. Resolva em **Integrações → Pedidos → Reprocessar**.
+- Pedido **cancelado** sai da fila. Se já foi separado, guarde as peças de volta (nada foi baixado).
+- Saiu sem passar pela Expedição e você já deu baixa em **Estoque**? No pedido, **Já dei baixa à mão**.
 
 ## 8. Quando algo dá errado
 

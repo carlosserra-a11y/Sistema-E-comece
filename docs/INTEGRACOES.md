@@ -50,7 +50,7 @@ polling a cada ML_POLL_MIN min ──────┘   (reconcilia o que o webho
 - **Nunca falou com o Mercado Livre real.** Os testes usam um servidor falso (`test/ml-falso.js`) que reproduz OAuth, pedidos, anúncios, 401 e 429. A documentação oficial confirma OAuth/refresh e `orders_v2`; **o formato exato de `PUT /items/{id}` (quantidade, `status` e variações) e o campo do SKU do vendedor (`seller_sku`/`seller_custom_field`) devem ser validados com a sua conta** antes de ligar a pausa automática.
 - Sem endereço de entrega, CPF ou telefone do comprador (guarda só apelido e id do ML, por LGPD); a etiqueta e a expedição entram nas Fases 6–7.
 - Uma conta por canal; sem Mercado Envios, perguntas, devoluções ou mensagens.
-- A baixa **física** do estoque continua da expedição (Fase 6/7); até lá o pedido só **reserva**.
+- O pedido pago **reserva** as unidades; a baixa **física** acontece quando ele é expedido na tela **Expedição** (separar → conferir → expedir). "Já dei baixa à mão" só libera a reserva.
 - O polling roda no processo do servidor (`ML_POLL_MIN`, padrão 10 min); sem fila externa.
 
 ## Demais canais (planejado)

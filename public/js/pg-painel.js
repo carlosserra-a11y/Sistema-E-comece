@@ -26,7 +26,7 @@ function linha(destino, perm, ...filhos) {
 /** O que pede atenção agora, em ordem de urgência. */
 function paraFazer(d) {
   const itens = [
-    d.expedicao_pendente > 0 && ['send', 'info', `${plural(d.expedicao_pendente, 'venda', 'vendas')} para separar e expedir`, 'expedicao', 'expedicao.ver'],
+    d.expedicao_pendente > 0 && ['send', 'info', `${plural(d.expedicao_pendente, 'venda ou pedido', 'vendas e pedidos')} para separar e expedir`, 'expedicao', 'expedicao.ver'],
     d.caixas_antigos > 0 && ['wallet', 'erro', `${plural(d.caixas_antigos, 'caixa aberto', 'caixas abertos')} desde antes de hoje: confira e feche`, 'balcao?aba=caixa', VE_VENDAS],
     d.sem_preco > 0 && ['tag', 'erro', `${plural(d.sem_preco, 'produto sem preço não pode', 'produtos sem preço não podem')} ser vendido no balcão`, 'produtos?filtro=sem_preco', 'produtos.ver'],
     d.zerados > 0 && ['alert', 'erro', `${plural(d.zerados, 'produto', 'produtos')} sem estoque disponível`, 'produtos?filtro=zerados', 'produtos.ver'],
@@ -87,7 +87,7 @@ function desenhar(d, animar) {
   const temLateral = !!(d.equipe_hoje || d.atividade);
   return h('div', { class: 'grid bento' },
     d.vendas_hoje && vendas(d, animar, fila === null ? 'w6' : 'w4'),
-    fila !== null && indicador({ rotulo: 'Para expedir', ic: 'send', cor: `cor-sol ${d.vendas_hoje ? 'w3' : 'w6'}`, valor: fila, nota: fila ? 'vendas aguardando separar, conferir ou enviar' : 'nenhuma venda aguardando', destino: 'expedicao', perm: 'expedicao.ver', animar }),
+    fila !== null && indicador({ rotulo: 'Para expedir', ic: 'send', cor: `cor-sol ${d.vendas_hoje ? 'w3' : 'w6'}`, valor: fila, nota: fila ? 'vendas e pedidos aguardando separar, conferir ou enviar' : 'nada aguardando', destino: 'expedicao', perm: 'expedicao.ver', animar }),
     indicador({ rotulo: 'Produtos ativos', ic: 'box', cor: 'cor-gelo', valor: d.produtos_ativos, nota: d.sem_codigo ? `${d.sem_codigo} sem código de barras` : 'todos com código', destino: 'produtos?filtro=ativos', perm: 'produtos.ver', animar }),
     indicador({ rotulo: 'Unidades em estoque', ic: 'layers', cor: 'cor-agua', valor: d.unidades, nota: 'veja produto por produto', destino: 'estoque?op=produtos', perm: 'estoque.ver', animar }),
     indicador({ rotulo: 'Ocupação do galpão', ic: 'map', cor: 'cor-menta', valor: contar(ocup, { formatar: (n) => `${n}%`, animar }), extra: barra, nota: `${fmt.num(d.enderecos_ocupados)} de ${fmt.num(d.enderecos)} endereços`, destino: 'enderecos?aba=mapa', perm: 'enderecos.ver' }),

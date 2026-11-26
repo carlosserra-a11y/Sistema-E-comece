@@ -34,7 +34,9 @@ async function resolverProdutos(db, ctx, contaId, pedidoId) {
 }
 
 /** Reavalia um pedido: resolve SKUs, reserva estoque (uma vez por item) e decide o status. Cancelado é terminal e libera as reservas. */
-async function avaliar(db, ctx, pedido, statusCanal) {
+async function avaliar(db, ctx, recebido, statusCanal) {
+  await db.travar(`pedido|doc|${recebido.id}`); // a mesma trava da expedição: cancelamento e envio não se atravessam
+  const pedido = await db.get('SELECT * FROM pedidos WHERE id = ?', recebido.id);
   const novo = statusDoCanal(statusCanal);
   const itens = async () => await db.all('SELECT * FROM pedido_itens WHERE pedido_id = ?', pedido.id);
   let status; let problema = null;
@@ -52,6 +54,7 @@ async function avaliar(db, ctx, pedido, statusCanal) {
       await db.run("INSERT INTO reservas (pedido_item_id, produto_id, qtd, status, criado_em, atualizado_em) VALUES (?,?,?,'ATIVA',?,?) ON CONFLICT DO NOTHING", it.id, it.produto_id, it.qtd, ctx.agora(), ctx.agora());
     }
     for (const it of (await itens()).filter((x) => x.produto_id)) {
+      if (await db.get("SELECT 1 AS ok FROM reservas WHERE pedido_item_id = ? AND status = 'CONSUMIDA'", it.id)) continue; // já saiu: falta de saldo hoje não é problema dele
       const d = await disponivelDe(db, it.produto_id, diaDaLoja(ctx.agora()));
       if (d.disponivel < 0) problemas.push(`Estoque insuficiente: ${(await db.get('SELECT sku FROM produtos WHERE id = ?', it.produto_id)).sku} (faltam ${-d.disponivel})`);
     }
@@ -109,9 +112,10 @@ export function registrarPedidos(app, { db }) {
     const itens = await db.all(`SELECT i.*, pr.sku AS sku_interno, r.status AS reserva FROM pedido_itens i LEFT JOIN produtos pr ON pr.id = i.produto_id LEFT JOIN reservas r ON r.pedido_item_id = i.id WHERE i.pedido_id = ?`, p.id);
     return { ...p, itens };
   });
-  // Pedido que já saiu da loja (com a baixa feita no Estoque): a reserva deixa de segurar unidades no balcão e no anúncio.
+  // Saída fora da tela Expedição (baixa já feita à mão no Estoque): a reserva deixa de segurar unidades no balcão e no anúncio.
   rota('POST', '/api/pedidos/:id/enviado', async (ctx) => {
     const r = await tx(db, async (db) => {
+      await db.travar(`pedido|doc|${Number(ctx.params.id)}`);
       const p = await db.get('SELECT * FROM pedidos WHERE id = ?', Number(ctx.params.id));
       if (!p) throw naoEncontrado('Pedido');
       const { changes } = await db.run("UPDATE reservas SET status = 'CONSUMIDA', atualizado_em = ? WHERE status = 'ATIVA' AND pedido_item_id IN (SELECT id FROM pedido_itens WHERE pedido_id = ?)", ctx.agora(), p.id);

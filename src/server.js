@@ -20,6 +20,7 @@ import { registrarBalcao } from './modules/balcao.js';
 import { registrarClientes } from './modules/clientes.js';
 import { registrarRelatorios } from './modules/relatorios.js';
 import { registrarExpedicao } from './modules/expedicao.js';
+import { registrarExpedicaoPedidos } from './modules/expedicao-pedidos.js';
 import { registrarAtividade } from './modules/atividade.js';
 import { provisionar } from './provisionar.js';
 import { fileURLToPath } from 'node:url';
@@ -53,6 +54,7 @@ export async function montar(cfg, { log = criarLogger({ nivel: cfg.logLevel }), 
   registrarClientes(app, deps);
   registrarRelatorios(app, deps);
   registrarExpedicao(app, deps);
+  registrarExpedicaoPedidos(app, deps);
   registrarAtividade(app, deps);
   const integracoes = await registrarIntegracoes(app, deps);
 

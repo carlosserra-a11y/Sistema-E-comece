@@ -53,7 +53,7 @@ Não faz: nota fiscal, integração com maquininha, devolução parcial, venda a
 | Área | Entregue |
 |---|---|
 | Início | cartões clicáveis, vendas dos últimos 7 dias, "Para fazer agora", equipe do dia, atualização automática |
-| Expedição | separação → conferência (bipando) → expedição, em ordem, com quem e quando (registro imutável) |
+| Expedição | vendas do balcão e pedidos do Mercado Livre: separação → conferência (bipando) → expedição, em ordem, com quem e quando (registro imutável); nos pedidos, a baixa do estoque é automática ao expedir |
 | Equipe em ação | bipagens, separações, conferências, expedições, vendas e caixa por pessoa e período, com linha do tempo |
 | Contas | o dono pode excluir uma conta (apaga o acesso e mantém o nome no histórico) |
 
@@ -71,7 +71,7 @@ Não faz: nota fiscal, integração com maquininha, devolução parcial, venda a
 
 ## Próximas fases
 
-Shopee, NF-e (Bling/Tiny), embalagem, transportadora/rastreio de entrega, separação de pedidos do Mercado Livre pela tela de Expedição e devoluções **ainda não existem**. Veja [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+Shopee, NF-e (Bling/Tiny), embalagem, transportadora/rastreio de entrega e devoluções **ainda não existem**. Veja [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 
 ## Documentação
 
