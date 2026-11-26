@@ -56,7 +56,7 @@ export async function vincularEmailDono(cfg, db, log) {
   if (!cfg.donoEmail) return false;
   const e = normalizarEmail(cfg.donoEmail);
   if (!e) { log?.error?.('DONO_EMAIL inválido: ignorado'); return false; }
-  const dono = await db.get('SELECT id, email_hmac, email_verificado FROM users WHERE dono = 1');
+  const dono = await db.get('SELECT id, email_hmac, email_verificado FROM users WHERE dono = 1 ORDER BY id LIMIT 1'); // há mais de um dono: o DONO_EMAIL é sempre o do primeiro
   if (!dono) return false; // o dono ainda não foi criado: vale na próxima partida
   const chave = chaveEmail(cfg, e.canonico);
   if (dono.email_hmac === chave && dono.email_verificado) return false;
