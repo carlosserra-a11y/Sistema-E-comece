@@ -82,7 +82,7 @@ export async function renderizar(el, { params }) {
     const p = liberado && v.itens.length ? proximo(v.etapas) : null;
     const operar = p && pode('expedicao.operar');
     const aviso = daLoja ? (v.status === 'CANCELADA' && 'Esta venda foi cancelada: não separe nem envie.')
-      : v.status === 'CANCELADO' ? 'Este pedido foi cancelado: não envie. Guarde de volta o que já foi separado.'
+      : v.status === 'CANCELADO' ? (v.etapas.some((e) => e.etapa === 'EXPEDICAO') ? 'Cancelado depois do envio: quando a peça voltar, dê entrada em Estoque → Receber.' : 'Este pedido foi cancelado: não envie. Guarde de volta o que já foi separado.')
         : v.enviado_a_mao ? 'Marcado como enviado em Integrações (baixa feita à mão): não há o que expedir.'
           : v.status === 'NOVO' ? 'Este pedido ainda não foi pago.' : v.status === 'COM_PROBLEMA' && `Pedido com problema: ${v.problema ?? 'veja em Integrações'}`;
     const dados = daLoja ? [['Vendida em', fmt.dataHora(v.concluida_em)], ['Atendente', v.vendedor_nome], ['Caixa', v.caixa_id ? `nº ${v.caixa_id} · ${v.caixa_de}` : '—'], v.observacao ? ['Observação', v.observacao] : null]
