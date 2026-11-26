@@ -3,7 +3,8 @@ import { h, limpar, api, carregar, pode, icone, fmt, badge, qs, tratar, toast, f
 import { botaoLevouNaHora } from './balcao-cupom.js';
 
 const PASSOS = [['SEPARACAO', 'Separação', 'Separar', 'Separado'], ['CONFERENCIA', 'Conferência', 'Conferir', 'Conferido'], ['EXPEDICAO', 'Expedição', 'Expedir', 'Expedido']];
-const proximo = (etapas) => PASSOS.find(([id]) => !etapas.some((e) => e.etapa === id)) ?? null;
+// venda que já saiu (inclusive "levou na hora", sem separação nem conferência) não tem próximo passo
+const proximo = (etapas) => (etapas.some((e) => e.etapa === 'EXPEDICAO') ? null : PASSOS.find(([id]) => !etapas.some((e) => e.etapa === id)) ?? null);
 // Mesma limpeza que o servidor faz na leitura (caracteres de controle e prefixo de simbologia do leitor).
 const limparLeitura = (t) => t.replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/^\][A-Za-z][0-9A-Za-z]/, '').toUpperCase();
 const leituras = new Map(); // venda:etapa -> { produto_id: { codigo, qtd } } (fechar a gaveta sem querer não perde o que já foi bipado)
