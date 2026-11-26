@@ -83,6 +83,44 @@ test('expedição: venda cancelada não entra; sem permissão não opera; entrad
   assert.equal(ok(await dono.get('/api/expedicao')).total, 0);
 }));
 
+test('levou na hora: tira a venda da fila com um registro só, grava quem marcou e respeita quem pode', async () => await com(async (s) => {
+  const { sis, dono } = s;
+  const { p, v, vend } = await vendaPronta(s);
+  assert.equal(ok(await vend.c.get(`/api/vendas/${v.id}`)).pode_levar_na_hora, true);
+  // quem só vende (sem nada de expedição) marca a própria venda, não a dos outros
+  const soVende = await contratar(sis, dono, { nome: 'Beto Balcao', papel: 'personalizado', permissoes: ['produtos.ver', 'estoque.ver', 'vendas.registrar'] });
+  falha(await soVende.c.post(`/api/expedicao/${v.id}/levou-na-hora`), 403, 'SEM_PERMISSAO');
+  ok(await soVende.c.idem('/api/caixa/abrir', { abertura_centavos: 0 }), 201);
+  const dele = ok(await soVende.c.idem('/api/vendas', { itens: [{ id: p.id, qtd: 1 }], valor_esperado_centavos: 1000, pagamentos: [{ forma: 'PIX', valor_centavos: 1000 }] }), 201);
+  const feito = ok(await soVende.c.post(`/api/expedicao/${dele.id}/levou-na-hora`));
+  assert.deepEqual(feito.etapas.map((e) => [e.etapa, e.na_hora, e.quem]), [['EXPEDICAO', 1, 'Beto Balcao']]);
+  assert.equal(ok(await soVende.c.get(`/api/vendas/${dele.id}`)).pode_levar_na_hora, false);
+  falha(await soVende.c.post(`/api/expedicao/${dele.id}/levou-na-hora`), 409, 'JA_FEITA');
+  for (const etapa of ['SEPARACAO', 'CONFERENCIA', 'EXPEDICAO']) falha(await dono.post(`/api/expedicao/${dele.id}/etapa`, { etapa, leituras: [{ codigo: 'EXP-1', qtd: 1 }] }), 409, 'JA_FEITA');
+  assert.deepEqual([ok(await dono.get('/api/expedicao')).total, ok(await dono.get('/api/expedicao?situacao=expedidas')).total], [1, 1]);
+  assert.equal(ok(await dono.get('/api/expedicao')).itens[0].pode_levar_na_hora, true);
+  const a = ok(await dono.get('/api/atividade'));
+  assert.equal(a.pessoas.find((x) => x.nome === 'Beto Balcao').expedicoes, 0, 'levar na hora não conta como expedição');
+  assert.ok(a.linha_do_tempo.some((e) => e.tipo === 'retirada' && e.quem === 'Beto Balcao'));
+  // depois que a separação começa, não vale mais
+  ok(await dono.post(`/api/expedicao/${v.id}/etapa`, { etapa: 'SEPARACAO', leituras: [{ codigo: 'EXP-1', qtd: 3 }] }));
+  falha(await vend.c.post(`/api/expedicao/${v.id}/levou-na-hora`), 409, 'EM_SEPARACAO');
+  assert.equal(ok(await dono.get(`/api/vendas/${v.id}`)).pode_levar_na_hora, false);
+  for (const id of ['999999', 'abc']) { const r = await dono.post(`/api/expedicao/${id}/levou-na-hora`); assert.ok(r.status >= 400 && r.status < 500, r.texto); }
+}));
+
+test('levou na hora: venda cancelada não é marcada e o clique duplo grava uma vez só', async () => await com(async (s) => {
+  const { sis, dono } = s;
+  const { p, v, vend } = await vendaPronta(s);
+  const duas = await Promise.all([1, 2].map(() => vend.c.post(`/api/expedicao/${v.id}/levou-na-hora`)));
+  assert.deepEqual(duas.map((r) => r.status).sort(), [200, 409]);
+  assert.equal(Number((await sis.db.get('SELECT COUNT(*) AS c FROM etapas WHERE venda_id = ?', v.id)).c), 1);
+  const outra = ok(await vend.c.idem('/api/vendas', { itens: [{ id: p.id, qtd: 1 }], valor_esperado_centavos: 1000, pagamentos: [{ forma: 'PIX', valor_centavos: 1000 }] }), 201);
+  ok(await dono.post('/api/reautenticar', { senha: SENHA_DONO }));
+  ok(await dono.idem(`/api/vendas/${outra.id}/cancelar`, { motivo: 'cliente desistiu' }));
+  falha(await dono.post(`/api/expedicao/${outra.id}/levou-na-hora`), 409, 'STATUS');
+}));
+
 test('painel e estoque por produto: números clicáveis têm dados e respeitam as permissões', async () => await com(async (s) => {
   const { dono } = s;
   const { p, vend } = await vendaPronta(s);

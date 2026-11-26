@@ -3,7 +3,7 @@ import { h, limpar, api, carregar, pode, icone, fmt, badge, qs, vazio, avatar } 
 import { contar, hojeDaLoja } from './painel-blocos.js';
 
 const METRICAS = [['bipagens', 'Bipagens', 'scan'], ['separacoes', 'Separações', 'box'], ['conferencias', 'Conferências', 'checks'], ['expedicoes', 'Expedições', 'send'], ['vendas', 'Vendas', 'cart']];
-const ICONE_EVENTO = { estoque: ['scan', 'info'], separacao: ['box', 'info'], conferencia: ['checks', 'ok'], expedicao: ['send', 'ok'], venda: ['cart', 'ok'], cancelamento: ['x', 'erro'], caixa: ['wallet', 'aviso'] };
+const ICONE_EVENTO = { estoque: ['scan', 'info'], separacao: ['box', 'info'], conferencia: ['checks', 'ok'], expedicao: ['send', 'ok'], retirada: ['check', 'info'], venda: ['cart', 'ok'], cancelamento: ['x', 'erro'], caixa: ['wallet', 'aviso'] };
 const dias = (n) => hojeDaLoja(new Date(Date.now() - n * 86_400_000));
 const PERIODOS = [['hoje', 'Hoje', () => [dias(0), dias(0)]], ['ontem', 'Ontem', () => [dias(1), dias(1)]], ['7', '7 dias', () => [dias(6), dias(0)]], ['30', '30 dias', () => [dias(29), dias(0)]]];
 const podeAbrir = (link) => pode(link.startsWith('produtos') ? 'produtos.ver' : link.startsWith('expedicao') ? 'expedicao.ver' : link.startsWith('integracoes') ? 'integracoes.ver,pedidos.ver' : 'vendas.registrar,vendas.gerenciar,vendas.cancelar');
@@ -36,7 +36,7 @@ export async function renderizar(el, { params }) {
           const dentro = [h('span', { class: `evento-ic ${tom}`, 'aria-hidden': 'true' }, icone(ic, 16)), h('span', { class: 'evento-txt quebra' }, h('strong', null, e.quem), ` ${e.texto}`), h('time', { class: 'muted' }, de === ate ? fmt.hora(e.ts) : fmt.dataHora(e.ts))];
           return h('li', null, podeAbrir(e.link) ? h('a', { href: `#/${e.link}` }, dentro) : h('span', null, dentro));
         })) : vazio('Nada neste período', 'As leituras, vendas, conferências e o caixa aparecem aqui assim que acontecem.')),
-      h('p', { class: 'muted' }, 'Bipagens = leituras de estoque feitas à mão (receber, guardar, baixar, contagem). Baixas automáticas de venda não contam. Expedições incluem os pedidos da internet enviados.'));
+      h('p', { class: 'muted' }, 'Bipagens = leituras de estoque feitas à mão (receber, guardar, baixar, contagem). Baixas automáticas de venda não contam. Expedições incluem os pedidos da internet enviados; venda que o cliente levou na hora não conta, mas aparece na linha do tempo.'));
   };
   const ler = (comAnimacao = true) => { animar = comAnimacao; alvo.classList.toggle('sem-entrada', !comAnimacao); return carregar(alvo, buscar, desenhar); };
 

@@ -1,5 +1,5 @@
 // Cupom do balcão (NÃO é documento fiscal): mostrar, imprimir (bobina 80 mm ou folha) e montar o texto para mandar ao cliente.
-import { h, api, icone, fmt, modal, tratar, copiar } from './core.js';
+import { h, api, icone, fmt, modal, tratar, copiar, confirmar, toast } from './core.js';
 
 export const FORMA = { DINHEIRO: 'Dinheiro', PIX: 'Pix', DEBITO: 'Cartão de débito', CREDITO: 'Cartão de crédito' };
 export const SITUACAO = { ORCAMENTO: ['Orçamento', 'info'], CONCLUIDA: ['Concluída', 'ok'], CANCELADA: ['Cancelada', 'erro'], DESCARTADA: ['Descartado', ''] };
@@ -69,12 +69,31 @@ export function botoesCupom(v) {
     h('button', { class: 'btn', type: 'button', onclick: () => copiar(texto) }, 'Copiar texto'));
 }
 
+/** "Cliente levou na hora": a venda não vai para a fila de expedição; fica gravado quem marcou. */
+export function botaoLevouNaHora(vendaId, { perguntar = false, classe = 'btn', aoMarcar } = {}) {
+  const botao = h('button', { class: classe, type: 'button', 'aria-label': `Cliente levou na hora a venda ${vendaId}`, onclick: async () => {
+    if (perguntar && !await confirmar('O cliente levou na hora?', `A venda nº ${vendaId} sai da fila de expedição, sem separação nem conferência. O seu nome fica gravado e não dá para desfazer.`, { rotulo: 'Sim, levou na hora' })) return;
+    botao.disabled = true;
+    try {
+      await api.post(`/api/expedicao/${vendaId}/levou-na-hora`, {});
+      botao.replaceWith(h('p', { class: 'ok-txt', role: 'status' }, '✓ Levou na hora: não vai para a expedição.'));
+      toast(`Venda ${vendaId}: levou na hora ✓`, 'ok'); aoMarcar?.();
+    } catch (e) {
+      tratar(e); botao.disabled = false;
+      if (['JA_FEITA', 'EM_SEPARACAO', 'STATUS'].includes(e.code)) aoMarcar?.(); // alguém mexeu antes: mostra o estado atual
+    }
+  } }, icone('check', 18), 'Cliente levou na hora');
+  return botao;
+}
+
 export async function abrirCupom(vendaId, { destaque = null, rotuloFechar = 'Fechar', fecharAoLer = false, aoFechar } = {}) {
   try {
     const v = await api.get(`/api/vendas/${vendaId}`);
     let m;
-    m = modal(`${titulo(v) === 'VENDA' ? 'Venda' : 'Orçamento'} nº ${v.id}`, h('div', { class: 'stack' }, destaque, botoesCupom(v), h('div', { class: 'cupom-previa' }, montarCupom(v)),
-      h('button', { class: 'btn', type: 'button', autofocus: true, onclick: () => { m.fechar(); aoFechar?.(); } }, rotuloFechar)));
+    const seguir = h('button', { class: 'btn', type: 'button', autofocus: true, onclick: () => { m.fechar(); aoFechar?.(); } }, rotuloFechar);
+    // depois de marcar, o foco volta para "Próxima venda": a leitura do próximo cliente continua fechando o cupom
+    const retirada = v.pode_levar_na_hora ? botaoLevouNaHora(v.id, { classe: 'btn enorme', aoMarcar: () => seguir.focus() }) : null;
+    m = modal(`${titulo(v) === 'VENDA' ? 'Venda' : 'Orçamento'} nº ${v.id}`, h('div', { class: 'stack' }, destaque, retirada, botoesCupom(v), h('div', { class: 'cupom-previa' }, montarCupom(v)), seguir));
     // o próximo cliente começa bipando: a leitura fecha o cupom e já cai na busca, sem perder o item
     if (fecharAoLer) m.el.addEventListener('keydown', (e) => { if (/^[\p{L}\p{N}]$/u.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) { e.stopPropagation(); m.fechar(); aoFechar?.(); } });
   } catch (e) { tratar(e); }

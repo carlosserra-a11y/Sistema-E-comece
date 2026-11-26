@@ -80,7 +80,7 @@ Cada pessoa tem o seu caixa.
    - **Débito / Crédito:** passe na maquininha primeiro; no crédito escolha as parcelas.
    - **Duas formas:** toque na primeira, digite o valor dela (menor que o total) e toque na segunda.
 6. **Concluir venda**.
-7. **Imprimir**, **Abrir no WhatsApp** ou **Próxima venda**.
+7. Se o cliente já vai sair com a peça, **Cliente levou na hora**. Depois **Imprimir**, **Abrir no WhatsApp** ou **Próxima venda**.
 
 O estoque baixa sozinho, começando pelo lote que vence antes.
 
@@ -113,6 +113,12 @@ O vendedor só vê quanto deveria ter **depois** de contar (conferência cega).
 ## Separar, conferir e expedir
 
 Toda venda concluída com produtos entra na fila de **Expedição**. Venda só de serviço não entra.
+
+**Cliente levou a peça na hora?** Toque em **Cliente levou na hora** na janela que abre depois da venda. A venda não vai para a fila. O botão também aparece na **Expedição** e no detalhe da venda (**Balcão → Vendas**), e ali pede confirmação.
+
+- Pode marcar: quem fez a venda, quem expede e quem gerencia o balcão.
+- Fica gravado quem marcou e quando. **Não dá para desfazer.**
+- Se alguém já começou a separar, termine os passos abaixo.
 
 1. **Expedição** → toque em **Separar venda**.
 2. Pegue as peças nos endereços mostrados e **bipe cada uma** (leitor, câmera ou digitando o código/SKU). Para várias iguais, mude a **Quantidade por leitura** antes de bipar.

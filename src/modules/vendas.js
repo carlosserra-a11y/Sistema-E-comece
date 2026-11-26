@@ -10,7 +10,7 @@ import { podeFinanceiro } from '../permissoes.js';
 import { ORDEM_ROTA } from './deposito.js';
 import { mover } from './estoque.js';
 import { disponivelDe } from './pedidos.js';
-import { FORMAS, TROCO_MAXIMO, VALOR_MAXIMO, caixaAberto, dadosDaLoja, diaDaLoja, exigirCaixaAberto, inicioDoDia, lerConfig, resumoCaixa, somarDias, travarCaixa } from './vendas-base.js';
+import { FORMAS, TROCO_MAXIMO, VALOR_MAXIMO, caixaAberto, dadosDaLoja, diaDaLoja, exigirCaixaAberto, inicioDoDia, lerConfig, podeMarcarRetirada, resumoCaixa, somarDias, travarCaixa } from './vendas-base.js';
 
 const MAX_ITENS = 100;
 const grupoDe = (vendaId) => `venda-${vendaId}`;
@@ -257,8 +257,10 @@ export async function detalheVenda(db, ctx, id) {
   const itens = await db.all('SELECT id, tipo, produto_id, servico_id, codigo, descricao, unidade, qtd, preco_tabela_centavos, preco_unit_centavos, custo_unit_centavos FROM venda_itens WHERE venda_id = ? ORDER BY id', v.id);
   const fin = podeFinanceiro(ctx);
   if (!ctx.pode('clientes.ver')) { delete v.cliente_nome; delete v.cliente_telefone; delete v.cliente_documento; }
+  const naFila = v.status === 'CONCLUIDA' && itens.some((i) => i.tipo === 'PRODUTO') && !await db.get('SELECT 1 AS ok FROM etapas WHERE venda_id = ?', v.id);
   return {
     ...v,
+    pode_levar_na_hora: naFila && podeMarcarRetirada(ctx, v),
     itens: itens.map(({ custo_unit_centavos: custo, ...i }) => ({ ...i, valor_centavos: i.qtd * i.preco_unit_centavos, ...(fin ? { custo_unit_centavos: custo } : {}) })),
     pagamentos: await db.all('SELECT forma, valor_centavos, parcelas FROM venda_pagamentos WHERE venda_id = ? ORDER BY id', v.id),
     loja: await dadosDaLoja(db), cupom_rodape: (await lerConfig(db)).cupom_rodape,

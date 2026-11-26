@@ -56,3 +56,6 @@ export async function dadosDaLoja(db) {
   const e = (await db.get('SELECT nome_fantasia, razao_social, cnpj, inscricao_estadual, endereco, cidade, uf, cep FROM empresa WHERE id = 1')) ?? {};
   return { nome: e.nome_fantasia || e.razao_social || null, razao_social: e.razao_social || null, cnpj: e.cnpj ?? null, inscricao_estadual: e.inscricao_estadual ?? null, endereco: e.endereco ?? null, cidade: e.cidade ?? null, uf: e.uf ?? null, cep: e.cep ?? null };
 }
+
+/** Quem marca "cliente levou na hora": quem expede, quem gerencia o balcão ou quem fez a própria venda. */
+export const podeMarcarRetirada = (ctx, venda) => ctx.pode('expedicao.operar') || ctx.pode('vendas.gerenciar') || (ctx.pode('vendas.registrar') && venda.vendedor_id === ctx.user.id);

@@ -83,7 +83,7 @@ export const REGRAS = new Map([
   // sessão e conta própria
   R('GET', '/api/sessoes', 'qualquer'), R('DELETE', '/api/sessoes/:id', 'qualquer'), R('POST', '/api/sessoes/sair-todas', 'qualquer'),
   R('POST', '/api/conta/email', 'qualquer'), R('POST', '/api/conta/email/confirmar', 'qualquer'), R('POST', '/api/reautenticar', 'qualquer'), R('POST', '/api/reautenticar/codigo', 'qualquer'), R('GET', '/api/painel', ['produtos.ver', 'estoque.ver', 'enderecos.ver', 'pedidos.ver', 'contagem.operar', 'fornecedores.ver', 'integracoes.ver', 'vendas.registrar', 'vendas.gerenciar', 'expedicao.ver', 'atividade.ver']),
-  R('GET', '/api/expedicao', 'expedicao.ver'), R('GET', '/api/expedicao/:id', 'expedicao.ver'), R('POST', '/api/expedicao/:id/etapa', 'expedicao.operar'),
+  R('GET', '/api/expedicao', 'expedicao.ver'), R('GET', '/api/expedicao/:id', 'expedicao.ver'), R('POST', '/api/expedicao/:id/etapa', 'expedicao.operar'), R('POST', '/api/expedicao/:id/levou-na-hora', ['vendas.registrar', 'expedicao.operar', 'vendas.gerenciar']),
   R('GET', '/api/atividade', 'atividade.ver'), R('GET', '/api/estoque/por-produto', 'estoque.ver'),
   // produtos e fornecedores
   R('GET', '/api/produtos', 'produtos.ver'), R('GET', '/api/produtos/:id', 'produtos.ver'), R('GET', '/api/produtos-exportar', 'produtos.ver'),

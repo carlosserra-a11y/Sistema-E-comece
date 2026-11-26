@@ -1,7 +1,7 @@
 // Abas "Vendas" e "Orçamentos": histórico, detalhe, reimpressão, cancelamento e conclusão de orçamento.
 import { h, limpar, api, carregar, pode, icone, fmt, badge, qs, tratar, toast, tabela, paginacao, gaveta, vazio, confirmar, modal, debounce } from './core.js';
 import { abrirPagamento, pedirDados } from './balcao-pagamento.js';
-import { FORMA, SITUACAO, abrirCupom, botoesCupom } from './balcao-cupom.js';
+import { FORMA, SITUACAO, abrirCupom, botoesCupom, botaoLevouNaHora } from './balcao-cupom.js';
 
 export function abaLista(el, { config, orcamentos, dia }) {
   let q = ''; let de = dia ?? ''; let ate = dia ?? ''; let status = orcamentos ? 'ORCAMENTO' : ''; let pagina = 1;
@@ -27,6 +27,7 @@ export function abaLista(el, { config, orcamentos, dia }) {
       acoes.push(h('button', { class: 'btn primario', type: 'button', onclick: () => concluir(v, atualizar) }, 'Receber e concluir'),
         h('button', { class: 'btn perigo', type: 'button', onclick: async () => { if (!await confirmar('Descartar orçamento?', 'Ele sai da lista de orçamentos em aberto.', { perigo: true, rotulo: 'Descartar' })) return; try { await api.post(`/api/vendas/${v.id}/descartar`); toast('Orçamento descartado.', 'ok'); atualizar(); } catch (e) { tratar(e); } } }, 'Descartar'));
     }
+    if (v.pode_levar_na_hora) acoes.push(botaoLevouNaHora(v.id, { perguntar: true, aoMarcar: atualizar }));
     if (v.status === 'CONCLUIDA' && pode('vendas.cancelar')) acoes.push(h('button', { class: 'btn perigo', type: 'button', onclick: () => cancelar(v, atualizar) }, 'Cancelar venda'));
     g = gaveta(`${v.status === 'ORCAMENTO' || v.status === 'DESCARTADA' ? 'Orçamento' : 'Venda'} nº ${v.id}`, [
       h('div', { class: 'chips' }, badge(...SITUACAO[v.status])),

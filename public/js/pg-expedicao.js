@@ -1,5 +1,6 @@
 // Expedição: separar -> conferir (bipando) -> expedir. Cada passo grava quem fez e quando.
 import { h, limpar, api, carregar, pode, icone, fmt, badge, qs, tratar, toast, feedback, paginacao, gaveta, abas, vazio, campo, avatar, esqueleto } from './core.js';
+import { botaoLevouNaHora } from './balcao-cupom.js';
 
 const PASSOS = [['SEPARACAO', 'Separação', 'Separar', 'Separado'], ['CONFERENCIA', 'Conferência', 'Conferir', 'Conferido'], ['EXPEDICAO', 'Expedição', 'Expedir', 'Expedido']];
 const proximo = (etapas) => PASSOS.find(([id]) => !etapas.some((e) => e.etapa === id)) ?? null;
@@ -8,6 +9,9 @@ const limparLeitura = (t) => t.replace(/[\u0000-\u001f\u007f]/g, '').trim().repl
 const leituras = new Map(); // venda:etapa -> { produto_id: { codigo, qtd } } (fechar a gaveta sem querer não perde o que já foi bipado)
 
 function passos(etapas) {
+  const direto = etapas.find((e) => e.na_hora);
+  if (direto) return h('ol', { class: 'passos', 'aria-label': 'Andamento' }, h('li', { class: 'feito' }, h('span', { class: 'passo-marca', 'aria-hidden': 'true' }, icone('check', 14)),
+    h('span', { class: 'passo-texto' }, h('strong', null, 'Levou na hora'), h('small', null, `${direto.quem} · ${fmt.dataHora(direto.ts)}`))));
   const atual = proximo(etapas)?.[0];
   return h('ol', { class: 'passos', 'aria-label': 'Andamento' }, PASSOS.map(([id, rotulo, , feito]) => {
     const e = etapas.find((x) => x.etapa === id);
@@ -26,7 +30,8 @@ export async function renderizar(el, { params }) {
         h('div', { class: 'quem' }, avatar(v.vendedor_nome), h('span', null, h('small', { class: 'muted' }, 'Vendeu'), h('strong', null, v.vendedor_nome)))),
       passos(v.etapas),
       h('button', { class: `btn ${p && pode('expedicao.operar') ? 'primario' : ''}`, type: 'button', onclick: () => abrir(v.id) },
-        icone(p ? (p[0] === 'EXPEDICAO' ? 'send' : 'scan') : 'eye', 18), p && pode('expedicao.operar') ? `${p[2]} venda ${v.id}` : 'Ver detalhes'));
+        icone(p ? (p[0] === 'EXPEDICAO' ? 'send' : 'scan') : 'eye', 18), p && pode('expedicao.operar') ? `${p[2]} venda ${v.id}` : 'Ver detalhes'),
+      v.pode_levar_na_hora ? botaoLevouNaHora(v.id, { perguntar: true, aoMarcar: () => listar() }) : null);
   };
   const desenhar = (d) => alvo.append(d.total ? h('div', { class: 'exp-lista' }, d.itens.map(cartao)) : vazio(situacao === 'pendentes' ? 'Nada para separar' : 'Nenhuma venda expedida ainda', situacao === 'pendentes' ? 'Quando uma venda com produtos for concluída no balcão, ela aparece aqui.' : 'As vendas aparecem aqui depois do passo "Expedir".'),
     d.total > d.por_pagina ? paginacao(d.total, d.pagina, d.por_pagina, (n) => { pagina = n; listar(); }) : null);
@@ -48,6 +53,7 @@ export async function renderizar(el, { params }) {
       v.status === 'CANCELADA' ? h('p', { class: 'aviso-txt', role: 'alert' }, 'Esta venda foi cancelada: não separe nem envie.') : null,
       h('div', { class: 'lista' }, [['Vendida em', fmt.dataHora(v.concluida_em)], ['Atendente', v.vendedor_nome], ['Caixa', v.caixa_id ? `nº ${v.caixa_id} · ${v.caixa_de}` : '—'], v.observacao ? ['Observação', v.observacao] : null].filter(Boolean).map(([r, x]) => h('div', null, h('span', { class: 'muted' }, r), h('strong', { class: 'quebra' }, x)))),
       passos(v.etapas),
+      v.pode_levar_na_hora ? botaoLevouNaHora(v.id, { perguntar: true, aoMarcar: () => mostrar(g, v.id) }) : null,
       v.etapas.filter((e) => e.observacao).map((e) => h('p', { class: 'muted quebra' }, `${PASSOS.find(([x]) => x === e.etapa)[1]}: ${e.observacao}`)),
       operar && p[0] !== 'EXPEDICAO' ? leitura(g, v, p) : itens(v),
       operar && p[0] === 'EXPEDICAO' ? expedir(g, v) : null);

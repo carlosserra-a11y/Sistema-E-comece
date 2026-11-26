@@ -1,16 +1,17 @@
 // Rastreio da venda: SEPARAÇÃO -> CONFERÊNCIA -> EXPEDIÇÃO. Cada passo grava quem fez e quando (registro imutável).
 // Separação e conferência exigem bipar os produtos: as quantidades lidas precisam bater com as vendidas.
 import { tx } from '../db.js';
-import { conflito, invalido, naoEncontrado, paginar } from '../util.js';
+import { conflito, erro, invalido, naoEncontrado, paginar } from '../util.js';
 import { E, I, T, validar } from '../validate.js';
 import { auditar } from '../security/audit.js';
 import { variantes } from '../barcode/gtin.js';
 import { normalizarLeitura } from './consultas.js';
+import { podeMarcarRetirada } from './vendas-base.js';
 
 export const ETAPAS = ['SEPARACAO', 'CONFERENCIA', 'EXPEDICAO'];
 const NOME = { SEPARACAO: 'separação', CONFERENCIA: 'conferência', EXPEDICAO: 'expedição' };
 
-const etapasDe = async (db, vendaId) => await db.all('SELECT e.etapa, e.ts, e.observacao, e.user_id, u.nome AS quem FROM etapas e JOIN users u ON u.id = e.user_id WHERE e.venda_id = ? ORDER BY e.id', vendaId);
+const etapasDe = async (db, vendaId) => await db.all('SELECT e.etapa, e.ts, e.observacao, e.na_hora, e.user_id, u.nome AS quem FROM etapas e JOIN users u ON u.id = e.user_id WHERE e.venda_id = ? ORDER BY e.id', vendaId);
 
 /** Produtos da venda (serviços não passam pelo estoque), com os códigos que valem na leitura. */
 async function itensDe(db, vendaId) {
@@ -55,11 +56,30 @@ export async function registrarEtapa(db, ctx, vendaId, corpo) {
     if (!itens.length) throw conflito('SEM_PRODUTOS', 'Esta venda só tem serviços: não há o que separar.');
     const feitas = (await etapasDe(db, v.id)).map((e) => e.etapa);
     if (feitas.includes(d.etapa)) throw conflito('JA_FEITA', `A ${NOME[d.etapa]} desta venda já foi registrada.`);
+    if (feitas.includes('EXPEDICAO')) throw conflito('JA_FEITA', 'Esta venda já saiu: o cliente levou na hora.');
     const anterior = ETAPAS[ETAPAS.indexOf(d.etapa) - 1];
     if (anterior && !feitas.includes(anterior)) throw conflito('FORA_DE_ORDEM', `Faça antes a ${NOME[anterior]}.`);
     if (d.etapa !== 'EXPEDICAO') conferirLeituras(itens, corpo.leituras);
     await db.run('INSERT INTO etapas (venda_id, etapa, user_id, ts, observacao) VALUES (?,?,?,?,?)', v.id, d.etapa, ctx.user.id, ctx.agora(), d.observacao ?? null);
     await auditar(db, ctx, `ETAPA_${d.etapa}`, 'venda', v.id);
+    return { venda_id: v.id, etapas: await etapasDe(db, v.id) };
+  });
+}
+
+/** O cliente saiu com a mercadoria: a venda deixa a fila com um único registro (quem marcou e quando). Só antes de alguém separar. */
+export async function levouNaHora(db, ctx, vendaId) {
+  return await tx(db, async (db) => {
+    await db.travar(`venda|doc|${vendaId}`);
+    const v = await db.get('SELECT id, status, vendedor_id FROM vendas WHERE id = ?', vendaId);
+    if (!v) throw naoEncontrado('Venda');
+    if (!podeMarcarRetirada(ctx, v)) throw erro(403, 'SEM_PERMISSAO', 'Só quem fez a venda, quem expede ou quem gerencia o balcão pode marcar.');
+    if (v.status !== 'CONCLUIDA') throw conflito('STATUS', v.status === 'CANCELADA' ? 'Esta venda foi cancelada.' : 'Só uma venda concluída pode ser marcada.');
+    if (!(await itensDe(db, v.id)).length) throw conflito('SEM_PRODUTOS', 'Esta venda só tem serviços: não há o que entregar.');
+    const feitas = (await etapasDe(db, v.id)).map((e) => e.etapa);
+    if (feitas.includes('EXPEDICAO')) throw conflito('JA_FEITA', 'Esta venda já saiu.');
+    if (feitas.length) throw conflito('EM_SEPARACAO', 'A separação desta venda já começou: termine pela tela Expedição.');
+    await db.run("INSERT INTO etapas (venda_id, etapa, user_id, ts, na_hora) VALUES (?,'EXPEDICAO',?,?,1)", v.id, ctx.user.id, ctx.agora());
+    await auditar(db, ctx, 'ENTREGUE_NA_HORA', 'venda', v.id);
     return { venda_id: v.id, etapas: await etapasDe(db, v.id) };
   });
 }
@@ -74,21 +94,26 @@ export function registrarExpedicao(app, { db }) {
     const { por, offset, pagina } = paginar(ctx.query, 25);
     const prontas = ctx.query.situacao === 'expedidas';
     const onde = `${BASE} AND ${prontas ? '' : 'NOT '}${EXPEDIDA}`;
-    const vendas = await db.all(`SELECT v.id, v.concluida_em, u.nome AS vendedor_nome, o.nome AS caixa_de,
+    const vendas = await db.all(`SELECT v.id, v.concluida_em, v.vendedor_id, u.nome AS vendedor_nome, o.nome AS caixa_de,
         (SELECT COALESCE(SUM(qtd),0) FROM venda_itens i WHERE i.venda_id = v.id AND i.tipo = 'PRODUTO') AS unidades
       FROM vendas v JOIN users u ON u.id = v.vendedor_id JOIN caixas c ON c.id = v.caixa_id JOIN users o ON o.id = c.aberto_por
       WHERE ${onde} ORDER BY v.id ${prontas ? 'DESC' : 'ASC'} LIMIT ? OFFSET ?`, por, offset);
     const itens = [];
-    for (const v of vendas) itens.push({ ...v, unidades: Number(v.unidades), etapas: await etapasDe(db, v.id) });
+    for (const v of vendas) {
+      const etapas = await etapasDe(db, v.id);
+      itens.push({ ...v, unidades: Number(v.unidades), etapas, pode_levar_na_hora: !etapas.length && podeMarcarRetirada(ctx, v) });
+    }
     return { total: Number((await db.get(`SELECT COUNT(*) c FROM vendas v WHERE ${onde}`)).c), pagina, por_pagina: por, itens };
   });
 
   rota('GET', '/api/expedicao/:id', async (ctx) => {
-    const v = await db.get(`SELECT v.id, v.status, v.concluida_em, v.observacao, u.nome AS vendedor_nome, o.nome AS caixa_de, v.caixa_id
+    const v = await db.get(`SELECT v.id, v.status, v.concluida_em, v.observacao, v.vendedor_id, u.nome AS vendedor_nome, o.nome AS caixa_de, v.caixa_id
       FROM vendas v JOIN users u ON u.id = v.vendedor_id LEFT JOIN caixas c ON c.id = v.caixa_id LEFT JOIN users o ON o.id = c.aberto_por WHERE v.id = ?`, Number(ctx.params.id));
     if (!v || !['CONCLUIDA', 'CANCELADA'].includes(v.status)) throw naoEncontrado('Venda');
-    return { ...v, itens: await itensDe(db, v.id), etapas: await etapasDe(db, v.id) };
+    const itens = await itensDe(db, v.id); const etapas = await etapasDe(db, v.id);
+    return { ...v, itens, etapas, pode_levar_na_hora: v.status === 'CONCLUIDA' && itens.length > 0 && !etapas.length && podeMarcarRetirada(ctx, v) };
   });
 
   rota('POST', '/api/expedicao/:id/etapa', async (ctx) => await registrarEtapa(db, ctx, Number(ctx.params.id), ctx.corpo));
+  rota('POST', '/api/expedicao/:id/levou-na-hora', async (ctx) => await levouNaHora(db, ctx, Number(ctx.params.id)));
 }
