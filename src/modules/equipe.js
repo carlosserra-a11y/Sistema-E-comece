@@ -33,6 +33,23 @@ function resolver(papel, bruto) {
   return { papel: igual ? papel : 'personalizado', permissoes: lista };
 }
 
+/** Excluir: a pessoa some da equipe e perde todo o acesso. O nome fica, porque vendas, caixas e bipagens apontam para a conta. */
+export async function excluirConta(db, ctx, id) {
+  return await tx(db, async (db) => {
+    await db.travar(`abrir-caixa|${id}`); // a mesma trava da abertura de caixa: ninguém abre um caixa enquanto a conta é excluída
+    const u = await db.get('SELECT id, dono FROM users WHERE id = ? AND excluido_em IS NULL', id);
+    if (!u) throw naoEncontrado('Pessoa');
+    if (u.dono) throw conflito('DONO', 'A conta do dono não pode ser excluída.');
+    if (u.id === ctx.user.id) throw conflito('PROPRIA', 'Você não pode excluir a própria conta.');
+    if (await db.get("SELECT 1 AS ok FROM caixas WHERE aberto_por = ? AND status = 'ABERTO'", u.id)) throw conflito('CAIXA_ABERTO', 'Esta pessoa tem um caixa aberto: feche-o em Balcão → Caixa antes de excluir.');
+    await db.run('UPDATE sessions SET revogada_em = ? WHERE user_id = ? AND revogada_em IS NULL', ctx.agora(), u.id);
+    await db.run('DELETE FROM recovery_codes WHERE user_id = ?', u.id);
+    await db.run("UPDATE users SET ativo = 0, excluido_em = ?, login_hmac = ?, senha_hash = 'excluida', login_enc = NULL, email_enc = NULL, email_hmac = NULL, email_verificado = 0, email_novo_enc = NULL, email_novo_hmac = NULL, permissoes = '[]', cod_hash = NULL, cod_expira = NULL WHERE id = ?", ctx.agora(), `excluido:${u.id}:${crypto.randomBytes(16).toString('hex')}`, u.id);
+    await auditar(db, ctx, 'EQUIPE_EXCLUIDA', 'user', u.id);
+    return { id: u.id, excluida: true };
+  });
+}
+
 export function registrarEquipe(app, { cfg, db }) {
   const { rota } = app;
 
@@ -44,16 +61,18 @@ export function registrarEquipe(app, { cfg, db }) {
     email: u.email_enc ? decifrar(cfg.fieldKey, u.email_enc) : null, email_verificado: !!u.email_verificado, criado_em: u.criado_em,
   });
   const pessoa = async (db, id) => {
-    const u = await db.get('SELECT * FROM users WHERE id = ?', id);
+    const u = await db.get('SELECT * FROM users WHERE id = ? AND excluido_em IS NULL', id);
     if (!u) throw naoEncontrado('Pessoa');
     return u;
   };
   const naoDono = (u) => { if (u.dono) throw conflito('DONO', 'A conta do dono não pode ser alterada por aqui.'); };
   const revogarTodas = async (db, id) => { await db.run('UPDATE sessions SET revogada_em = ? WHERE user_id = ? AND revogada_em IS NULL', cfg.agora(), id); };
 
+  rota('POST', '/api/equipe/:id/excluir', { reauth: true }, async (ctx) => await excluirConta(db, ctx, Number(ctx.params.id)));
+
   rota('GET', '/api/equipe/catalogo', async () => ({ grupos: GRUPOS, papeis: PAPEIS }));
 
-  rota('GET', '/api/equipe', async () => ({ itens: (await db.all('SELECT * FROM users ORDER BY dono DESC, ativo DESC, LOWER(nome), id')).map(publico) }));
+  rota('GET', '/api/equipe', async () => ({ itens: (await db.all('SELECT * FROM users WHERE excluido_em IS NULL ORDER BY dono DESC, ativo DESC, LOWER(nome), id')).map(publico) }));
 
   rota('POST', '/api/equipe', { reauth: true }, async (ctx) => {
     const d = validar(ctx.corpo, ESPEC);
@@ -61,7 +80,7 @@ export function registrarEquipe(app, { cfg, db }) {
     const senha = senhaProvisoria();
     const hash = await hashSenha(cfg, senha);
     return await tx(db, async (db) => {
-      if ((await db.get("SELECT COUNT(*) c FROM users WHERE NOT (papel = 'pendente' AND email_verificado = 0 AND dono = 0)")).c >= MAX_PESSOAS) throw invalido({ nome: `Limite de ${MAX_PESSOAS} pessoas atingido.` });
+      if ((await db.get("SELECT COUNT(*) c FROM users WHERE excluido_em IS NULL AND NOT (papel = 'pendente' AND email_verificado = 0 AND dono = 0)")).c >= MAX_PESSOAS) throw invalido({ nome: `Limite de ${MAX_PESSOAS} pessoas atingido.` });
       let login; let chave;
       do { login = sortearLogin(); chave = chaveLogin(cfg, login); } while (await db.get('SELECT 1 FROM users WHERE login_hmac = ?', chave));
       const id = await db.insert('INSERT INTO users (login_hmac, login_enc, senha_hash, papel, nome, trocar_senha, dono, permissoes, criado_por, criado_em) VALUES (?,?,?,?,?,1,0,?,?,?)',

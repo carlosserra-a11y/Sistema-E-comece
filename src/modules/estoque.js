@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { tx } from '../db.js';
-import { conflito, erro, invalido, naoEncontrado, paginar } from '../util.js';
+import { conflito, erro, escaparLike, invalido, naoEncontrado, normalizarTexto, paginar } from '../util.js';
 import { D, I, ID, T, validar } from '../validate.js';
 import { auditar } from '../security/audit.js';
 import { ORDEM_ROTA } from './deposito.js';
@@ -208,12 +208,31 @@ export function registrarEstoque(app, { db }) {
   rota('GET', '/api/estoque/integridade', async () => await integridade(db));
   rota('GET', '/api/reposicao', async () => await reposicao(db));
 
+  // Quanto há de cada produto (total, vendável e em quantos endereços), do maior para o menor.
+  rota('GET', '/api/estoque/por-produto', async (ctx) => {
+    const { por, offset, pagina } = paginar(ctx.query, 50);
+    const q = normalizarTexto(String(ctx.query.q ?? ''));
+    const filtro = q ? "AND p.busca LIKE ? ESCAPE '\\'" : '';
+    const args = q ? [`%${escaparLike(q)}%`] : [];
+    const itens = await db.all(`SELECT * FROM (SELECT p.id, p.sku, p.nome, p.unidade, p.estoque_min,
+        COALESCE((SELECT SUM(s.qtd) FROM saldos_por_endereco s WHERE s.produto_id = p.id), 0) AS unidades,
+        COALESCE((SELECT SUM(s.qtd) FROM saldos_por_endereco s JOIN enderecos e ON e.id = s.endereco_id JOIN zonas z ON z.id = e.zona_id WHERE s.produto_id = p.id AND z.vendavel = 1), 0) AS vendaveis,
+        (SELECT COUNT(DISTINCT s.endereco_id) FROM saldos_por_endereco s WHERE s.produto_id = p.id AND s.qtd > 0) AS enderecos
+      FROM produtos p WHERE p.ativo = 1 ${filtro}) AS x ORDER BY unidades DESC, LOWER(nome), id LIMIT ? OFFSET ?`, ...args, por, offset);
+    return {
+      total: Number((await db.get(`SELECT COUNT(*) c FROM produtos p WHERE p.ativo = 1 ${filtro}`, ...args)).c),
+      total_unidades: Number((await db.get('SELECT COALESCE(SUM(qtd),0) q FROM saldos_por_endereco')).q), pagina, por_pagina: por,
+      itens: itens.map((x) => ({ ...x, unidades: Number(x.unidades), vendaveis: Number(x.vendaveis), enderecos: Number(x.enderecos) })),
+    };
+  });
+
   rota('GET', '/api/estoque/saldos', async (ctx) => {
     const { por, offset, pagina } = paginar(ctx.query, 50);
     const onde = ['s.qtd > 0']; const args = [];
     if (ctx.query.produto_id) { onde.push('s.produto_id = ?'); args.push(Number(ctx.query.produto_id)); }
     if (ctx.query.endereco_id) { onde.push('s.endereco_id = ?'); args.push(Number(ctx.query.endereco_id)); }
     if (ctx.query.zona_tipo) { onde.push('z.tipo = ?'); args.push(String(ctx.query.zona_tipo)); }
+    if (ctx.query.vencendo) { const dias = Math.min(Math.max(parseInt(ctx.query.vencendo, 10) || 30, 1), 365); onde.push('l.validade IS NOT NULL AND l.validade <= ?'); args.push(hojeSP(ctx.agora() + dias * 86_400_000)); }
     const from = `FROM saldos_por_endereco s JOIN produtos p ON p.id = s.produto_id JOIN enderecos e ON e.id = s.endereco_id JOIN zonas z ON z.id = e.zona_id LEFT JOIN lotes l ON l.id = s.lote_id WHERE ${onde.join(' AND ')}`;
     return {
       total: (await db.get(`SELECT COUNT(*) c ${from}`, ...args)).c, pagina, por_pagina: por,

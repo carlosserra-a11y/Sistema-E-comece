@@ -1,6 +1,6 @@
 // Galeria de componentes (/#/design): valida o design system em todos os temas.
 import { h, icone, badge, toast, modal, gaveta, tabela, abas, vazio, esqueleto, feedback, campo, combobox, confirmar } from './core.js';
-import { sparkline } from './pg-painel.js';
+import { sparkline } from './painel-blocos.js';
 
 export async function renderizar(el) {
   const sec = (t, ...f) => h('section', { class: 'card stack' }, h('h2', null, t), ...f);

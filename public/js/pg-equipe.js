@@ -34,8 +34,9 @@ export async function renderizar(el) {
     const acoes = u.dono ? [h('span', { class: 'muted' }, 'Conta principal: acesso total, não pode ser alterada.')] : [
       h('button', { class: `btn pequeno ${u.pendente ? 'primario' : ''}`, onclick: () => editar(u) }, icone('edit', 16), u.pendente ? 'Liberar acesso' : 'Permissões'),
       h('button', { class: 'btn pequeno', onclick: () => agir(u, 'redefinir-senha', 'Redefinir a senha?', `${u.nome} será desconectada de todos os aparelhos e precisará usar a nova senha provisória.`, true) }, 'Redefinir senha'),
-      u.ativo ? h('button', { class: 'btn pequeno perigo', onclick: () => agir(u, 'desativar', 'Desativar acesso?', `${u.nome} perde o acesso agora e é desconectada de todos os aparelhos. Você pode reativar depois.`) }, 'Desativar')
+      u.ativo ? h('button', { class: 'btn pequeno', onclick: () => agir(u, 'desativar', 'Desativar acesso?', `${u.nome} perde o acesso agora e é desconectada de todos os aparelhos. Você pode reativar depois.`) }, 'Desativar')
         : h('button', { class: 'btn pequeno', onclick: () => agir(u, 'reativar', 'Reativar acesso?', `${u.nome} volta a poder entrar com a senha que já tinha.`) }, 'Reativar'),
+      h('button', { class: 'btn pequeno perigo', onclick: () => excluir(u) }, icone('trash', 16), 'Excluir conta'),
     ];
     return h('section', { class: `card pessoa ${u.ativo ? '' : 'inativa'}` },
       h('div', { class: 'row' }, h('span', { class: 'avatar', 'aria-hidden': 'true' }, u.nome.slice(0, 1).toUpperCase()), h('div', { class: 'grow' }, h('strong', null, u.nome), h('div', { class: 'muted' }, rotuloPapel(u)))),
@@ -54,6 +55,11 @@ export async function renderizar(el) {
     } catch (e) { tratar(e); }
   }
 
+  async function excluir(u) {
+    if (!await confirmar(`Excluir a conta de ${u.nome}?`, `${u.nome} sai da equipe, é desconectada e o login, o e-mail e a senha são apagados. Não dá para desfazer. O nome continua no histórico de vendas, caixa e estoque.`, { perigo: true, rotulo: 'Excluir conta' })) return;
+    try { await api.post(`/api/equipe/${u.id}/excluir`, {}); toast('Conta excluída.', 'ok'); listar(); } catch (e) { tratar(e); }
+  }
+
   function editar(u) {
     const nome = h('input', { type: 'text', maxlength: 80, value: u?.nome ?? '', autocomplete: 'off', placeholder: 'Nome da pessoa' });
     const papeis = Object.entries(catalogo.papeis);
@@ -69,6 +75,9 @@ export async function renderizar(el) {
         marcas.set(id, c); return h('label', { class: 'check' }, c, rotulo);
       })));
     if (!u || u.pendente) aplicar(catalogo.papeis[seletor.value].permissoes);
+    // o modelo ganhou funções depois que esta pessoa foi cadastrada: reescolher o mesmo item não dispara "change", daí o botão
+    const faltam = u && !u.pendente ? (catalogo.papeis[u.papel]?.permissoes ?? []).filter((id) => marcas.has(id) && !u.permissoes.includes(id)) : [];
+    const novidades = faltam.length ? h('button', { class: 'btn', type: 'button', onclick: (e) => { seletor.value = u.papel; aplicar(catalogo.papeis[u.papel].permissoes); e.currentTarget.disabled = true; } }, `Marcar ${faltam.length} função(ões) nova(s) deste modelo`) : null;
     const erro = h('p', { class: 'erro', role: 'alert' });
     let g;
     const form = h('form', { class: 'stack', onsubmit: async (e) => {
@@ -79,7 +88,7 @@ export async function renderizar(el) {
         g.fechar(); listar();
         if (u?.pendente) toast(`Acesso de ${u.nome} liberado. Vale na próxima ação dela.`, 'ok', 6000); else if (u) toast('Permissões atualizadas. Valem na próxima ação da pessoa.', 'ok', 6000); else mostrarCredenciais(r, 'Pessoa cadastrada');
       } catch (x) { erro.textContent = x.campos ? Object.values(x.campos).join(' ') : x.message; }
-    } }, campo('Nome', nome), campo('Modelo de acesso', seletor, { ajuda: 'Escolha um modelo e ajuste item por item se quiser.' }), grupos, erro,
+    } }, campo('Nome', nome), campo('Modelo de acesso', seletor, { ajuda: 'Escolha um modelo e ajuste item por item se quiser.' }), novidades, grupos, erro,
     h('div', { class: 'row' }, h('button', { class: 'btn primario', type: 'submit' }, u?.pendente ? 'Liberar acesso' : u ? 'Salvar permissões' : 'Cadastrar e gerar senha'), h('button', { class: 'btn', type: 'button', onclick: () => g.fechar() }, 'Cancelar')));
     g = gaveta(u?.pendente ? `Liberar acesso de ${u.nome}` : u ? `Permissões de ${u.nome}` : 'Adicionar pessoa', form);
   }

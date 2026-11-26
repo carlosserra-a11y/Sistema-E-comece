@@ -8,7 +8,8 @@ export class HttpError extends Error {
 }
 export const erro = (status, code, message, campos) => new HttpError(status, code, message, campos);
 export const invalido = (campos, message = 'Dados inválidos.') => new HttpError(422, 'VALIDACAO', message, campos);
-export const naoEncontrado = (o = 'Registro') => new HttpError(404, 'NAO_ENCONTRADO', `${o} não encontrado.`);
+const FEMININOS = new Set(['Venda', 'Pessoa', 'Zona']);
+export const naoEncontrado = (o = 'Registro') => new HttpError(404, 'NAO_ENCONTRADO', `${o} não ${FEMININOS.has(o) ? 'encontrada' : 'encontrado'}.`);
 export const conflito = (code, message) => new HttpError(409, code, message);
 
 export function normalizarTexto(s) {

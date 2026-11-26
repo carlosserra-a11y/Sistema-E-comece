@@ -59,6 +59,8 @@ const ICONES = {
   building: 'M4 21V4l8-2v19 M12 8h8v13 M4 21h16 M8 8h.01 M8 12h.01 M8 16h.01 M16 12h.01 M16 16h.01',
   cart: 'M2 3h3l2.5 12h11L21 7H6 M9 19.5a1.5 1.5 0 1 0 .01 0 M17 19.5a1.5 1.5 0 1 0 .01 0',
   person: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M4 21c0-4 3.6-6 8-6s8 2 8 6',
+  send: 'M21 3 3 10.5l7 2.5 2.5 7z M10 13 21 3', chevron: 'M9 5l7 7-7 7', clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 7v5l3 2',
+  checks: 'M2 13l4 4 8-9 M12 16l1 1 8-9', wallet: 'M3 7h15v-3H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16V7z M16 13.5h.01',
 };
 export function icone(nome, tam = 20) {
   const s = document.createElementNS(NS, 'svg');
@@ -227,12 +229,22 @@ export const esqueleto = (n = 4) => h('div', { class: 'stack', 'aria-busy': 'tru
 export const vazio = (titulo, texto, acao) => h('div', { class: 'vazio' }, icone('box', 36), h('strong', null, titulo), texto && h('p', null, texto), acao);
 export const blocoErro = (e, tentar) => h('div', { class: 'erro-bloco', role: 'alert' }, icone('alert', 32), h('p', null, erroMsg(e)), tentar && h('button', { class: 'btn', onclick: tentar }, 'Tentar de novo'));
 export const badge = (texto, tipo = '') => h('span', { class: `badge ${tipo}` }, texto);
+/** Bolinha com as iniciais; a cor sai do nome, então cada pessoa mantém sempre a mesma. */
+export function avatar(nome) {
+  const partes = String(nome ?? '?').replace(/\(.*?\)/g, '').trim().split(/\s+/);
+  const iniciais = `${partes[0]?.[0] ?? '?'}${partes.length > 1 ? partes.at(-1)[0] : ''}`.toUpperCase();
+  const el = h('span', { class: 'avatar', 'aria-hidden': 'true' }, iniciais);
+  el.style.setProperty('--h', String(180 + ([...String(nome ?? '')].reduce((s, c) => (s * 31 + c.codePointAt(0)) % 997, 7) % 150))); // faixa fria: ciano a violeta
+  return el;
+}
 export const debounce = (fn, ms = 250) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
 /** Carrega dados com skeleton, erro e "tentar de novo". */
+const vezDe = new WeakMap(); // trocar de aba/filtro depressa: só a resposta do último pedido é desenhada
 export async function carregar(alvo, buscar, desenhar) {
+  const vez = (vezDe.get(alvo) ?? 0) + 1; vezDe.set(alvo, vez);
   limpar(alvo).append(esqueleto());
-  try { const d = await buscar(); limpar(alvo); desenhar(d); } catch (e) { limpar(alvo).append(blocoErro(e, () => carregar(alvo, buscar, desenhar))); }
+  try { const d = await buscar(); if (vezDe.get(alvo) !== vez) return; limpar(alvo); desenhar(d); } catch (e) { if (vezDe.get(alvo) === vez) limpar(alvo).append(blocoErro(e, () => carregar(alvo, buscar, desenhar))); }
 }
 
 export function tabela(colunas, linhas, { aoClicar, vazioMsg = 'Nada por aqui ainda.', compacta = false } = {}) {

@@ -24,11 +24,15 @@ export const GRUPOS = [
     ['clientes.ver', 'Ver clientes'], ['clientes.editar', 'Cadastrar e editar clientes'],
     ['servicos.editar', 'Cadastrar serviços e seus preços'],
   ] },
+  { id: 'expedicao', rotulo: 'Separação e expedição', itens: [
+    ['expedicao.ver', 'Ver a fila de separação, conferência e expedição'], ['expedicao.operar', 'Separar, conferir (bipando) e expedir'],
+  ] },
   { id: 'financeiro', rotulo: 'Financeiro (restrito)', itens: [
     ['financeiro.ver', 'Ver custos, preços, valores de pedidos e margens; exportar com valores'],
   ] },
   { id: 'admin', rotulo: 'Administração', itens: [
     ['auditoria.ver', 'Ver o histórico de ações e verificar a integridade'],
+    ['atividade.ver', 'Ver quem da equipe bipou, conferiu, expediu e esteve no caixa'],
     ['usuarios.gerenciar', 'Gerenciar a equipe e as permissões (somente o dono)'],
     ['empresa.ver', 'Ver os dados da empresa (CNPJ, endereço, contatos, perfil fiscal)'], ['empresa.editar', 'Editar os dados da empresa'],
   ] },
@@ -40,9 +44,9 @@ export const SO_DONO = new Set(['usuarios.gerenciar', 'vendas.configurar']);
 const sem = (...fora) => TODAS.filter((p) => !fora.includes(p));
 export const PAPEIS = {
   gerente: { rotulo: 'Gerente', descricao: 'Tudo, menos financeiro, equipe e chave Pix', permissoes: sem('financeiro.ver', 'usuarios.gerenciar', 'vendas.configurar') },
-  vendedor: { rotulo: 'Vendedor de balcão', descricao: 'Vende, faz orçamento, cadastra cliente e opera o próprio caixa', permissoes: ['produtos.ver', 'estoque.ver', 'vendas.registrar', 'clientes.ver', 'clientes.editar'] },
-  estoquista: { rotulo: 'Estoquista', descricao: 'Cadastra, recebe, guarda, endereça e conta', permissoes: ['produtos.ver', 'produtos.editar', 'estoque.ver', 'estoque.operar', 'etiquetas.imprimir', 'enderecos.ver', 'enderecos.gerenciar', 'contagem.operar', 'fornecedores.ver'] },
-  operador: { rotulo: 'Operador de galpão', descricao: 'Celular: bipar, guardar, transferir e contar', permissoes: ['produtos.ver', 'estoque.ver', 'estoque.operar', 'etiquetas.imprimir', 'enderecos.ver', 'contagem.operar'] },
+  vendedor: { rotulo: 'Vendedor de balcão', descricao: 'Vende, faz orçamento, cadastra cliente e opera o próprio caixa', permissoes: ['produtos.ver', 'estoque.ver', 'vendas.registrar', 'clientes.ver', 'clientes.editar', 'expedicao.ver', 'expedicao.operar'] },
+  estoquista: { rotulo: 'Estoquista', descricao: 'Cadastra, recebe, guarda, endereça e conta', permissoes: ['produtos.ver', 'produtos.editar', 'estoque.ver', 'estoque.operar', 'etiquetas.imprimir', 'enderecos.ver', 'enderecos.gerenciar', 'contagem.operar', 'fornecedores.ver', 'expedicao.ver', 'expedicao.operar'] },
+  operador: { rotulo: 'Operador de galpão', descricao: 'Celular: bipar, guardar, transferir e contar', permissoes: ['produtos.ver', 'estoque.ver', 'estoque.operar', 'etiquetas.imprimir', 'enderecos.ver', 'contagem.operar', 'expedicao.ver', 'expedicao.operar'] },
   financeiro: { rotulo: 'Financeiro', descricao: 'Vê custos, preços e valores; não mexe no estoque', permissoes: ['financeiro.ver', 'produtos.ver', 'estoque.ver', 'pedidos.ver', 'fornecedores.ver', 'integracoes.ver', 'empresa.ver'] },
   consulta: { rotulo: 'Somente consulta', descricao: 'Só olha, sem alterar nada', permissoes: ['produtos.ver', 'estoque.ver', 'enderecos.ver', 'pedidos.ver'] },
 };
@@ -78,7 +82,9 @@ const R = (metodo, padrao, perm) => [`${metodo} ${padrao}`, perm];
 export const REGRAS = new Map([
   // sessão e conta própria
   R('GET', '/api/sessoes', 'qualquer'), R('DELETE', '/api/sessoes/:id', 'qualquer'), R('POST', '/api/sessoes/sair-todas', 'qualquer'),
-  R('POST', '/api/conta/email', 'qualquer'), R('POST', '/api/conta/email/confirmar', 'qualquer'), R('POST', '/api/reautenticar', 'qualquer'), R('POST', '/api/reautenticar/codigo', 'qualquer'), R('GET', '/api/painel', ['produtos.ver', 'estoque.ver', 'enderecos.ver', 'pedidos.ver', 'contagem.operar', 'fornecedores.ver', 'integracoes.ver', 'vendas.registrar', 'vendas.gerenciar']),
+  R('POST', '/api/conta/email', 'qualquer'), R('POST', '/api/conta/email/confirmar', 'qualquer'), R('POST', '/api/reautenticar', 'qualquer'), R('POST', '/api/reautenticar/codigo', 'qualquer'), R('GET', '/api/painel', ['produtos.ver', 'estoque.ver', 'enderecos.ver', 'pedidos.ver', 'contagem.operar', 'fornecedores.ver', 'integracoes.ver', 'vendas.registrar', 'vendas.gerenciar', 'expedicao.ver', 'atividade.ver']),
+  R('GET', '/api/expedicao', 'expedicao.ver'), R('GET', '/api/expedicao/:id', 'expedicao.ver'), R('POST', '/api/expedicao/:id/etapa', 'expedicao.operar'),
+  R('GET', '/api/atividade', 'atividade.ver'), R('GET', '/api/estoque/por-produto', 'estoque.ver'),
   // produtos e fornecedores
   R('GET', '/api/produtos', 'produtos.ver'), R('GET', '/api/produtos/:id', 'produtos.ver'), R('GET', '/api/produtos-exportar', 'produtos.ver'),
   R('POST', '/api/produtos', 'produtos.editar'), R('PUT', '/api/produtos/:id', 'produtos.editar'), R('POST', '/api/produtos/:id/inativar', 'produtos.editar'), R('POST', '/api/produtos/:id/reativar', 'produtos.editar'),
@@ -125,5 +131,5 @@ export const REGRAS = new Map([
   R('GET', '/api/empresa', 'empresa.ver'), R('PUT', '/api/empresa', 'empresa.editar'),
   R('GET', '/api/auditoria', 'auditoria.ver'), R('GET', '/api/auditoria/verificar', 'auditoria.ver'),
   R('GET', '/api/equipe', 'usuarios.gerenciar'), R('GET', '/api/equipe/catalogo', 'usuarios.gerenciar'), R('POST', '/api/equipe', 'usuarios.gerenciar'), R('PUT', '/api/equipe/:id', 'usuarios.gerenciar'),
-  R('POST', '/api/equipe/:id/desativar', 'usuarios.gerenciar'), R('POST', '/api/equipe/:id/reativar', 'usuarios.gerenciar'), R('POST', '/api/equipe/:id/redefinir-senha', 'usuarios.gerenciar'), R('POST', '/api/email/testar', 'usuarios.gerenciar'),
+  R('POST', '/api/equipe/:id/excluir', 'usuarios.gerenciar'), R('POST', '/api/equipe/:id/desativar', 'usuarios.gerenciar'), R('POST', '/api/equipe/:id/reativar', 'usuarios.gerenciar'), R('POST', '/api/equipe/:id/redefinir-senha', 'usuarios.gerenciar'), R('POST', '/api/email/testar', 'usuarios.gerenciar'),
 ]);

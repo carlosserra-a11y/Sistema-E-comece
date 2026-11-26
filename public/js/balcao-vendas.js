@@ -3,8 +3,8 @@ import { h, limpar, api, carregar, pode, icone, fmt, badge, qs, tratar, toast, t
 import { abrirPagamento, pedirDados } from './balcao-pagamento.js';
 import { FORMA, SITUACAO, abrirCupom, botoesCupom } from './balcao-cupom.js';
 
-export function abaLista(el, { config, orcamentos }) {
-  let q = ''; let de = ''; let ate = ''; let status = orcamentos ? 'ORCAMENTO' : ''; let pagina = 1;
+export function abaLista(el, { config, orcamentos, dia }) {
+  let q = ''; let de = dia ?? ''; let ate = dia ?? ''; let status = orcamentos ? 'ORCAMENTO' : ''; let pagina = 1;
   const alvo = h('div');
   const ler = () => carregar(alvo, () => api.get(`/api/vendas?${qs({ q, de, ate, status, pagina, por_pagina: 25 })}`), (d) => alvo.append(d.total ? tabela([
     { titulo: 'Nº', num: true, chave: 'id' },
@@ -66,7 +66,7 @@ export function abaLista(el, { config, orcamentos }) {
 
   const busca = h('input', { type: 'search', placeholder: 'Número ou nome do cliente', 'aria-label': 'Buscar venda' });
   busca.addEventListener('input', debounce(() => { q = busca.value.trim(); pagina = 1; ler(); }, 300));
-  const data = (rotulo, aoMudar) => h('label', { class: 'campo-data' }, h('span', { class: 'muted' }, rotulo), h('input', { type: 'date', onchange: (e) => { aoMudar(e.target.value); pagina = 1; ler(); } }));
+  const data = (rotulo, aoMudar) => h('label', { class: 'campo-data' }, h('span', { class: 'muted' }, rotulo), h('input', { type: 'date', value: dia ?? '', onchange: (e) => { aoMudar(e.target.value); pagina = 1; ler(); } }));
   const canceladas = orcamentos ? null : h('label', { class: 'check' }, h('input', { type: 'checkbox', onchange: (e) => { status = e.target.checked ? 'CANCELADA' : ''; pagina = 1; ler(); } }), 'Só canceladas');
   el.append(h('div', { class: 'row filtros' }, h('div', { class: 'grow' }, busca), data('De', (x) => { de = x; }), data('Até', (x) => { ate = x; }), canceladas,
     h('button', { class: 'btn icone', type: 'button', 'aria-label': 'Atualizar lista', onclick: ler }, icone('refresh', 18))), alvo);

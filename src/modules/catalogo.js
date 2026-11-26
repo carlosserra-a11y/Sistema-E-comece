@@ -115,6 +115,7 @@ export function registrarCatalogo(app, { cfg, db: dbPrincipal }) {
     }
     if (ctx.query.ativo !== 'todos') { onde.push('p.ativo = ?'); args.push(ctx.query.ativo === '0' ? 0 : 1); }
     if (ctx.query.sem_codigo === '1') onde.push('NOT EXISTS (SELECT 1 FROM codigos_barras c WHERE c.produto_id = p.id)');
+    if (ctx.query.sem_preco === '1' && ctx.pode('financeiro.ver')) onde.push('COALESCE(p.preco_centavos, 0) = 0');
     const having = ctx.query.abaixo_minimo === '1' ? 'WHERE saldo_vendavel < estoque_min AND estoque_min > 0' : ctx.query.zerados === '1' ? 'WHERE saldo_vendavel = 0' : '';
     const base = `SELECT * FROM (${SELECT_PRODUTO} ${onde.length ? 'WHERE ' + onde.join(' AND ') : ''}) AS lista ${having}`;
     const total = (await db.get(`SELECT COUNT(*) c FROM (${base}) AS contagem`, ...args)).c;

@@ -203,6 +203,22 @@ test('dados: e-mail e código nunca ficam em texto puro; cadastro não confirmad
   assert.deepEqual(restam.map((u) => u.email_verificado), [1], 'só a que confirmou o e-mail ficou');
 }));
 
+test('conta pendente excluída pelo dono não trava a faxina de cadastros e continua no histórico', async () => await com(async (sis) => {
+  const dono = await entrarCompleto(sis);
+  const { c } = await cadastrar(sis);
+  assert.equal((await confirmar(c, codigoDoEmail(sis, EMAIL))).status, 200);
+  const ana = await sis.db.get("SELECT id FROM users WHERE papel = 'pendente'");
+  assert.equal((await dono.post('/api/reautenticar', { senha: SENHA_FORTE })).status, 200);
+  assert.equal((await dono.post(`/api/equipe/${ana.id}/excluir`)).status, 200);
+  await cadastrar(sis, { nome: 'Bia Lima', email: 'bia.lima@gmail.com' }); // nunca confirma
+  sis.relogio.t += 25 * 3_600_000;
+  await sis.limpar();
+  const restam = await sis.db.all("SELECT id, excluido_em FROM users WHERE papel = 'pendente'");
+  assert.deepEqual(restam.map((u) => [u.id, u.excluido_em > 0]), [[ana.id, true]]);
+  const nova = await cadastrar(sis); // o mesmo e-mail pode criar outra conta
+  assert.equal(nova.r.status, 200, nova.r.texto);
+}));
+
 // ---------------------------------------------------------------- 2ª etapa: código por e-mail a cada login
 async function contaConfirmada(sis) {
   const { c } = await cadastrar(sis);

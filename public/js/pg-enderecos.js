@@ -7,7 +7,7 @@ export async function renderizar(el, { params }) {
   const deps = await api.get('/api/depositos');
   const zonas = deps.flatMap((d) => d.zonas.map((z) => ({ ...z, dep: d.codigo })));
   const trocar = (id) => { limpar(painel); ({ lista, mapa, massa, zonasAba })[id](painel, zonas, deps); };
-  const inicial = params.get('massa') && pode('enderecos.gerenciar') ? 'massa' : 'lista';
+  const inicial = params.get('massa') && pode('enderecos.gerenciar') ? 'massa' : ['mapa', 'zonasAba'].includes(params.get('aba')) ? params.get('aba') : 'lista';
   el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Endereços'), h('p', null, 'DEPÓSITO-ZONA-RUA-PRÉDIO-NÍVEL-POSIÇÃO, ex.: D1-P-03-02-01-04'))),
     abas([['lista', 'Lista'], ['mapa', 'Mapa do galpão'], ['massa', 'Criar em massa', 'enderecos.gerenciar'], ['zonasAba', 'Zonas']], inicial, trocar), painel);
   trocar(inicial);

@@ -9,6 +9,7 @@ import { ENDERECO_RE, gerarCodigoInterno } from './catalogo.js';
 import { integridade, ondeEsta } from './estoque.js';
 import { SELECT_ENDERECO } from './deposito.js';
 import { diaDaLoja, inicioDoDia } from './vendas-base.js';
+import { atividade } from './atividade.js';
 
 /** Limpa o que leitores e teclados costumam adicionar: CR/LF, prefixo AIM (]E0, ]C1...), travessões "bonitos". */
 export function normalizarLeitura(bruto) {
@@ -121,6 +122,24 @@ export function registrarConsultas(app, { db, cfg }) {
     return { quantidade: Number(r.n), valor_centavos: Number(r.v), minhas: !gerencia };
   }
 
+  // Caixa que ficou aberto de um dia para o outro: quem gerencia vê todos; quem vende, só o próprio.
+  async function caixasAntigos(ctx, inicioHoje) {
+    const gerencia = ctx.pode('vendas.gerenciar');
+    if (!gerencia && !ctx.pode('vendas.registrar')) return null;
+    return Number((await db.get(`SELECT COUNT(*) c FROM caixas WHERE status = 'ABERTO' AND aberto_em < ?${gerencia ? '' : ' AND aberto_por = ?'}`, inicioHoje, ...(gerencia ? [] : [ctx.user.id]))).c);
+  }
+
+  // Últimos 7 dias do balcão (mesma regra de quem vê o quê das vendas de hoje).
+  async function vendasDaSemana(ctx) {
+    const gerencia = ctx.pode('vendas.gerenciar');
+    if (!gerencia && !ctx.pode('vendas.registrar')) return null;
+    const dias = Array.from({ length: 7 }, (_, i) => diaDaLoja(ctx.agora() - (6 - i) * 86_400_000));
+    const linhas = await db.all(`SELECT concluida_em, valor_centavos FROM vendas WHERE status = 'CONCLUIDA' AND concluida_em >= ?${gerencia ? '' : ' AND vendedor_id = ?'}`, inicioDoDia(dias[0]), ...(gerencia ? [] : [ctx.user.id]));
+    const soma = new Map(dias.map((d) => [d, { dia: d, quantidade: 0, valor_centavos: 0 }]));
+    for (const l of linhas) { const x = soma.get(diaDaLoja(Number(l.concluida_em))); if (x) { x.quantidade++; x.valor_centavos += Number(l.valor_centavos); } }
+    return [...soma.values()];
+  }
+
   rota('GET', '/api/painel', async (ctx) => {
     const um = async (sql, ...a) => await db.get(sql, ...a);
     const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
@@ -134,6 +153,8 @@ export function registrarConsultas(app, { db, cfg }) {
     return {
       produtos_ativos: (await um('SELECT COUNT(*) c FROM produtos WHERE ativo = 1')).c,
       sem_codigo: (await um('SELECT COUNT(*) c FROM produtos WHERE ativo = 1 AND NOT EXISTS (SELECT 1 FROM codigos_barras c WHERE c.produto_id = produtos.id)')).c,
+      sem_preco: ctx.pode('financeiro.ver') ? Number((await um('SELECT COUNT(*) c FROM produtos WHERE ativo = 1 AND COALESCE(preco_centavos, 0) = 0')).c) : null,
+      caixas_antigos: await caixasAntigos(ctx, inicioHoje),
       unidades: (await um('SELECT COALESCE(SUM(qtd),0) q FROM saldos_por_endereco')).q,
       enderecos: (await um('SELECT COUNT(*) c FROM enderecos WHERE ativo = 1')).c,
       enderecos_ocupados: (await um('SELECT COUNT(DISTINCT endereco_id) c FROM saldos_por_endereco WHERE qtd > 0')).c,
@@ -147,6 +168,9 @@ export function registrarConsultas(app, { db, cfg }) {
       integridade: (await integridade(db)).ok,
       atividade: ctx.pode('auditoria.ver') ? await db.all('SELECT id, ts, acao, entidade, entidade_id FROM auditoria ORDER BY id DESC LIMIT 8') : null,
       vendas_hoje: await vendasDeHoje(ctx),
+      vendas_7_dias: await vendasDaSemana(ctx),
+      expedicao_pendente: ctx.pode('expedicao.ver') ? Number((await um("SELECT COUNT(*) c FROM vendas v WHERE v.status = 'CONCLUIDA' AND EXISTS (SELECT 1 FROM venda_itens i WHERE i.venda_id = v.id AND i.tipo = 'PRODUTO') AND NOT EXISTS (SELECT 1 FROM etapas e WHERE e.venda_id = v.id AND e.etapa = 'EXPEDICAO')")).c) : null,
+      equipe_hoje: ctx.pode('atividade.ver') ? (await atividade(db, ctx, {})).pessoas.filter((x) => x.bipagens + x.separacoes + x.conferencias + x.expedicoes + x.vendas > 0 || x.caixa_aberto) : null,
     };
   });
 

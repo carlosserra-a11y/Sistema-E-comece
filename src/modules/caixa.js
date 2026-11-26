@@ -11,6 +11,8 @@ export async function abrirCaixa(db, ctx, bruto) {
   const d = validar(bruto, { abertura_centavos: DINHEIRO() });
   return await tx(db, async (db) => {
     await db.travar(`abrir-caixa|${ctx.user.id}`);
+    // pedido que já estava a caminho quando a conta foi desativada ou excluída não abre caixa
+    if (!await db.get('SELECT 1 AS ok FROM users WHERE id = ? AND ativo = 1', ctx.user.id)) throw conflito('CONTA_INATIVA', 'Esta conta não está mais ativa.');
     if (await caixaAberto(db, ctx.user.id)) throw conflito('CAIXA_JA_ABERTO', 'Você já tem um caixa aberto. Feche-o antes de abrir outro.');
     const id = await db.insert('INSERT INTO caixas (aberto_por, aberto_em, abertura_centavos) VALUES (?,?,?)', ctx.user.id, ctx.agora(), d.abertura_centavos);
     await auditar(db, ctx, 'CAIXA_ABERTO', 'caixa', id, { abertura_centavos: d.abertura_centavos });

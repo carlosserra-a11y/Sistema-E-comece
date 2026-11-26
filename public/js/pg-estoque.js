@@ -1,4 +1,4 @@
-import { pode, h, limpar, api, carregar, icone, fmt, badge, qs, tratar, toast, tabela, paginacao, abas, vazio, combobox, buscarProdutos, buscarEnderecos, campo, feedback, novaChave, ApiError, selecao } from './core.js';
+import { pode, h, limpar, api, carregar, icone, fmt, badge, qs, tratar, toast, tabela, paginacao, abas, vazio, combobox, buscarProdutos, buscarEnderecos, campo, feedback, novaChave, ApiError, selecao, gaveta, esqueleto, debounce } from './core.js';
 
 const TIPOS_MOV = { ENTRADA: ['Entrada', 'ok'], SAIDA: ['Saída', 'erro'], TRANSF_SAIDA: ['Transf. (saída)', 'info'], TRANSF_ENTRADA: ['Transf. (entrada)', 'info'], AJUSTE: ['Ajuste', 'aviso'], AVARIA: ['Avaria', 'erro'], DEVOLUCAO: ['Devolução', 'ok'], INVENTARIO: ['Inventário', 'aviso'] };
 
@@ -15,11 +15,11 @@ function emissor() {
 
 export async function renderizar(el, { params }) {
   const painel = h('div', { class: 'stack' });
-  const ABAS = [['receber', 'Receber', 'estoque.operar'], ['transferir', 'Guardar / transferir', 'estoque.operar'], ['ajustar', 'Ajustar', 'estoque.ajustar'], ['baixar', 'Baixar', 'estoque.operar'], ['avaria', 'Avaria', 'estoque.operar'], ['saldos', 'Saldos', 'estoque.ver'], ['mov', 'Movimentações', 'estoque.ver'], ['repor', 'Reposição', 'estoque.ver']];
+  const ABAS = [['receber', 'Receber', 'estoque.operar'], ['transferir', 'Guardar / transferir', 'estoque.operar'], ['ajustar', 'Ajustar', 'estoque.ajustar'], ['baixar', 'Baixar', 'estoque.operar'], ['avaria', 'Avaria', 'estoque.operar'], ['produtos', 'Por produto', 'estoque.ver'], ['saldos', 'Saldos', 'estoque.ver'], ['mov', 'Movimentações', 'estoque.ver'], ['repor', 'Reposição', 'estoque.ver']];
   const liberadas = ABAS.filter(([, , perm]) => pode(perm)).map(([id]) => id);
   const pedida = params.get('op');
   const inicial = liberadas.includes(pedida) ? pedida : liberadas.includes('saldos') ? 'saldos' : liberadas[0];
-  const trocar = (id) => { limpar(painel); ({ receber: fReceber, transferir: fTransferir, ajustar: fAjustar, baixar: fBaixar, avaria: fAvaria, saldos: saldos, mov: movimentos, repor: reposicao })[id](painel, params); };
+  const trocar = (id) => { limpar(painel); ({ receber: fReceber, transferir: fTransferir, ajustar: fAjustar, baixar: fBaixar, avaria: fAvaria, produtos: porProduto, saldos: saldos, mov: movimentos, repor: reposicao })[id](painel, params); };
   el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Estoque'), h('p', null, 'Toda alteração vira uma linha imutável do livro-razão.'))), abas(ABAS, inicial, trocar), painel);
   trocar(inicial);
 }
@@ -97,13 +97,37 @@ function fAvaria(el) {
   }, 'Registrar avaria'));
 }
 
-function saldos(el) {
+/** Uma linha por produto: quanto há, quanto dá para vender e em quantos endereços; tocar mostra onde está. */
+function porProduto(el) {
+  let q = ''; let pagina = 1; const alvo = h('div');
+  const busca = h('input', { type: 'search', placeholder: 'Buscar por nome ou SKU', 'aria-label': 'Buscar produto no estoque', autocomplete: 'off' });
+  busca.addEventListener('input', debounce(() => { q = busca.value.trim(); pagina = 1; ler(); }, 250));
+  async function onde(p) {
+    const g = gaveta(`${p.sku} — onde está`, esqueleto(3));
+    try {
+      const d = await api.get(`/api/estoque/saldos?${qs({ produto_id: p.id, por_pagina: 200 })}`);
+      limpar(g.corpo).append(h('p', { class: 'quebra' }, p.nome),
+        d.total ? tabela([{ titulo: 'Endereço', render: (x) => h('strong', { class: 'mono' }, x.endereco) }, { titulo: 'Zona', render: (x) => x.zona_tipo.toLowerCase() }, { titulo: 'Lote', render: (x) => (x.lote ? `${x.lote}${x.validade ? ` · ${fmt.data(x.validade)}` : ''}` : '—') }, { titulo: 'Qtd', num: true, chave: 'qtd' }], d.itens, { compacta: true }) : vazio('Sem unidades', 'Este produto não está em nenhum endereço.'),
+        pode('produtos.ver') ? h('a', { class: 'btn', href: `#/produtos?abrir=${p.id}` }, icone('box', 18), 'Abrir o produto') : null);
+    } catch (e) { g.fechar(); tratar(e); }
+  }
+  const ler = () => carregar(alvo, () => api.get(`/api/estoque/por-produto?${qs({ q, pagina, por_pagina: 50 })}`), (d) => alvo.append(h('p', { class: 'muted' }, `${fmt.num(d.total_unidades)} unidade(s) no galpão · ${fmt.num(d.total)} produto(s)${q ? ' nesta busca' : ' ativo(s)'}`), d.total ? tabela([
+    { titulo: 'SKU', render: (x) => h('strong', { class: 'mono' }, x.sku) }, { titulo: 'Produto', render: (x) => h('span', { class: 'quebra' }, x.nome) },
+    { titulo: 'Unidades', num: true, render: (x) => h('strong', null, `${fmt.num(x.unidades)} ${x.unidade ?? ''}`) },
+    { titulo: 'Disponível', num: true, render: (x) => (x.vendaveis === 0 ? badge('0', 'erro') : x.estoque_min > 0 && x.vendaveis < x.estoque_min ? badge(`${fmt.num(x.vendaveis)} ↓`, 'aviso') : fmt.num(x.vendaveis)) },
+    { titulo: 'Endereços', num: true, chave: 'enderecos' }], d.itens, { aoClicar: onde, compacta: true }) : vazio('Nenhum produto', q ? 'Tente outra busca.' : 'Cadastre o primeiro produto.'), paginacao(d.total, d.pagina, d.por_pagina, (n) => { pagina = n; ler(); })));
+  el.append(busca, alvo); ler();
+}
+
+function saldos(el, params) {
   let zona = ''; let pagina = 1; const alvo = h('div');
+  let vencendo = params?.get('vencendo') ?? '';
+  const soVencendo = h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!vencendo, onchange: (e) => { vencendo = e.target.checked ? 30 : ''; pagina = 1; ler(); } }), 'Só lotes vencendo em 30 dias (ou vencidos)');
   const sel = selecao([['', 'Todas as zonas'], ...['RECEBIMENTO', 'PICKING', 'RESERVA', 'AVARIA', 'DEVOLUCAO', 'QUARENTENA', 'EXPEDICAO'].map((z) => [z, z.toLowerCase()])], '', { 'aria-label': 'Zona', onchange: () => { zona = sel.value; pagina = 1; ler(); } });
-  const ler = () => carregar(alvo, () => api.get(`/api/estoque/saldos?${qs({ zona_tipo: zona, pagina, por_pagina: 50 })}`), (d) => alvo.append(d.total ? tabela([
+  const ler = () => carregar(alvo, () => api.get(`/api/estoque/saldos?${qs({ zona_tipo: zona, vencendo, pagina, por_pagina: 50 })}`), (d) => alvo.append(d.total ? tabela([
     { titulo: 'SKU', chave: 'sku' }, { titulo: 'Produto', render: (x) => h('span', { class: 'quebra' }, x.nome) }, { titulo: 'Endereço', render: (x) => h('strong', { class: 'mono' }, x.endereco) },
-    { titulo: 'Zona', render: (x) => x.zona_tipo.toLowerCase() }, { titulo: 'Lote', render: (x) => (x.lote ? `${x.lote}${x.validade ? ` · ${fmt.data(x.validade)}` : ''}` : '—') }, { titulo: 'Qtd', num: true, chave: 'qtd' }], d.itens) : vazio('Sem saldo', 'Receba mercadoria para começar.'), paginacao(d.total, d.pagina, d.por_pagina, (n) => { pagina = n; ler(); })));
-  el.append(sel, alvo); ler();
+    { titulo: 'Zona', render: (x) => x.zona_tipo.toLowerCase() }, { titulo: 'Lote', render: (x) => (x.lote ? `${x.lote}${x.validade ? ` · ${fmt.data(x.validade)}` : ''}` : '—') }, { titulo: 'Qtd', num: true, chave: 'qtd' }], d.itens) : vazio(vencendo ? 'Nenhum lote vencendo' : 'Sem saldo', vencendo ? 'Nada vence nos próximos 30 dias.' : 'Receba mercadoria para começar.'), paginacao(d.total, d.pagina, d.por_pagina, (n) => { pagina = n; ler(); })));
+  el.append(h('div', { class: 'row' }, sel, soVencendo), alvo); ler();
 }
 
 function movimentos(el) {

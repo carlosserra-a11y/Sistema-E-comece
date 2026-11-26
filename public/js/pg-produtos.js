@@ -22,11 +22,12 @@ export async function renderizar(el, { params, sessao }) {
   const alvo = h('div', { class: 'stack' });
   const busca = h('input', { type: 'search', placeholder: 'Buscar por nome, SKU ou código de barras', 'aria-label': 'Buscar produtos', autocomplete: 'off' });
   let t; busca.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { q = busca.value; pagina = 1; listar(); }, 250); });
-  const FILTROS = [['ativos', 'Ativos'], ['sem_codigo', 'Sem código'], ['abaixo', 'Abaixo do mínimo'], ['zerados', 'Sem estoque'], ['inativos', 'Inativos']];
+  const FILTROS = [['ativos', 'Ativos'], ['sem_codigo', 'Sem código'], ['abaixo', 'Abaixo do mínimo'], ['zerados', 'Sem estoque'], ...(veFinanceiro ? [['sem_preco', 'Sem preço']] : []), ['inativos', 'Inativos']];
+  if (FILTROS.some(([id]) => id === params.get('filtro'))) filtro = params.get('filtro'); // veio de um cartão do Início
   const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtros' }, FILTROS.map(([id, r]) => h('button', { class: 'chip', 'aria-pressed': id === filtro, onclick: (e) => { filtro = id; pagina = 1; chips.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', c === e.currentTarget)); listar(); } }, r)));
 
   function listar() {
-    const p = { q, pagina, por_pagina: 25, ativo: filtro === 'inativos' ? '0' : '', sem_codigo: filtro === 'sem_codigo' ? 1 : '', abaixo_minimo: filtro === 'abaixo' ? 1 : '', zerados: filtro === 'zerados' ? 1 : '' };
+    const p = { q, pagina, por_pagina: 25, ativo: filtro === 'inativos' ? '0' : '', sem_codigo: filtro === 'sem_codigo' ? 1 : '', abaixo_minimo: filtro === 'abaixo' ? 1 : '', zerados: filtro === 'zerados' ? 1 : '', sem_preco: filtro === 'sem_preco' ? 1 : '' };
     carregar(alvo, () => api.get(`/api/produtos?${qs(p)}`), (d) => {
       alvo.append(d.total === 0 ? vazio('Nenhum produto encontrado', q ? 'Tente outra busca.' : 'Cadastre o primeiro produto.', h('button', { class: 'btn primario', 'data-requer': 'produtos.editar', onclick: () => novo() }, 'Novo produto'))
         : tabela([

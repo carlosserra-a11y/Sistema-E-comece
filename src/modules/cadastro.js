@@ -51,13 +51,13 @@ export function registrarCadastro(app, { cfg, db, email, log }) {
 
     const existente = await db.get('SELECT * FROM users WHERE email_hmac = ?', chave);
     if (existente?.email_verificado) return GENERICO; // já tem conta: não revela nem altera nada
-    if ((await db.get("SELECT COUNT(*) c FROM users WHERE papel = 'pendente' AND email_verificado = 0 AND criado_em > ?", t - HORA)).c >= MAX_CADASTROS_HORA
-      || (await db.get("SELECT COUNT(*) c FROM users WHERE papel = 'pendente' AND email_verificado = 0")).c >= MAX_NAO_CONFIRMADOS) {
+    if ((await db.get("SELECT COUNT(*) c FROM users WHERE papel = 'pendente' AND email_verificado = 0 AND excluido_em IS NULL AND criado_em > ?", t - HORA)).c >= MAX_CADASTROS_HORA
+      || (await db.get("SELECT COUNT(*) c FROM users WHERE papel = 'pendente' AND email_verificado = 0 AND excluido_em IS NULL")).c >= MAX_NAO_CONFIRMADOS) {
       throw erro(429, 'MUITOS_CADASTROS', 'Muitos cadastros no momento. Tente de novo mais tarde.');
     }
     let u = existente;
     if (!u) {
-      if ((await db.get("SELECT COUNT(*) c FROM users WHERE NOT (papel = 'pendente' AND email_verificado = 0 AND dono = 0)")).c >= MAX_PESSOAS) throw erro(409, 'LIMITE', 'O limite de contas do sistema foi atingido. Fale com o dono.');
+      if ((await db.get("SELECT COUNT(*) c FROM users WHERE excluido_em IS NULL AND NOT (papel = 'pendente' AND email_verificado = 0 AND dono = 0)")).c >= MAX_PESSOAS) throw erro(409, 'LIMITE', 'O limite de contas do sistema foi atingido. Fale com o dono.');
       const id = await tx(db, async (db) => {
         const novo = await db.insert("INSERT INTO users (login_hmac, email_enc, email_hmac, email_verificado, senha_hash, papel, nome, trocar_senha, dono, permissoes, criado_em) VALUES (?,?,?,0,?,'pendente',?,0,0,'[]',?)",
           chaveLogin(cfg, `email:${e.canonico}`), cifrar(cfg.fieldKey, e.exibicao), chave, hash, d.nome, t);

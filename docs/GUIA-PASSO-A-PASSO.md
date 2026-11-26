@@ -12,6 +12,23 @@ Como usar o sistema, do primeiro acesso ao fechamento do dia. Cada tarefa em pou
 
 No celular: abra no Chrome ou Safari e escolha **Adicionar à tela inicial**.
 
+## A tela Início
+
+Cada quadro leva ao lugar dele (a setinha no canto mostra o que é clicável):
+
+| Toque em | Abre |
+|---|---|
+| **Vendas de hoje** | a lista de vendas de hoje. Cada barra do gráfico abre as vendas daquele dia |
+| **Para expedir** | a fila de separação, conferência e expedição |
+| **Produtos ativos** | os produtos ativos |
+| **Unidades em estoque** | cada produto com a quantidade; toque no produto para ver em quais endereços está |
+| **Ocupação do galpão** | o mapa do galpão |
+| **Integridade** | confere na hora se o estoque e o histórico batem |
+| **Para fazer agora** | cada aviso leva direto ao que precisa ser resolvido |
+| **Equipe hoje** | o que cada pessoa fez |
+
+A tela se atualiza sozinha a cada minuto. Cada pessoa vê só o que tem permissão para abrir.
+
 ## 2. Preparar o balcão (só o dono, uma vez)
 
 Faça nesta ordem, senão a venda não funciona.
@@ -39,7 +56,8 @@ Em **Equipe**, escolha o modelo da pessoa:
 | **Somente consulta** | Nada do balcão |
 | **Personalizado** | Você marca item por item no grupo **Balcão** |
 
-- Quem **já estava cadastrado** não ganhou o balcão sozinho: abra a pessoa em **Equipe**, escolha o modelo de novo e salve.
+- Quem **já estava cadastrado** não ganha funções novas sozinho (balcão, expedição, equipe em ação): abra a pessoa em **Equipe → Permissões**, toque em **Marcar funções novas deste modelo** (ou marque os itens em **Separação e expedição**, se for *Personalizado*) e salve.
+- **Expedição:** Vendedor, Estoquista, Operador e Gerente separam, conferem e expedem. **Equipe em ação:** Gerente e dono.
 - Só o **dono** muda a chave Pix.
 - Vendedor vê o **preço de venda**, nunca o custo nem a margem.
 
@@ -92,6 +110,36 @@ Escreva sempre o motivo.
 
 O vendedor só vê quanto deveria ter **depois** de contar (conferência cega).
 
+## Separar, conferir e expedir
+
+Toda venda concluída com produtos entra na fila de **Expedição**. Venda só de serviço não entra.
+
+1. **Expedição** → toque em **Separar venda**.
+2. Pegue as peças nos endereços mostrados e **bipe cada uma** (leitor, câmera ou digitando o código/SKU). Para várias iguais, mude a **Quantidade por leitura** antes de bipar.
+3. Quando tudo bater, **Confirmar separação**.
+4. **Conferir:** bipe tudo de novo, de preferência outra pessoa. **Confirmar conferência**.
+5. **Expedir:** escreva como saiu (retirou no balcão, motoboy…) e **Marcar como expedida**.
+
+- Peça que não é da venda, ou a mais, é recusada com aviso sonoro.
+- A ordem é obrigatória e cada passo grava **nome, dia e hora**. Não dá para apagar.
+- Fechou a janela da venda no meio? As leituras continuam enquanto você estiver na tela **Expedição**.
+- Venda cancelada sai da fila.
+
+## Equipe em ação (quem fez o quê)
+
+**Equipe em ação** mostra, por período (Hoje, Ontem, 7 dias, 30 dias ou datas):
+
+- quantas **bipagens** de estoque, **separações**, **conferências**, **expedições** e **vendas** cada pessoa fez;
+- quem está **no caixa agora**;
+- a **linha do tempo**. Toque em uma pessoa para ver só o que ela fez, e em um acontecimento para abrir.
+
+## Excluir uma pessoa da equipe (só o dono)
+
+1. **Equipe** → no quadro da pessoa, **Excluir conta**.
+2. Confirme e digite sua senha.
+
+A pessoa é desconectada, e o login, o e-mail e a senha são apagados. **Não dá para desfazer.** O nome continua nas vendas, no caixa e no estoque que ela fez. Se ela tiver um caixa aberto, feche-o antes (**Balcão → Caixa**). Só quer tirar o acesso por um tempo? Use **Desativar**.
+
 ## 5. Relatórios (gerente ou dono)
 
 **Balcão → Relatórios:** escolha o período (Hoje, 7 dias, 30 dias). Mostra total, ticket médio, descontos, cancelamentos, formas de pagamento, atendentes e itens mais vendidos. **Baixar planilha** abre no Excel. A margem aparece só para quem tem o financeiro.
@@ -129,6 +177,9 @@ Dê a baixa das peças em **Estoque** e depois abra **Integrações → Pedidos 
 | **Você não tem permissão** | Peça ao dono em Equipe |
 | **Orçamento vencido** | Faça um novo |
 | **Chave Pix não cadastrada** | O dono configura em Balcão → Ajustes |
+| **A leitura não bate** (expedição) | O aviso diz qual peça está faltando ou sobrando: confira e bipe de novo |
+| **Já foi registrada** (expedição) | Outra pessoa fez esse passo antes; a tela mostra quem |
+| **Tem um caixa aberto** (ao excluir pessoa) | Balcão → Caixa → feche o caixa dela e exclua de novo |
 | Câmera não abre | Permita a câmera no navegador; use sempre o endereço com `https` |
 | Sem internet | O sistema não vende offline; anote e registre quando voltar |
 
@@ -139,6 +190,8 @@ Dê a baixa das peças em **Estoque** e depois abra **Integrações → Pedidos 
 | `F2` | Receber pagamento |
 | `G` depois `V` | Ir para o Balcão |
 | `G` depois `L` | Clientes |
+| `G` depois `X` | Expedição |
+| `G` depois `U` | Equipe em ação |
 | `Ctrl+K` | Paleta de comandos |
 | `/` | Busca geral |
 | `?` | Lista de atalhos |
@@ -146,7 +199,7 @@ Dê a baixa das peças em **Estoque** e depois abra **Integrações → Pedidos 
 
 ## 10. Rotina sugerida
 
-**Manhã:** abrir caixa. **Durante o dia:** vender, receber mercadoria, guardar. **Noite:** fechar caixa, olhar o relatório do dia. **Semana:** copiar o backup para fora do servidor (veja [VPS-HOSTGATOR.md](VPS-HOSTGATOR.md)).
+**Manhã:** olhar o **Início** (Para fazer agora) e abrir o caixa. **Durante o dia:** vender, separar e conferir, receber mercadoria, guardar. **Noite:** zerar a fila de expedição, fechar o caixa, olhar o relatório e a **Equipe em ação**. **Semana:** copiar o backup para fora do servidor (veja [VPS-HOSTGATOR.md](VPS-HOSTGATOR.md)).
 
 ## Mais detalhes
 

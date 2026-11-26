@@ -1,9 +1,11 @@
-import { h, limpar, api, estado, pode, icone, modal, confirmar, campo, toast, tratar, esqueleto, blocoErro, $ } from './core.js';
+import { h, limpar, api, estado, pode, icone, modal, confirmar, campo, toast, tratar, esqueleto, blocoErro, avatar, $ } from './core.js';
 import { telaAcesso, telaPendente } from './acesso.js';
 
 const PAGINAS = [
   ['painel', 'Início', 'home', () => import('./pg-painel.js'), null],
   ['balcao', 'Balcão', 'cart', () => import('./pg-balcao.js'), ['vendas.registrar', 'vendas.gerenciar', 'vendas.cancelar', 'servicos.editar', 'vendas.configurar']],
+  ['expedicao', 'Expedição', 'send', () => import('./pg-expedicao.js'), ['expedicao.ver']],
+  ['atividade', 'Equipe em ação', 'activity', () => import('./pg-atividade.js'), ['atividade.ver']],
   ['clientes', 'Clientes', 'person', () => import('./pg-clientes.js'), ['clientes.ver']],
   ['consulta', 'Consulta', 'scan', () => import('./pg-consulta.js'), ['produtos.ver', 'estoque.ver', 'enderecos.ver', 'contagem.operar']],
   ['produtos', 'Produtos', 'box', () => import('./pg-produtos.js'), ['produtos.ver']],
@@ -19,6 +21,12 @@ const PAGINAS = [
   ['config', 'Configurações', 'settings', () => import('./pg-config.js'), null],
   ['design', 'Design', 'sun', () => import('./pg-design.js'), null],
 ];
+const GRUPOS_MENU = [
+  ['Operação', ['painel', 'balcao', 'expedicao', 'consulta']],
+  ['Estoque', ['produtos', 'estoque', 'enderecos', 'contagem', 'codigos', 'etiquetas']],
+  ['Gestão', ['atividade', 'clientes', 'fornecedores', 'integracoes', 'empresa', 'equipe', 'config']],
+];
+const PAPEL = { gerente: 'Gerente', vendedor: 'Vendedor', estoquista: 'Estoquista', operador: 'Operador', financeiro: 'Financeiro', consulta: 'Consulta', personalizado: 'Personalizado' };
 // O servidor confere tudo de novo; aqui só escondemos o que a pessoa não pode usar.
 const permitida = (p) => !p[4] || p[4].some((x) => sessao?.usuario?.permissoes?.includes(x));
 const visiveis = () => PAGINAS.filter(permitida);
@@ -26,7 +34,9 @@ const ABAS_CELULAR = ['painel', 'balcao', 'estoque', 'contagem'];
 /** As 3 primeiras que a pessoa pode usar entram na barra do celular; o resto fica em "Mais". */
 const abasDoCelular = () => ABAS_CELULAR.map((n) => PAGINAS.find(([x]) => x === n)).filter(permitida).slice(0, 3);
 const raiz = document.getElementById('raiz');
-let conteudo; let limparPagina = null; let sessao = null;
+let conteudo; let limparPagina = null; let sessao = null; let geracao = 0;
+/** Desliga o que a tela atual deixou ligado (relógios, câmera, atalhos) e invalida carregamentos em andamento. */
+const encerrarPagina = () => { geracao++; limparPagina?.(); limparPagina = null; };
 
 export const rotaAtual = () => {
   const [, caminho = 'painel', consulta = ''] = /^#\/([a-z]+)(?:\?(.*))?$/.exec(location.hash) ?? [];
@@ -46,7 +56,13 @@ async function iniciar() {
 }
 
 function montarShell() {
-  const navItens = visiveis().filter(([n]) => n !== 'design').map(([nome, rotulo, ic]) => h('a', { class: 'item', href: `#/${nome}`, dataset: undefined, 'data-rota': nome }, icone(ic), rotulo));
+  const liberadas = new Map(visiveis().map((p) => [p[0], p]));
+  const navItens = GRUPOS_MENU.map(([titulo, nomes]) => {
+    const itens = nomes.filter((n) => liberadas.has(n)).map((n) => { const [nome, rotulo, ic] = liberadas.get(n); return h('a', { class: 'item', href: `#/${nome}`, 'data-rota': nome }, icone(ic), rotulo); });
+    return itens.length ? [h('p', { class: 'nav-grupo' }, titulo), itens] : null;
+  });
+  const u = sessao.usuario;
+  const eu = h('a', { class: 'eu', href: '#/config', 'aria-label': `Minha conta: ${u.nome}` }, avatar(u.nome), h('span', { class: 'eu-txt' }, h('strong', null, u.nome), h('small', null, u.dono ? 'Dono' : PAPEL[u.papel] ?? u.papel)));
   const busca = h('input', { type: 'search', class: 'busca', placeholder: 'Ler código, SKU ou endereço   ( / )', 'aria-label': 'Busca global', id: 'busca-global', autocomplete: 'off',
     onkeydown: (e) => { if (e.key === 'Enter' && e.target.value.trim()) { ir(`consulta?c=${encodeURIComponent(e.target.value.trim())}`); e.target.value = ''; e.target.blur(); } } });
   const maisAba = h('button', { 'data-rota': 'mais', onclick: abrirMais }, icone('dots'), 'Mais');
@@ -61,7 +77,7 @@ function montarShell() {
         h('a', { class: 'item', href: '#/design' }, icone('sun'), 'Design'), h('button', { class: 'btn fantasma', onclick: sair }, icone('logout'), 'Sair')),
       h('div', { class: 'main' }, h('div', { id: 'faixa-offline', class: 'offline', role: 'status', hidden: true }, 'Sem conexão. As alterações não serão salvas até a internet voltar.'),
         h('header', { class: 'topbar' }, h('div', { class: 'busca' }, busca), h('button', { class: 'btn icone fantasma', 'aria-label': 'Paleta de comandos (Ctrl+K)', onclick: paleta }, icone('search')),
-          h('button', { class: 'btn icone fantasma', 'aria-label': 'Alternar tema', onclick: alternarTema }, icone('moon'))), conteudo)),
+          h('button', { class: 'btn icone fantasma', 'aria-label': 'Alternar tema', onclick: alternarTema }, icone('moon')), h('span', { class: 'grow' }), eu), conteudo)),
     h('nav', { class: 'tabbar', 'aria-label': 'Principal (celular)' }, abasCel.filter(Boolean), maisAba));
 }
 
@@ -70,29 +86,33 @@ function marcarNav(nome) {
   document.querySelectorAll('[data-rota]').forEach((a) => (a.dataset.rota === nome || (a.dataset.rota === 'mais' && !naBarra.includes(nome)) ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
 }
 
-async function desenharRota() {
+function desenharRota() {
   if (!conteudo) return;
   const { nome, params } = rotaAtual();
+  encerrarPagina(); const esta = geracao;
   const pagina = PAGINAS.find(([n]) => n === nome) ?? PAGINAS[0];
   if (!permitida(pagina)) { marcarNav(''); limpar(conteudo).append(h('div', { class: 'vazio' }, icone('shield', 36), h('strong', null, 'Sem acesso a esta área'), h('p', null, 'Peça ao dono do sistema para liberar esta função para você.'), h('a', { class: 'btn', href: '#/painel' }, 'Voltar ao início'))); return; }
   marcarNav(pagina[0]);
   document.title = `${pagina[1]} · ${sessao.appName}`;
-  limparPagina?.(); limparPagina = null;
   document.querySelectorAll('.overlay').forEach((o) => o.remove()); // gaveta/modal da tela anterior não deve ficar por cima
   const render = async () => {
     limpar(conteudo).append(esqueleto(5));
     try {
       const mod = await pagina[3]();
+      if (esta !== geracao) return;
       limpar(conteudo);
-      limparPagina = (await mod.renderizar(conteudo, { params, ir, sessao })) ?? null;
-    } catch (e) { limpar(conteudo).append(blocoErro(e, render)); console.error(e); }
+      const desligar = (await mod.renderizar(conteudo, { params, ir, sessao })) ?? null;
+      if (esta !== geracao) desligar?.(); else limparPagina = desligar; // a pessoa já está em outra tela
+    } catch (e) { if (esta === geracao) limpar(conteudo).append(blocoErro(e, render)); console.error(e); }
   };
-  if (document.startViewTransition && !document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(render).ready.catch(() => {}); else await render(); // tela escondida: desenha direto
+  // sem transição do navegador: ela congelava a tela até os dados chegarem. A entrada animada é do CSS (.content > *).
+  render();
   conteudo.focus({ preventScroll: true });
   window.scrollTo(0, 0);
 }
 
 async function sair() {
+  encerrarPagina();
   try { await api.post('/api/logout'); } catch { /* sessão já encerrada */ }
   estado.csrf = null; await iniciar();
 }
@@ -127,6 +147,7 @@ function paleta() {
     ...(pode('vendas.registrar') ? [{ rotulo: 'Nova venda (balcão)', ic: 'cart', acao: () => ir('balcao') }] : []),
     { rotulo: 'Novo produto', ic: 'plus', acao: () => ir('produtos?novo=1'), atalho: 'N' },
     { rotulo: 'Receber mercadoria', ic: 'download', acao: () => ir('estoque?op=receber') },
+    { rotulo: 'Ver estoque por produto', ic: 'layers', acao: () => ir('estoque?op=produtos') },
     { rotulo: 'Transferir / guardar', ic: 'arrows', acao: () => ir('estoque?op=transferir') },
     { rotulo: 'Nova contagem de estoque', ic: 'clipboard', acao: () => ir('contagem?novo=1') },
     { rotulo: 'Criar endereços em massa', ic: 'map', acao: () => ir('enderecos?massa=1') },
@@ -158,11 +179,11 @@ function paleta() {
 
 function atalhos() {
   const linha = (t, d) => h('div', null, h('span', null, d), h('span', { class: 'atalho' }, t));
-  modal('Atalhos de teclado', h('div', { class: 'lista' }, linha('Ctrl/⌘ + K', 'Paleta de comandos'), linha('/', 'Ir para a busca global'), linha('G depois I', 'Início'), linha('G depois V', 'Balcão (vender)'), linha('F2', 'Receber pagamento (no balcão)'), linha('G depois L', 'Clientes'), linha('G depois P', 'Produtos'),
+  modal('Atalhos de teclado', h('div', { class: 'lista' }, linha('Ctrl/⌘ + K', 'Paleta de comandos'), linha('/', 'Ir para a busca global'), linha('G depois I', 'Início'), linha('G depois V', 'Balcão (vender)'), linha('F2', 'Receber pagamento (no balcão)'), linha('G depois L', 'Clientes'), linha('G depois X', 'Expedição'), linha('G depois U', 'Equipe em ação'), linha('G depois P', 'Produtos'),
     linha('G depois E', 'Estoque'), linha('G depois A', 'Endereços'), linha('G depois C', 'Contagem'), linha('G depois T', 'Etiquetas'), linha('G depois Q', 'Consulta'), linha('N', 'Novo (na tela atual)'), linha('?', 'Esta lista'), linha('Esc', 'Fechar gaveta/janela')));
 }
 
-const IR_PARA = { v: 'balcao', l: 'clientes', b: 'codigos', m: 'integracoes', i: 'painel', p: 'produtos', e: 'estoque', a: 'enderecos', c: 'contagem', t: 'etiquetas', q: 'consulta', f: 'fornecedores' };
+const IR_PARA = { x: 'expedicao', u: 'atividade', v: 'balcao', l: 'clientes', b: 'codigos', m: 'integracoes', i: 'painel', p: 'produtos', e: 'estoque', a: 'enderecos', c: 'contagem', t: 'etiquetas', q: 'consulta', f: 'fornecedores' };
 let esperandoG = 0;
 document.addEventListener('keydown', (e) => {
   if (!sessao?.autenticado) return;
@@ -185,7 +206,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 window.addEventListener('online', baterBatimento);
 window.addEventListener('pageshow', baterBatimento);
 
-estado.aoExpirar = () => { if (sessao?.autenticado) { sessao = null; toast('Sua sessão expirou. Entre novamente.', 'aviso', 8000); iniciar(); } };
+estado.aoExpirar = () => { if (sessao?.autenticado) { sessao = null; encerrarPagina(); document.querySelectorAll('.overlay').forEach((o) => o.remove()); toast('Sua sessão expirou. Entre novamente.', 'aviso', 8000); iniciar(); } };
 // Confirmar uma ação sensível: com a senha OU, para quem entra só pelo e-mail, com um código enviado à caixa de entrada.
 estado.aoReautenticar = () => new Promise((resolve) => {
   const s = h('input', { type: 'password', autocomplete: 'current-password', autofocus: true });

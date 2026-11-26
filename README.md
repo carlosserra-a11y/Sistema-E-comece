@@ -48,6 +48,15 @@ npm test               # testes de segurança, estoque, código de barras e cont
 
 Não faz: nota fiscal, integração com maquininha, devolução parcial, venda a prazo, venda sem internet.
 
+## Painel, expedição e equipe
+
+| Área | Entregue |
+|---|---|
+| Início | cartões clicáveis, vendas dos últimos 7 dias, "Para fazer agora", equipe do dia, atualização automática |
+| Expedição | separação → conferência (bipando) → expedição, em ordem, com quem e quando (registro imutável) |
+| Equipe em ação | bipagens, separações, conferências, expedições, vendas e caixa por pessoa e período, com linha do tempo |
+| Contas | o dono pode excluir uma conta (apaga o acesso e mantém o nome no histórico) |
+
 ## Fase 5: Mercado Livre
 
 | Área | Entregue |
@@ -62,7 +71,7 @@ Não faz: nota fiscal, integração com maquininha, devolução parcial, venda a
 
 ## Próximas fases
 
-Shopee, NF-e (Bling/Tiny), fluxo do pedido (separação mobile, conferência, embalagem), expedição, devoluções e relatórios **ainda não existem**. Veja [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+Shopee, NF-e (Bling/Tiny), embalagem, transportadora/rastreio de entrega, separação de pedidos do Mercado Livre pela tela de Expedição e devoluções **ainda não existem**. Veja [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 
 ## Documentação
 

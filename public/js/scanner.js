@@ -48,8 +48,8 @@ async function criarDecodificador() {
  * Abre o leitor em tela cheia. `aoLer(codigo)` pode devolver `false` para manter a câmera aberta (modo contínuo, ex.: contagem)
  * ou qualquer outra coisa para fechar. Devolve { fechar }.
  */
-export function abrirScanner({ titulo = 'Aponte para o código', aoLer, continuo = false, exigirSaida = false } = {}) {
-  if (!cameraDisponivel()) { toast('A câmera só funciona em conexão segura (https). Use o leitor ou digite o código.', 'aviso', 7000); return { fechar() {} }; }
+export function abrirScanner({ titulo = 'Aponte para o código', aoLer, continuo = false, exigirSaida = false, semBipe = false } = {}) {
+  if (!cameraDisponivel()) { toast('A câmera só funciona em conexão segura (https). Use o leitor ou digite o código.', 'aviso', 7000); return { fechar() {}, avisar() {} }; }
   const video = h('video', { class: 'scan-video', playsinline: true, muted: true, autoplay: true, 'aria-label': 'Câmera' });
   const status = h('p', { class: 'scan-status', role: 'status' }, 'Abrindo a câmera…');
   const manual = h('input', { type: 'text', class: 'scan-manual', placeholder: 'ou digite o código', autocomplete: 'off', inputmode: 'text', 'aria-label': 'Digitar código' });
@@ -58,7 +58,7 @@ export function abrirScanner({ titulo = 'Aponte para o código', aoLer, continuo
     video, h('div', { class: 'scan-mira', 'aria-hidden': 'true' }, h('span')),
     h('header', { class: 'scan-topo' }, h('strong', null, titulo), h('span', { class: 'grow' }), lanterna, h('button', { class: 'btn icone scan-btn', type: 'button', 'aria-label': 'Fechar câmera', onclick: () => fechar() }, icone('x'))),
     h('footer', { class: 'scan-base' }, status, h('form', { class: 'scan-form', onsubmit: (e) => { e.preventDefault(); const c = manual.value.trim(); if (c) entregar(c); manual.value = ''; } }, manual, h('button', { class: 'btn primario', type: 'submit' }, 'OK'))));
-  let stream = null; let ativo = true; let ligada = false; let ultimo = ''; let ultimoEm = 0; let timer = 0;
+  let stream = null; let ativo = true; let ligada = false; const vistos = new Map(); let timer = 0;
 
   async function alternarLanterna() {
     const trilha = stream?.getVideoTracks()[0];
@@ -72,9 +72,10 @@ export function abrirScanner({ titulo = 'Aponte para o código', aoLer, continuo
   const tecla = (e) => { if (e.key === 'Escape') { e.stopPropagation(); fechar(); } };
   async function entregar(codigo) {
     const agora = Date.now();
-    // mesmo código ainda na mira: ignora (com `exigirSaida`, a espera recomeça enquanto ele continuar aparecendo)
-    if (codigo === ultimo && agora - ultimoEm < REPETIDO_MS) { if (exigirSaida) ultimoEm = agora; return; }
-    ultimo = codigo; ultimoEm = agora; bipe('ok');
+    // código ainda na mira: ignora (com `exigirSaida`, a espera recomeça enquanto ele continuar aparecendo). Vale para CADA código:
+    // dois rótulos no mesmo quadro não se revezam contando sem parar.
+    if (agora - (vistos.get(codigo) ?? -Infinity) < REPETIDO_MS) { if (exigirSaida) vistos.set(codigo, agora); return; }
+    vistos.set(codigo, agora); if (!semBipe) bipe('ok');
     status.textContent = `Lido: ${codigo}`;
     const r = await aoLer?.(codigo);
     if (!continuo && r !== false) fechar();
@@ -100,7 +101,7 @@ export function abrirScanner({ titulo = 'Aponte para o código', aoLer, continuo
       manual.focus();
     }
   })();
-  return { fechar };
+  return { fechar, avisar: (texto) => { if (texto) status.textContent = texto; } };
 }
 
 /** Compatível com o antigo `leitorCamera`: devolve { botao, caixa, parar } para as telas que já o usam. */

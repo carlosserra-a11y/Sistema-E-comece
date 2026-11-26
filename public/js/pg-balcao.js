@@ -24,7 +24,8 @@ export async function renderizar(el, { params, sessao }) {
   await carregar(raiz, () => (pode('vendas.registrar,vendas.gerenciar,vendas.configurar') ? api.get('/api/balcao/config') : Promise.resolve({ desconto_max_pct: 0 })), (config) => {
     const liberadas = ABAS.filter(([, , perm]) => pode(perm)).map(([id]) => id);
     const inicial = liberadas.includes(params.get('aba')) ? params.get('aba') : liberadas[0];
-    const montar = { vender: abaVender, vendas: (e, o) => abaLista(e, { ...o, orcamentos: false }), orcamentos: (e, o) => abaLista(e, { ...o, orcamentos: true }), caixa: abaCaixa, relatorios: abaRelatorios, servicos: abaServicos, ajustes: abaAjustes };
+    let dia = /^\d{4}-\d{2}-\d{2}$/.test(params.get('dia') ?? '') ? params.get('dia') : null; // veio do gráfico do Início: filtra na primeira abertura
+    const montar = { vender: abaVender, vendas: (e, o) => { const filtro = dia; dia = null; return abaLista(e, { ...o, orcamentos: false, dia: filtro }); }, orcamentos: (e, o) => abaLista(e, { ...o, orcamentos: true }), caixa: abaCaixa, relatorios: abaRelatorios, servicos: abaServicos, ajustes: abaAjustes };
     const trocar = async (id) => {
       const g = ++geracao;
       sair?.(); sair = null;
