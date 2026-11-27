@@ -25,7 +25,8 @@ destino="$PASTA/wms-$carimbo.dump.enc"
 sudo -u postgres pg_dump --format=custom "$BANCO" | openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:BACKUP_SENHA -out "$destino.tmp"
 mv "$destino.tmp" "$destino"
 # confere que o arquivo abre e é um dump válido (lista o conteúdo sem restaurar)
-openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_SENHA -in "$destino" | sudo -u postgres pg_restore --list > /dev/null
+# o `cat` consome o resto: o pg_restore --list para de ler cedo e, sem isso, o openssl às vezes falhava ("error writing output file") num backup bom
+openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_SENHA -in "$destino" | sudo -u postgres bash -c 'pg_restore --list > /dev/null; r=$?; cat > /dev/null; exit $r'
 echo "Backup do PostgreSQL salvo e conferido: $destino ($(stat -c %s "$destino") bytes)"
 
 # mantém só os últimos $MANTER
