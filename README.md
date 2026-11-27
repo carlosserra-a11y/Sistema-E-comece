@@ -26,7 +26,7 @@ npm test               # testes de segurança, estoque, código de barras e cont
 
 | Área | Entregue |
 |---|---|
-| Acesso | login por **e-mail (Gmail) + senha** e, para quem tem e-mail confirmado, um **código de 6 dígitos enviado ao e-mail a cada login** (2ª etapa, sem QR Code); quem cria a conta fica sem nenhuma permissão até o dono liberar; senha scrypt+pepper, sessão rotacionada, CSRF + Origin, bloqueio progressivo (10 tentativas), reautenticação, lista/revogação de sessões, auditoria encadeada por hash |
+| Acesso | login por **e-mail (Gmail, Hotmail, Outlook…) + senha** e, para quem tem e-mail confirmado, um **código de 6 dígitos enviado ao e-mail a cada login** (2ª etapa, sem QR Code); quem cria a conta digita a senha duas vezes e só entra com o código de liberação enviado ao e-mail dos donos (entra como Vendedor); senha scrypt+pepper, sessão rotacionada, CSRF + Origin, bloqueio progressivo (10 tentativas), reautenticação, lista/revogação de sessões, auditoria encadeada por hash |
 | Cadastros | produtos (versão otimista), fornecedores (CNPJ/CPF cifrado), códigos de barras validados, importação/exportação CSV com prévia e proteção contra injeção de fórmula |
 | **Etiquetagem** | **gerador de EAN-13 interno** (prefixo 20, dígito verificador GS1), geração em lote para quem não tem código, etiquetas 40×25, 50×30, 100×50 e 100×150 mm em SVG (impressão pelo navegador) e **ZPL** (Zebra), Code 128, EAN-13/8, UPC-A e **QR Code** |
 | **Reconhecimento** | leitura universal: produto (UPC-A = EAN-13 com zero), endereço, lote; ignora CR/LF, prefixo AIM, travessão tipográfico, minúsculas; avisa leitura com dígito errado; câmera (BarcodeDetector) ou leitor USB/Bluetooth |

@@ -94,7 +94,7 @@ Enquanto isso não for feito, a tela de entrada **não mostra "Criar conta"** (o
 3. Faça um **Redeploy**. Entre como dono → **Configurações → E-mail da conta**, vincule o seu Gmail e toque em **Enviar e-mail de teste para mim**.
 
 - A senha de app fica **só na Vercel** (e no seu gerenciador de senhas): nunca no GitHub nem no Obsidian.
-- Por padrão só `@gmail.com` pode criar conta. Para liberar outros provedores: `EMAIL_DOMINIOS=gmail.com,outlook.com` (ou `*` para qualquer um).
+- Podem criar conta: Gmail, Hotmail, Outlook, Live, Yahoo e iCloud. Para mudar a lista: `EMAIL_DOMINIOS=gmail.com,suaempresa.com.br` (ou `*` para qualquer um). Toda conta nova depende do **código que chega no seu e-mail**.
 
 **Entrada do dono (desenvolvedor):** a variável `DONO_EMAIL` (na Vercel) liga o *seu* Gmail à conta de dono, com todas as permissões. Na tela de entrada você digita só o e-mail, **deixa a senha em branco**, e o código de 6 dígitos chega na sua caixa de entrada. Proteja esse Gmail com a verificação em duas etapas do Google, porque ele passa a ser a chave do sistema. Se o envio de e-mail cair e você ficar sem conseguir entrar: entre com o código de 11 dígitos + a senha provisória do arquivo de segredos, ou crie `LOGIN_CODIGO=0` na Vercel e faça um Redeploy (apague depois).
 

@@ -8,7 +8,7 @@ Para o dia a dia do galpão (etiquetar, receber, contar) veja também [OPERACAO.
 2. **Login:** os 11 dígitos que estão no seu arquivo de segredos (conta do dono). **Senha:** a provisória do mesmo arquivo. Quem criou conta pelo e-mail usa o próprio Gmail.
 3. **Nova senha:** o sistema pede para trocar. Use 8 ou mais caracteres; uma frase longa funciona bem ("cafe-quente-na-janela" serve). Não use senhas óbvias como 12345678.
 4. **Código no e-mail:** se a sua conta tem e-mail confirmado, a cada login chega um código de 6 dígitos (vale 10 minutos); digite para entrar. Não há QR Code nem aplicativo autenticador.
-5. **Criar conta (para a equipe):** na tela de entrada, toque em **Criar conta**, digite nome, Gmail e uma senha de 8 ou mais caracteres. O sistema manda um **código de 6 dígitos** para o seu e-mail (vale 10 minutos); digite para confirmar. Depois o dono precisa **liberar o seu acesso**.
+5. **Criar conta (para a equipe):** na tela de entrada, toque em **Criar conta**, digite nome, e-mail (Gmail, Hotmail, Outlook…), a senha e a senha de novo, e confirme. Um **código de 6 dígitos** vai para o e-mail dos **donos**; um deles passa o código (vale 30 minutos). Com ele a pessoa entra como **Vendedor de balcão**; mude as funções em **Equipe**.
 6. Pronto: você cai na tela **Início**.
 
 Dica: com a aba aberta o sistema **não desconecta** (dá para ficar bipando por horas); ele só pede o login de novo depois que você fecha a aba ou o navegador. Para ações sensíveis (ajustar estoque, aprovar contagem, mexer na equipe) ele pede a senha de novo — é proposital.

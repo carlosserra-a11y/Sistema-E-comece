@@ -17,7 +17,7 @@ export async function renderizar(el, { sessao }) {
   const pintarStatus = (email, ok) => limpar(status).append(email ? [h('span', { class: 'mono' }, email), badge(ok ? 'confirmado' : 'não confirmado', ok ? 'ok' : 'aviso')] : badge('sem e-mail', 'aviso'));
   pintarStatus(u?.email, u?.email_verificado);
   const caixaEmail = h('div', { class: 'stack' });
-  const novoEmail = entrada({ inputmode: 'email', autocomplete: 'email', autocapitalize: 'none', placeholder: 'voce@gmail.com' });
+  const novoEmail = entrada({ inputmode: 'email', autocomplete: 'email', autocapitalize: 'none', placeholder: 'seuemail@gmail.com' });
   const pedirCodigo = async () => {
     const para = novoEmail.value.trim();
     try { await api.post('/api/conta/email', { email: para }); } catch (e) { return tratar(e); }
@@ -33,7 +33,7 @@ export async function renderizar(el, { sessao }) {
   };
   const emailSec = sec('E-mail da conta', status,
     sessao.cadastro_disponivel
-      ? [campo('Novo e-mail (Gmail)', novoEmail), h('button', { class: 'btn', onclick: pedirCodigo }, icone('mail', 18), 'Enviar código de confirmação'), caixaEmail]
+      ? [campo('Novo e-mail', novoEmail), h('button', { class: 'btn', onclick: pedirCodigo }, icone('mail', 18), 'Enviar código de confirmação'), caixaEmail]
       : h('p', { class: 'muted' }, 'O envio de e-mail ainda não foi ligado pelo dono do sistema.'),
     u?.dono && sessao.cadastro_disponivel ? h('button', { class: 'btn fantasma', onclick: async () => { try { await api.post('/api/email/testar', {}); toast('E-mail de teste enviado para você.', 'ok'); } catch (e) { tratar(e); } } }, 'Enviar e-mail de teste para mim') : null);
 

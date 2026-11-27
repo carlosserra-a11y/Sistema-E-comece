@@ -21,6 +21,15 @@ export function criarEmail(cfg) {
   return { configurado: true, modo: 'smtp', caixa: [], enviar: async ({ para, assunto, texto }) => { await pegar().sendMail({ from: e.de || e.smtp.user, to: para, subject: assunto, text: texto }); } };
 }
 
+/** Pedido de conta nova: vai só para os donos. O nome é digitado por quem pede: só entram letras, números, espaço, apóstrofo e hífen. */
+export function mensagemAprovacao({ nome, emailNovo, codigo, minutos, appName }) {
+  const limpo = String(nome).replace(/[^\p{L}\p{M}\p{N} '’-]+/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || '(sem nome)';
+  return {
+    assunto: `${codigo} libera a conta de ${limpo}`,
+    texto: `Pedido de conta nova no ${appName}.\n\nNome: ${limpo}\nE-mail: ${emailNovo}\n\nCódigo para liberar:\n\n    ${codigo}\n\nPasse este código SOMENTE se você conhece a pessoa e quer que ela entre como Vendedor de balcão: vender, usar o próprio caixa, cadastrar clientes e separar pedidos. O acesso vale na hora; para mudar ou tirar, abra Equipe.\n\nO código vale por ${minutos} minutos e só pode ser usado uma vez. Não reconhece o pedido? Não faça nada: sem o código a conta não é criada.\n`,
+  };
+}
+
 /** Texto do e-mail com o código. Curto, em português, sem links (nada para clicar e ser enganado). */
 export function mensagemCodigo({ nome, codigo, minutos, appName }) {
   return {
@@ -85,6 +94,11 @@ export async function garantirDonosExtras(cfg, db, log) {
     const u = await db.get('SELECT id, dono, ativo, email_verificado FROM users WHERE email_hmac = ?', chave);
     if (u) {
       if (!u.dono || !u.ativo || !u.email_verificado) { await db.run("UPDATE users SET dono = 1, ativo = 1, email_verificado = 1, papel = 'admin' WHERE id = ?", u.id); feitos++; }
+      if (!u.dono) {
+        // virou dono agora: a senha e as sessões de antes podem ser de quem só digitou este e-mail no cadastro. Dono entra pelo código no e-mail.
+        await db.run('UPDATE users SET senha_hash = ?, trocar_senha = 0, cod_hash = NULL, cod_expira = NULL, cod_tentativas = 0, cod_enviado_em = NULL WHERE id = ?', await hashSenha(cfg, gerarSenhaForte(24)), u.id);
+        await db.run('UPDATE sessions SET revogada_em = ? WHERE user_id = ? AND revogada_em IS NULL', cfg.agora(), u.id);
+      }
       continue;
     }
     const nome = String(item?.nome ?? '').trim().slice(0, 80) || e.exibicao.split('@')[0];

@@ -1,5 +1,5 @@
 // Telas de acesso, no layout do componente "sign-in-page": dois painéis iguais (arte à esquerda, formulário branco à direita).
-// Entrar, criar conta, código de 6 dígitos (confirmar e-mail / 2ª etapa), trocar a senha provisória e aguardar a liberação do dono.
+// Entrar, criar conta (o código de liberação vai aos donos), código de 6 dígitos da 2ª etapa, trocar a senha provisória e aguardar liberação.
 // Não existe QR Code. A conta de desenvolvedor entra só com e-mail + código (senha em branco).
 import { h, limpar, api, icone, ApiError } from './core.js';
 
@@ -58,6 +58,7 @@ function campoLg(rotulo, conteudo, ajuda) {
   alvo.id ||= `lg-${++seqId}`;
   return h('div', { class: 'lg-campo' }, h('label', { for: alvo.id }, rotulo), conteudo, ajuda && h('p', { class: 'lg-ajuda' }, ajuda));
 }
+const SENHAS_DIFERENTES = 'Digite a mesma senha nos dois campos.';
 const entradaLg = (props = {}) => h('input', { type: 'text', autocomplete: 'off', ...props });
 
 function medidor(input) {
@@ -98,7 +99,7 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
   function login() {
     definirVoltar(null);
     const lembrado = lerLocal('lembrar-email');
-    const l = entradaLg({ name: 'login', autocomplete: 'username', autofocus: true, autocapitalize: 'none', spellcheck: 'false', placeholder: comCadastro ? 'voce@gmail.com' : 'Código de acesso', value: lembrado });
+    const l = entradaLg({ name: 'login', autocomplete: 'username', autofocus: true, autocapitalize: 'none', spellcheck: 'false', placeholder: comCadastro ? 'seuemail@gmail.com' : 'Código de acesso', value: lembrado });
     const s = senhaLg({ name: 'senha' });
     const lembrar = h('input', { type: 'checkbox', name: 'lembrar', checked: !!lembrado });
     const erro = h('p', { class: 'lg-erro', role: 'alert' });
@@ -154,24 +155,34 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
   function criar() {
     definirVoltar(login);
     const nome = entradaLg({ autocomplete: 'name', autofocus: true, maxlength: 80, placeholder: 'Seu nome' });
-    const email = entradaLg({ autocomplete: 'email', inputmode: 'email', autocapitalize: 'none', spellcheck: 'false', placeholder: 'voce@gmail.com' });
+    const email = entradaLg({ autocomplete: 'email', inputmode: 'email', autocapitalize: 'none', spellcheck: 'false', placeholder: 'seuemail@hotmail.com' });
     const s = senhaLg({ autocomplete: 'new-password' });
+    const s2 = senhaLg({ autocomplete: 'new-password', placeholder: 'A mesma senha de novo' });
+    const iguais = h('p', { class: 'lg-ajuda', role: 'status' });
+    const comparar = () => {
+      const ok = s.input.value === s2.input.value;
+      iguais.textContent = !s2.input.value ? '' : ok ? '✓ As senhas são iguais.' : 'As senhas ainda não são iguais.';
+      if (ok && erro.textContent === SENHAS_DIFERENTES) erro.textContent = ''; // já corrigiu: o aviso antigo sai
+      return ok;
+    };
+    s.input.addEventListener('input', comparar); s2.input.addEventListener('input', comparar);
     const erro = h('p', { class: 'lg-erro', role: 'alert' });
-    const btn = h('button', { class: 'lg-preto', type: 'submit' }, 'Criar conta');
+    const btn = h('button', { class: 'lg-preto', type: 'submit' }, 'Confirmar');
     limpar(caixa).append(
       cabecalho('Criar conta', 'Já tem uma conta? ', h('button', { class: 'lg-link', type: 'button', onclick: login }, 'Entrar')),
       h('form', { class: 'lg-form', onsubmit: async (e) => {
         e.preventDefault(); btn.disabled = true; erro.textContent = '';
         const senha = s.input.value;
+        if (!comparar() || !s2.input.value) { erro.textContent = SENHAS_DIFERENTES; btn.disabled = false; s2.input.focus(); return; }
         try {
-          await api.post('/api/cadastro', { nome: nome.value.trim(), email: email.value.trim(), senha });
+          await api.post('/api/cadastro', { nome: nome.value.trim(), email: email.value.trim(), senha, confirmacao: s2.input.value });
           confirmarEmail({ email: email.value.trim(), senha, enviado: true });
         } catch (x) { erro.textContent = msg(x); btn.disabled = false; }
-      } }, campoLg('Nome', nome), campoLg('E-mail (Gmail)', email, 'Vamos mandar um código de confirmação para ele.'), campoLg('Senha', s.el), medidor(s.input), erro, btn,
-      h('p', { class: 'lg-ajuda' }, 'Depois de confirmar o e-mail, o dono do sistema precisa liberar o seu acesso.')));
+      } }, campoLg('Nome', nome), campoLg('E-mail', email, 'Gmail, Hotmail, Outlook, Yahoo ou iCloud. Confira: é com ele que você vai entrar.'), campoLg('Senha', s.el), medidor(s.input), campoLg('Repita a senha', s2.el), iguais, erro, btn,
+      h('p', { class: 'lg-ajuda' }, 'Ao confirmar, um código de liberação vai para o e-mail dos donos do sistema. Peça o código a um deles.')));
   }
 
-  /** Tela do código de 6 dígitos. modo 'cadastro' confirma o e-mail novo; modo 'login' é a 2ª etapa (`email` vem mascarado). */
+  /** Tela do código de 6 dígitos. modo 'cadastro' usa o código que os donos receberam; modo 'login' é a 2ª etapa (`email` vem mascarado). */
   function confirmarEmail({ email, senha, enviado, modo = 'cadastro' }) {
     const doLogin = modo === 'login';
     definirVoltar(async () => { clearInterval(relogio); if (doLogin) await api.post('/api/logout').catch(() => {}); login(); });
@@ -179,21 +190,21 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
     const erro = h('p', { class: 'lg-erro', role: 'alert' });
     const aviso = h('p', { class: 'lg-aviso', role: 'status' });
     const reenviar = h('button', { class: 'lg-link pequeno', type: 'button' });
-    const btn = h('button', { class: 'lg-preto', type: 'submit' }, doLogin ? 'Entrar' : 'Confirmar e entrar');
+    const btn = h('button', { class: 'lg-preto', type: 'submit' }, doLogin ? 'Entrar' : 'Criar minha conta');
     let espera = enviado ? 60 : 0; // o servidor só reenvia depois de 60 s
-    const pintar = () => { reenviar.disabled = espera > 0; reenviar.textContent = espera > 0 ? `Reenviar código (${espera} s)` : 'Reenviar código'; };
+    const pintar = () => { reenviar.disabled = espera > 0; const rotulo = doLogin ? 'Reenviar código' : 'Mandar outro código aos donos'; reenviar.textContent = espera > 0 ? `${rotulo} (${espera} s)` : rotulo; };
     const relogio = setInterval(() => { if (!document.body.contains(reenviar)) return clearInterval(relogio); if (espera > 0) { espera -= 1; pintar(); } }, 1000);
     pintar();
     reenviar.addEventListener('click', async () => {
       erro.textContent = ''; reenviar.disabled = true;
-      try { await (doLogin ? api.post('/api/login/codigo/reenviar') : api.post('/api/cadastro/reenviar', { email })); aviso.textContent = 'Enviamos um código novo. Confira também o spam.'; espera = 60; }
+      try { await (doLogin ? api.post('/api/login/codigo/reenviar') : api.post('/api/cadastro/reenviar', { email })); aviso.textContent = doLogin ? 'Enviamos um código novo. Confira também o spam.' : 'Enviamos um código novo aos donos.'; espera = 60; }
       catch (x) { erro.textContent = x.message; espera = x.retryAfterS ?? 60; }
       pintar();
     });
     limpar(caixa).append(
       doLogin
         ? cabecalho('Digite o código', enviado ? `Para sua segurança, enviamos um código de 6 dígitos para ${email}. Ele vale por 10 minutos.` : `Digite o código que enviamos para ${email}. Se não chegou, peça um novo.`)
-        : cabecalho('Confirme seu e-mail', enviado ? `Enviamos um código de 6 dígitos para ${email}. Ele vale por 10 minutos.` : `O e-mail ${email} ainda não foi confirmado. Peça um código novo e digite aqui.`),
+        : cabecalho('Código de liberação', enviado ? `Enviamos um código de 6 dígitos aos donos do sistema. Peça a um deles e digite aqui. Vale por 30 minutos. Sua conta: ${email}` : `A conta ${email} ainda não foi liberada. Peça um código novo: ele vai para os donos do sistema.`),
       h('form', { class: 'lg-form', onsubmit: async (e) => {
         e.preventDefault(); btn.disabled = true; erro.textContent = '';
         try {
@@ -203,7 +214,7 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
             if (r.estagio === 'TROCAR_SENHA') trocarSenha(senha); else aoEntrar();
           } else { await api.post('/api/cadastro/confirmar', { email, codigo: c.value.trim(), senha }); clearInterval(relogio); aoEntrar(); }
         } catch (x) { erro.textContent = msg(x); btn.disabled = false; c.select(); }
-      } }, campoLg('Código de 6 dígitos', c, 'Não achou? Olhe a caixa de spam ou promoções.'), erro, aviso, btn),
+      } }, campoLg('Código de 6 dígitos', c, doLogin ? 'Não achou? Olhe a caixa de spam ou promoções.' : 'O código chega no e-mail dos donos, não no seu.'), erro, aviso, btn),
       h('div', { class: 'lg-linha' }, reenviar));
   }
 

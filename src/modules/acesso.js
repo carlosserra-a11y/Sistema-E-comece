@@ -99,7 +99,7 @@ export function registrarAcesso(app, { cfg, db, email, log }) {
     }
     // senha certa, mas o e-mail do cadastro ainda não foi confirmado: pede o código (sem abrir sessão)
     if (id.tipo === 'email' && !user.email_verificado) {
-      throw Object.assign(erro(403, 'EMAIL_NAO_CONFIRMADO', 'Confirme o seu e-mail com o código que enviamos.'), { etapa: 'CONFIRMAR_EMAIL' });
+      throw Object.assign(erro(403, 'EMAIL_NAO_CONFIRMADO', 'Sua conta ainda não foi liberada. O código de liberação vai para o e-mail dos donos do sistema.'), { etapa: 'CONFIRMAR_EMAIL' });
     }
     const comCodigo = exigeCodigo(user);
     if (comCodigo) await enviarCodigoLogin(user); // antes de abrir a sessão: se o e-mail falhar, nada fica aberto
@@ -176,7 +176,7 @@ export function registrarAcesso(app, { cfg, db, email, log }) {
     limitar(`reauth:${ctx.sessao.id}`, TENTATIVAS_MAX, 5 * 60_000);
     const { senha, codigo } = validar(ctx.corpo, { senha: T({ min: 1, max: 1024 }), codigo: T({ min: 1, max: 12 }) });
     const u = await usuario(ctx.user.id);
-    if (codigo) await conferirCodigo(u, codigo);
+    if (codigo) await conferirCodigo(u, codigo, { finalidade: 'reauth|' });
     else if (!senha || !(await verificarSenha(cfg, senha, u.senha_hash))) {
       await tx(db, async (db) => await auditar(db, ctx, 'REAUTENTICACAO_FALHA', 'user', ctx.user.id));
       throw erro(401, 'CREDENCIAIS', 'Senha incorreta.');
@@ -193,7 +193,7 @@ export function registrarAcesso(app, { cfg, db, email, log }) {
     limitar(`reauthcod:${ctx.sessao.id}`, 10, 10 * 60_000);
     const u = await usuario(ctx.user.id);
     if (!u.email_enc || !u.email_verificado || !email.configurado) throw erro(409, 'SEM_EMAIL', 'Esta conta não tem e-mail confirmado para receber o código.');
-    await emitirCodigo(u, decifrar(cfg.fieldKey, u.email_enc), u.nome);
+    await emitirCodigo(u, decifrar(cfg.fieldKey, u.email_enc), u.nome, { finalidade: 'reauth|' });
     return { enviado: true, minutos: VALIDADE_MIN, email: mascararEmail(decifrar(cfg.fieldKey, u.email_enc)) };
   });
 

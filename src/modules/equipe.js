@@ -66,6 +66,10 @@ export function registrarEquipe(app, { cfg, db }) {
     return u;
   };
   const naoDono = (u) => { if (u.dono) throw conflito('DONO', 'A conta do dono não pode ser alterada por aqui.'); };
+  // pedido de conta ainda sem o código: mudar função ou senha por aqui deixaria a pessoa presa na tela do código
+  const comCodigo = (u) => {
+    if (u.papel === 'pendente' && !u.email_verificado && u.email_hmac) throw conflito('SEM_CODIGO', 'Esta conta ainda não foi liberada: passe à pessoa o código que chegou no seu e-mail, ou exclua a conta.');
+  };
   const revogarTodas = async (db, id) => { await db.run('UPDATE sessions SET revogada_em = ? WHERE user_id = ? AND revogada_em IS NULL', cfg.agora(), id); };
 
   rota('POST', '/api/equipe/:id/excluir', { reauth: true }, async (ctx) => await excluirConta(db, ctx, Number(ctx.params.id)));
@@ -97,6 +101,7 @@ export function registrarEquipe(app, { cfg, db }) {
     return await tx(db, async (db) => {
       const u = await pessoa(db, Number(ctx.params.id));
       naoDono(u);
+      comCodigo(u);
       await db.run('UPDATE users SET nome = ?, papel = ?, permissoes = ? WHERE id = ?', d.nome, papel, JSON.stringify(permissoes), u.id);
       await auditar(db, ctx, 'EQUIPE_ALTERADA', 'user', u.id, { de: limparPermissoes(JSON.parse(u.permissoes || '[]')), para: permissoes, papel });
       return publico(await pessoa(db, u.id));
@@ -120,6 +125,7 @@ export function registrarEquipe(app, { cfg, db }) {
     return await tx(db, async (db) => {
       const u = await pessoa(db, Number(ctx.params.id));
       naoDono(u);
+      comCodigo(u);
       await db.run('UPDATE users SET senha_hash = ?, trocar_senha = 1, senha_alterada_em = ? WHERE id = ?', hash, cfg.agora(), u.id);
       await revogarTodas(db, u.id);
       if (u.login_enc) await db.run('DELETE FROM login_tentativas WHERE chave_hmac = ?', chaveLogin(cfg, decifrar(cfg.fieldKey, u.login_enc))); // tira o bloqueio por tentativas

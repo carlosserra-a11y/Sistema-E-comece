@@ -12,6 +12,18 @@ Como usar o sistema, do primeiro acesso ao fechamento do dia. Cada tarefa em pou
 
 No celular: abra no Chrome ou Safari e escolha **Adicionar à tela inicial**.
 
+### Criar uma conta nova (pessoa da equipe)
+
+1. Na tela de entrada, **Criar conta**.
+2. Nome, e-mail (Gmail, Hotmail, Outlook, Yahoo ou iCloud), **senha** e **repita a senha**. Toque em **Confirmar**.
+3. Um **código de 6 dígitos** chega no e-mail dos **três donos**. Peça a um deles.
+4. Digite o código e **Criar minha conta**. A pessoa já entra como **Vendedor de balcão**.
+
+- **Dono:** passe o código só para quem você conhece. Sem o código, a conta não é criada. Para mudar ou tirar o acesso: **Equipe**.
+- O código vale 30 minutos. Venceu? **Mandar outro código aos donos**.
+- Não reconhece o pedido? Não passe o código. Em **Equipe** dá para excluir a conta que está aguardando.
+- Confira o e-mail digitado: é para ele que vai o código de cada entrada. Digitou errado? O dono exclui a conta e a pessoa cria de novo.
+
 ## A tela Início
 
 Cada quadro leva ao lugar dele (a setinha no canto mostra o que é clicável):

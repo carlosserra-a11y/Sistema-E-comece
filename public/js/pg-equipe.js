@@ -31,16 +31,18 @@ export async function renderizar(el) {
   }
 
   function cartao(u) {
-    const acoes = u.dono ? [h('span', { class: 'muted' }, 'Conta principal: acesso total, não pode ser alterada.')] : [
+    const semCodigo = u.pendente && !u.email_verificado; // pediu a conta e ainda não digitou o código dos donos
+    const botaoExcluir = () => h('button', { class: 'btn pequeno perigo', onclick: () => excluir(u) }, icone('trash', 16), 'Excluir conta');
+    const acoes = u.dono ? [h('span', { class: 'muted' }, 'Conta principal: acesso total, não pode ser alterada.')] : semCodigo ? [h('span', { class: 'muted quebra' }, 'Para liberar, passe à pessoa o código que chegou no e-mail dos donos.'), botaoExcluir()] : [
       h('button', { class: `btn pequeno ${u.pendente ? 'primario' : ''}`, onclick: () => editar(u) }, icone('edit', 16), u.pendente ? 'Liberar acesso' : 'Permissões'),
       h('button', { class: 'btn pequeno', onclick: () => agir(u, 'redefinir-senha', 'Redefinir a senha?', `${u.nome} será desconectada de todos os aparelhos e precisará usar a nova senha provisória.`, true) }, 'Redefinir senha'),
       u.ativo ? h('button', { class: 'btn pequeno', onclick: () => agir(u, 'desativar', 'Desativar acesso?', `${u.nome} perde o acesso agora e é desconectada de todos os aparelhos. Você pode reativar depois.`) }, 'Desativar')
         : h('button', { class: 'btn pequeno', onclick: () => agir(u, 'reativar', 'Reativar acesso?', `${u.nome} volta a poder entrar com a senha que já tinha.`) }, 'Reativar'),
-      h('button', { class: 'btn pequeno perigo', onclick: () => excluir(u) }, icone('trash', 16), 'Excluir conta'),
+      botaoExcluir(),
     ];
     return h('section', { class: `card pessoa ${u.ativo ? '' : 'inativa'}` },
       h('div', { class: 'row' }, h('span', { class: 'avatar', 'aria-hidden': 'true' }, u.nome.slice(0, 1).toUpperCase()), h('div', { class: 'grow' }, h('strong', null, u.nome), h('div', { class: 'muted' }, rotuloPapel(u)))),
-      h('div', { class: 'chips' }, u.dono ? badge('Acesso total', 'info') : u.pendente ? badge('Aguardando liberação', 'aviso') : badge(u.ativo ? 'Ativo' : 'Desativado', u.ativo ? 'ok' : 'erro'),
+      h('div', { class: 'chips' }, u.dono ? badge('Acesso total', 'info') : u.pendente ? badge(semCodigo ? 'Aguardando o código' : 'Aguardando liberação', 'aviso') : badge(u.ativo ? 'Ativo' : 'Desativado', u.ativo ? 'ok' : 'erro'),
         !u.pendente && badge(temFin(u) ? 'Vê o financeiro' : 'Sem financeiro', temFin(u) ? 'aviso' : ''), u.email ? badge(u.email_verificado ? 'E-mail confirmado' : 'E-mail não confirmado', u.email_verificado ? 'ok' : 'aviso') : u.trocar_senha ? badge('Aguardando 1º acesso', 'aviso') : null),
       !u.dono && h('p', { class: 'muted quebra' }, `${u.pendente ? 'Sem nenhuma permissão ainda' : `${u.permissoes.length} permissão(ões)`}${u.email ? ` · ${u.email}` : ''}${u.login ? ` · login ${formatarLogin(u.login)}` : ''} · criada em ${fmt.dataHora(u.criado_em)}`),
       h('div', { class: 'row' }, acoes));
@@ -86,7 +88,7 @@ export async function renderizar(el) {
       try {
         const r = u ? await api.put(`/api/equipe/${u.id}`, corpo) : await api.post('/api/equipe', corpo);
         g.fechar(); listar();
-        if (u?.pendente) toast(`Acesso de ${u.nome} liberado. Vale na próxima ação dela.`, 'ok', 6000); else if (u) toast('Permissões atualizadas. Valem na próxima ação da pessoa.', 'ok', 6000); else mostrarCredenciais(r, 'Pessoa cadastrada');
+        if (u?.pendente) toast(`Acesso de ${u.nome} liberado. Vale na próxima ação.`, 'ok', 6000); else if (u) toast('Permissões atualizadas. Valem na próxima ação da pessoa.', 'ok', 6000); else mostrarCredenciais(r, 'Pessoa cadastrada');
       } catch (x) { erro.textContent = x.campos ? Object.values(x.campos).join(' ') : x.message; }
     } }, campo('Nome', nome), campo('Modelo de acesso', seletor, { ajuda: 'Escolha um modelo e ajuste item por item se quiser.' }), novidades, grupos, erro,
     h('div', { class: 'row' }, h('button', { class: 'btn primario', type: 'submit' }, u?.pendente ? 'Liberar acesso' : u ? 'Salvar permissões' : 'Cadastrar e gerar senha'), h('button', { class: 'btn', type: 'button', onclick: () => g.fechar() }, 'Cancelar')));

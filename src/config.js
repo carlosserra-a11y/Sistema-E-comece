@@ -88,7 +88,7 @@ export function loadConfig(overrides = {}) {
       transporte: !prod && env.EMAIL_TRANSPORTE === 'memoria' ? 'memoria' : 'smtp',
       smtp: env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS ? { host: env.SMTP_HOST, port: Number(env.SMTP_PORT || 465), user: env.SMTP_USER, pass: env.SMTP_PASS } : null,
       de: env.EMAIL_DE || (env.SMTP_USER ? `"${env.APP_NAME || 'Carlos Desenvolvedor de Sistema'}" <${env.SMTP_USER}>` : ''),
-      dominios: (env.EMAIL_DOMINIOS || 'gmail.com,googlemail.com').toLowerCase().split(',').map((x) => x.trim()).filter(Boolean), // '*' libera qualquer e-mail
+      dominios: (env.EMAIL_DOMINIOS || 'gmail.com,googlemail.com,hotmail.com,hotmail.com.br,outlook.com,outlook.com.br,live.com,yahoo.com,yahoo.com.br,icloud.com').toLowerCase().split(',').map((x) => x.trim()).filter(Boolean), // '*' libera qualquer e-mail
     },
     loginCodigo: env.LOGIN_CODIGO !== '0', // código por e-mail a cada login (2ª etapa). LOGIN_CODIGO=0 desliga (emergência: e-mail fora do ar)
     donoEmail: (env.DONO_EMAIL || '').trim(), // e-mail da conta de dono (desenvolvedor): vinculado e confirmado na partida; entra só com o código do e-mail
