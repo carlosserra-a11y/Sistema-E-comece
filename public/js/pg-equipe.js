@@ -1,4 +1,4 @@
-// Equipe e permissões: só o dono entra aqui. Ele cadastra pessoas, escolhe o que cada uma pode fazer (inclusive o financeiro) e pode
+// Equipe e permissões: só dono ou desenvolvedor entra aqui. Ele cadastra pessoas, escolhe o que cada uma pode fazer (inclusive o financeiro) e pode
 // desativar ou redefinir a senha, e libera o acesso de quem criou a conta sozinho pelo e-mail. Tudo é conferido de novo no servidor; esta tela é só o painel de controle.
 import { h, limpar, api, carregar, icone, badge, toast, tratar, gaveta, modal, confirmar, campo, copiar, fmt, vazio } from './core.js';
 
@@ -18,10 +18,10 @@ function mostrarCredenciais(p, titulo) {
 export async function renderizar(el) {
   const alvo = h('div', { class: 'stack' });
   let catalogo;
-  el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Equipe e permissões'), h('p', null, 'Só você, dono do sistema, escolhe quem entra e o que cada pessoa pode fazer.')),
+  el.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Equipe e permissões'), h('p', null, 'Só donos e desenvolvedor escolhem quem entra e o que cada pessoa pode fazer.')),
     h('button', { class: 'btn primario', 'data-novo': true, onclick: () => editar(null) }, icone('plus'), 'Adicionar pessoa')), alvo);
 
-  const rotuloPapel = (u) => (u.dono ? 'Dono' : u.pendente ? 'Criou a conta pelo e-mail' : catalogo.papeis[u.papel]?.rotulo ?? 'Personalizado');
+  const rotuloPapel = (u) => (u.desenvolvedor ? 'Desenvolvedor' : u.dono ? 'Dono' : u.pendente ? 'Criou a conta pelo e-mail' : catalogo.papeis[u.papel]?.rotulo ?? 'Personalizado');
   const temFin = (u) => u.dono || u.permissoes?.includes('financeiro.ver');
 
   async function listar() {
@@ -33,7 +33,7 @@ export async function renderizar(el) {
   function cartao(u) {
     const semCodigo = u.pendente && !u.email_verificado; // pediu a conta e ainda não digitou o código dos donos
     const botaoExcluir = () => h('button', { class: 'btn pequeno perigo', onclick: () => excluir(u) }, icone('trash', 16), 'Excluir conta');
-    const acoes = u.dono ? [h('span', { class: 'muted' }, 'Conta principal: acesso total, não pode ser alterada.')] : semCodigo ? [h('span', { class: 'muted quebra' }, 'Para liberar, passe à pessoa o código que chegou no e-mail dos donos.'), botaoExcluir()] : [
+    const acoes = u.dono ? [h('span', { class: 'muted' }, 'Acesso total. Esta conta não pode ser alterada por aqui.')] : semCodigo ? [h('span', { class: 'muted quebra' }, 'Para liberar, passe à pessoa o código que chegou no e-mail dos donos.'), botaoExcluir()] : [
       h('button', { class: `btn pequeno ${u.pendente ? 'primario' : ''}`, onclick: () => editar(u) }, icone('edit', 16), u.pendente ? 'Liberar acesso' : 'Permissões'),
       h('button', { class: 'btn pequeno', onclick: () => agir(u, 'redefinir-senha', 'Redefinir a senha?', `${u.nome} será desconectada de todos os aparelhos e precisará usar a nova senha provisória.`, true) }, 'Redefinir senha'),
       u.ativo ? h('button', { class: 'btn pequeno', onclick: () => agir(u, 'desativar', 'Desativar acesso?', `${u.nome} perde o acesso agora e é desconectada de todos os aparelhos. Você pode reativar depois.`) }, 'Desativar')

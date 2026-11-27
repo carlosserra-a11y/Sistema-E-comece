@@ -7,7 +7,7 @@ Como usar o sistema, do primeiro acesso ao fechamento do dia. Cada tarefa em pou
 ## 1. Entrar
 
 1. Abra `https://friospecaseservicos.com.br` no computador ou no celular.
-2. Digite seu e-mail e senha (ou toque em **Código por e-mail**).
+2. Digite seu e-mail e senha. **Donos e desenvolvedor** não precisam de senha: digite só o e-mail e toque em **Entrar só com e-mail** (um código chega na caixa de entrada).
 3. Se chegar um código de 6 dígitos no e-mail, digite-o.
 
 No celular: abra no Chrome ou Safari e escolha **Adicionar à tela inicial**.

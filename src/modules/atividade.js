@@ -1,6 +1,7 @@
 // "Equipe em ação": quem bipou, quem conferiu, quem expediu e quem estava no caixa, por período, mais a linha do tempo.
 import { invalido } from '../util.js';
 import { diaDaLoja, inicioDoDia } from './vendas-base.js';
+import { ehDesenvolvedor } from '../email.js';
 
 const MAX_DIAS = 92;
 const n = (x) => Number(x ?? 0);
@@ -22,10 +23,10 @@ export async function atividade(db, ctx, query) {
   const pid = query.pessoa === undefined || query.pessoa === '' ? null : Number(query.pessoa);
   if (pid !== null && (!Number.isInteger(pid) || pid < 1)) throw invalido({ pessoa: 'Pessoa inválida.' });
   const so = (coluna) => (pid ? ` AND ${coluna} = ?` : ''); const arg = pid ? [pid] : []; // filtra a linha do tempo no banco, antes do limite
-  const contas = await db.all('SELECT id, nome, dono, ativo, excluido_em FROM users ORDER BY LOWER(nome), id');
+  const contas = await db.all('SELECT id, nome, dono, email_hmac, ativo, excluido_em FROM users ORDER BY LOWER(nome), id');
   const nomes = new Map(contas.map((u) => [u.id, u.excluido_em ? `${u.nome} (excluída)` : u.nome])); // o histórico mantém o nome
   // todas as contas entram na soma; quem está sem acesso só aparece se fez algo no período ou ainda tem caixa aberto
-  const pessoas = new Map(contas.map((u) => [u.id, { id: u.id, nome: nomes.get(u.id), dono: !!u.dono, situacao: u.excluido_em ? 'excluída' : u.ativo ? null : 'desativada', bipagens: 0, unidades: 0, separacoes: 0, conferencias: 0, expedicoes: 0, vendas: 0, valor_centavos: 0, caixa_aberto: null }]));
+  const pessoas = new Map(contas.map((u) => [u.id, { id: u.id, nome: nomes.get(u.id), dono: !!u.dono, desenvolvedor: ehDesenvolvedor(ctx.cfg, u), situacao: u.excluido_em ? 'excluída' : u.ativo ? null : 'desativada', bipagens: 0, unidades: 0, separacoes: 0, conferencias: 0, expedicoes: 0, vendas: 0, valor_centavos: 0, caixa_aberto: null }]));
   const de = (id) => pessoas.get(id);
   for (const l of await db.all(`SELECT m.user_id, COUNT(*) AS c, SUM(ABS(m.delta)) AS u FROM movimentacoes_estoque m WHERE ${BIPAGENS} AND m.ts >= ? AND m.ts < ? GROUP BY m.user_id`, p.ini, p.fim)) if (de(l.user_id)) Object.assign(de(l.user_id), { bipagens: n(l.c), unidades: n(l.u) });
   const campo = { SEPARACAO: 'separacoes', CONFERENCIA: 'conferencias', EXPEDICAO: 'expedicoes' };

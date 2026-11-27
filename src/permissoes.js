@@ -6,9 +6,9 @@ export const GRUPOS = [
   { id: 'estoque', rotulo: 'Produtos e estoque', itens: [
     ['produtos.ver', 'Ver produtos (sem custo e preço)'], ['produtos.editar', 'Cadastrar e editar produtos e códigos de barras'],
     ['estoque.ver', 'Ver saldos, movimentações e onde está cada item'], ['estoque.operar', 'Receber, guardar, transferir, baixar e registrar avaria'],
-    ['estoque.ajustar', 'Corrigir quantidade no estoque (pede a senha)'], ['etiquetas.imprimir', 'Gerar e imprimir etiquetas'],
+    ['estoque.ajustar', 'Corrigir quantidade no estoque (pede confirmação)'], ['etiquetas.imprimir', 'Gerar e imprimir etiquetas'],
     ['enderecos.ver', 'Ver endereços e o mapa do galpão'], ['enderecos.gerenciar', 'Criar, bloquear e alterar endereços'],
-    ['contagem.operar', 'Fazer contagens de estoque'], ['contagem.aprovar', 'Aprovar contagens (ajusta o estoque; pede a senha)'],
+    ['contagem.operar', 'Fazer contagens de estoque'], ['contagem.aprovar', 'Aprovar contagens (ajusta o estoque; pede confirmação)'],
     ['fornecedores.ver', 'Ver fornecedores'], ['fornecedores.editar', 'Cadastrar e editar fornecedores'],
   ] },
   { id: 'vendas', rotulo: 'Vendas e integrações', itens: [
@@ -18,7 +18,7 @@ export const GRUPOS = [
   { id: 'balcao', rotulo: 'Balcão (venda presencial)', itens: [
     ['vendas.registrar', 'Vender no balcão, fazer orçamentos e operar o próprio caixa (vê o preço de venda)'],
     ['vendas.desconto', 'Dar desconto sem limite e mudar o preço na venda'],
-    ['vendas.cancelar', 'Cancelar venda concluída (pede a senha; devolve o estoque)'],
+    ['vendas.cancelar', 'Cancelar venda concluída (pede confirmação; devolve o estoque)'],
     ['vendas.gerenciar', 'Ver todas as vendas e caixas, fechar caixa de outra pessoa e ver relatórios'],
     ['vendas.configurar', 'Cadastrar a chave Pix, o limite de desconto e o cupom (somente o dono)'],
     ['clientes.ver', 'Ver clientes'], ['clientes.editar', 'Cadastrar e editar clientes'],

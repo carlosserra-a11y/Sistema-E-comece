@@ -73,7 +73,7 @@ function fTransferir(el) {
 function fAjustar(el) {
   const { s, cp, ce } = seletores(); const enviar = emissor();
   const e = ce('Endereço', 'origem'); const nova = h('input', { type: 'number', min: 0, step: 1, class: 'enorme', value: 0, 'aria-label': 'Quantidade correta' }); const motivo = h('input', { type: 'text', autocomplete: 'off', placeholder: 'Ex.: contagem física encontrou 2 a menos' });
-  el.append(linhaOp('Ajustar quantidade', h('div', { class: 'stack' }, h('p', { class: 'muted' }, 'Informe a quantidade CORRETA no endereço. Pede sua senha de novo e o motivo fica na auditoria.'), cp.el, e.el, campo('Quantidade correta', nova), campo('Motivo', motivo)), async () => {
+  el.append(linhaOp('Ajustar quantidade', h('div', { class: 'stack' }, h('p', { class: 'muted' }, 'Informe a quantidade CORRETA no endereço. Pede uma confirmação sua e o motivo fica na auditoria.'), cp.el, e.el, campo('Quantidade correta', nova), campo('Motivo', motivo)), async () => {
     const r = await enviar('/api/estoque/ajustar', { produto_id: exigir(s.produto, 'Escolha o produto.').id, endereco_id: exigir(s.origem, 'Escolha o endereço.').id, qtd_nova: Number(nova.value), motivo: motivo.value });
     return `Ajustado de ${r.de} para ${r.para} ✓`;
   }, 'Ajustar'));

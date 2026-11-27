@@ -79,7 +79,8 @@ export const estado = { csrf: null, sessao: null, aoExpirar: null, aoReautentica
 export const pode = (p) => !p || String(p).split(',').some((x) => estado.permissoes.has(x));
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID().replaceAll('-', '') : Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 32);
 
-async function chamar(metodo, url, corpo, { texto = false, idem = false, tentouReauth = false } = {}) {
+const ROTAS_DE_ENTRADA = /^\/api\/(login|login\/email|cadastro|cadastro\/reenviar|cadastro\/confirmar)$/;
+async function chamar(metodo, url, corpo, { texto = false, idem = false, tentouReauth = false, tentouCsrf = false } = {}) {
   const headers = {};
   if (corpo !== undefined) headers['Content-Type'] = texto ? 'text/csv' : 'application/json';
   if (estado.csrf) headers['X-CSRF-Token'] = estado.csrf;
@@ -91,6 +92,11 @@ async function chamar(metodo, url, corpo, { texto = false, idem = false, tentouR
   const j = await r.json();
   if (j.ok) { if (j.data?.csrf) estado.csrf = j.data.csrf; return j.data; }
   const err = new ApiError(r.status, j.error);
+  // A página ficou velha (alguém entrou ou saiu em outra aba): nas telas de entrada, busca o token novo e repete uma vez.
+  if (err.code === 'CSRF' && !tentouCsrf && ROTAS_DE_ENTRADA.test(url)) {
+    await chamar('GET', '/api/sessao');
+    return chamar(metodo, url, corpo, { texto, idem, tentouReauth, tentouCsrf: true });
+  }
   if (err.code === 'REAUTENTICACAO' && estado.aoReautenticar && !tentouReauth) {
     if (await estado.aoReautenticar()) return chamar(metodo, url, corpo, { texto, idem, tentouReauth: true });
   }

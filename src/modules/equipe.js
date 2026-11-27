@@ -7,6 +7,7 @@ import { cifrar, decifrar } from '../security/crypto.js';
 import { hashSenha, validarPolitica } from '../security/password.js';
 import { GRUPOS, PAPEIS, limparPermissoes } from '../permissoes.js';
 import { chaveLogin } from './acesso.js';
+import { ehDesenvolvedor } from '../email.js';
 
 const MAX_PESSOAS = 50;
 const PAPEIS_VALIDOS = [...Object.keys(PAPEIS), 'personalizado'];
@@ -54,7 +55,7 @@ export function registrarEquipe(app, { cfg, db }) {
   const { rota } = app;
 
   const publico = (u) => ({
-    id: u.id, nome: u.nome, papel: u.papel, dono: !!u.dono, ativo: !!u.ativo, trocar_senha: !!u.trocar_senha,
+    id: u.id, nome: u.nome, papel: u.papel, dono: !!u.dono, desenvolvedor: ehDesenvolvedor(cfg, u), ativo: !!u.ativo, trocar_senha: !!u.trocar_senha,
     pendente: u.papel === 'pendente' && !u.dono, // criou a conta sozinha e aguarda o dono liberar o acesso
     permissoes: u.dono ? null : limparPermissoes(JSON.parse(u.permissoes || '[]')), // dono = todas
     login: u.login_enc ? decifrar(cfg.fieldKey, u.login_enc) : null,

@@ -67,7 +67,7 @@ export async function renderizar(el, { params, sessao }) {
         h('div', { class: 'cols-2' }, campo('App ID', appId, { ajuda: d.app_configurado ? 'Já configurado. Informe de novo só para alterar (alterar desconecta a conta).' : undefined }), campo('Chave secreta', segredo)),
         campo('Margem de segurança (unidades que NÃO vão para o anúncio)', margem, { ajuda: 'Anúncio recebe: disponível − reservas − margem.' }),
         h('label', { class: 'check' }, sync, 'Enviar o estoque para os anúncios'), h('label', { class: 'check' }, pausar, 'Pausar o anúncio quando o estoque chegar a zero (e reativar quando voltar)'),
-        h('div', { class: 'row' }, h('button', { class: 'btn primario', 'data-requer': 'integracoes.gerenciar', type: 'submit' }, 'Salvar (pede sua senha)'),
+        h('div', { class: 'row' }, h('button', { class: 'btn primario', 'data-requer': 'integracoes.gerenciar', type: 'submit' }, 'Salvar (pede confirmação)'),
           h('button', { class: 'btn', type: 'button', onclick: async () => { if (await confirmar('Girar o segredo do webhook', 'A URL de notificações antiga deixa de funcionar. Você precisará cadastrar a nova no aplicativo.', { rotulo: 'Girar' })) { try { await api.post('/api/integracoes/ml/rotacionar-webhook', {}); toast('Novo segredo gerado.', 'ok'); ler(); } catch (x) { tratar(x); } } } }, 'Girar segredo do webhook')))));
   }
 

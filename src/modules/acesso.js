@@ -4,7 +4,7 @@ import { T, validar } from '../validate.js';
 import { auditar } from '../security/audit.js';
 import { hmacHex, decifrar } from '../security/crypto.js';
 import { hashSenha, verificarSenha, verificacaoFalsa, validarPolitica } from '../security/password.js';
-import { normalizarEmail, chaveEmail, mascararEmail } from '../email.js';
+import { normalizarEmail, chaveEmail, mascararEmail, ehDesenvolvedor } from '../email.js';
 import { permissoesDe } from '../permissoes.js';
 import { criarCodigos, espera, VALIDADE_MIN } from './codigos.js';
 import { criarSessao, revogarSessao, cookie, nomesCookie } from '../http/sessao.js';
@@ -66,7 +66,7 @@ export function registrarAcesso(app, { cfg, db, email, log }) {
       cadastro_disponivel: email.configurado, // sem e-mail configurado, "Criar conta" não aparece
       dominios_email: cfg.email.dominios,
       usuario: u ? {
-        nome: u.nome, papel: u.papel, dono: !!u.dono, pendente: u.papel === 'pendente' && !u.dono,
+        nome: u.nome, papel: u.papel, dono: !!u.dono, desenvolvedor: ehDesenvolvedor(cfg, u), pendente: u.papel === 'pendente' && !u.dono,
         email: u.email_enc ? mascararEmail(decifrar(cfg.fieldKey, u.email_enc)) : null, email_verificado: !!u.email_verificado,
         permissoes: [...permissoesDe(u)].sort(),
       } : null,

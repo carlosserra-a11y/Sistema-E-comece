@@ -69,5 +69,5 @@ export function abaAjustes(el, { config }) {
     } catch (e) { if (e instanceof ApiError && e.campos) f.erros(e.campos); tratar(e); }
   });
   const teste = h('button', { class: 'btn', type: 'button', onclick: () => mostrarPix(1, { rotuloVoltar: 'Fechar', aviso: 'Teste com R$ 0,01: leia com o app do banco e confira o nome do recebedor. Não precisa pagar.' }) }, 'Testar o QR do Pix (salve antes)');
-  el.append(h('section', { class: 'card stack' }, h('h2', null, 'Ajustes do balcão'), h('p', { class: 'muted' }, 'Só o dono vê esta aba. Salvar pede a sua senha, porque a chave Pix define para onde vai o dinheiro.'), f.el, teste));
+  el.append(h('section', { class: 'card stack' }, h('h2', null, 'Ajustes do balcão'), h('p', { class: 'muted' }, 'Só o dono vê esta aba. Salvar pede uma confirmação, porque a chave Pix define para onde vai o dinheiro.'), f.el, teste));
 }

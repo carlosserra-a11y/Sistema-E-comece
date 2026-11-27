@@ -130,7 +130,7 @@ export function criarApp({ cfg, db, log }) {
     ctx.corpo ??= {};
 
     if (r.opts.reauth && !(ctx.sessao?.reauth_em && cfg.agora() - ctx.sessao.reauth_em <= cfg.reauthMs)) {
-      throw erro(403, 'REAUTENTICACAO', 'Confirme sua senha para continuar.');
+      throw erro(403, 'REAUTENTICACAO', 'Confirme que é você para continuar.');
     }
 
     if (r.opts.idempotente) return await idempotente(ctx, r);

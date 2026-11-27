@@ -62,7 +62,7 @@ function montarShell() {
     return itens.length ? [h('p', { class: 'nav-grupo' }, titulo), itens] : null;
   });
   const u = sessao.usuario;
-  const eu = h('a', { class: 'eu', href: '#/config', 'aria-label': `Minha conta: ${u.nome}` }, avatar(u.nome), h('span', { class: 'eu-txt' }, h('strong', null, u.nome), h('small', null, u.dono ? 'Dono' : PAPEL[u.papel] ?? u.papel)));
+  const eu = h('a', { class: 'eu', href: '#/config', 'aria-label': `Minha conta: ${u.nome}` }, avatar(u.nome), h('span', { class: 'eu-txt' }, h('strong', null, u.nome), h('small', null, u.desenvolvedor ? 'Desenvolvedor' : u.dono ? 'Dono' : PAPEL[u.papel] ?? u.papel)));
   const busca = h('input', { type: 'search', class: 'busca', placeholder: 'Ler código, SKU ou endereço   ( / )', 'aria-label': 'Busca global', id: 'busca-global', autocomplete: 'off',
     onkeydown: (e) => { if (e.key === 'Enter' && e.target.value.trim()) { ir(`consulta?c=${encodeURIComponent(e.target.value.trim())}`); e.target.value = ''; e.target.blur(); } } });
   const maisAba = h('button', { 'data-rota': 'mais', onclick: abrirMais }, icone('dots'), 'Mais');
@@ -217,14 +217,19 @@ estado.aoReautenticar = () => new Promise((resolve) => {
   campoCodigo.hidden = true;
   let m; let ok = false; let porCodigo = false;
   const podeCodigo = !!(sessao?.usuario?.email_verificado && sessao?.cadastro_disponivel);
-  const trocarModo = h('button', { class: 'btn fantasma', type: 'button', hidden: !podeCodigo, onclick: async () => {
-    erro.textContent = '';
-    if (!porCodigo) {
-      try {
-        const r = await api.post('/api/reautenticar/codigo');
-        porCodigo = true; campoSenha.hidden = true; campoCodigo.hidden = false; trocarModo.textContent = 'Prefiro usar a senha'; aviso.textContent = `Enviamos um código para ${r.email}.`; c.focus();
-      } catch (x) { erro.textContent = x.message; }
-    } else { porCodigo = false; campoSenha.hidden = false; campoCodigo.hidden = true; trocarModo.textContent = 'Receber um código por e-mail'; aviso.textContent = ''; s.focus(); }
+  const mostrar = (codigo) => {
+    porCodigo = codigo; campoSenha.hidden = codigo; campoCodigo.hidden = !codigo;
+    trocarModo.textContent = codigo ? 'Prefiro usar a senha' : 'Receber um código por e-mail';
+    (codigo ? c : s).focus();
+  };
+  const pedirCodigo = async () => {
+    erro.textContent = ''; aviso.textContent = 'Enviando o código…'; mostrar(true);
+    try { const r = await api.post('/api/reautenticar/codigo'); aviso.textContent = `Enviamos um código para ${r.email}.`; }
+    catch (x) { aviso.textContent = ''; erro.textContent = x.message; if (x.code !== 'AGUARDE_REENVIO') mostrar(false); }
+  };
+  const trocarModo = h('button', { class: 'btn fantasma', type: 'button', hidden: !podeCodigo, onclick: () => {
+    if (!porCodigo) return pedirCodigo();
+    erro.textContent = ''; aviso.textContent = ''; mostrar(false);
   } }, 'Receber um código por e-mail');
   m = modal('Confirme que é você', h('form', { class: 'stack', onsubmit: async (e) => {
     e.preventDefault();
@@ -233,6 +238,7 @@ estado.aoReautenticar = () => new Promise((resolve) => {
   h('div', { class: 'row' }, h('button', { class: 'btn primario', type: 'submit' }, 'Confirmar'), h('button', { class: 'btn', type: 'button', onclick: () => { m.fechar(); resolve(false); } }, 'Cancelar')), trocarModo));
   const obs = new MutationObserver(() => { if (!document.body.contains(m.el)) { obs.disconnect(); if (!ok) resolve(false); } });
   obs.observe(document.body, { childList: true });
+  if (podeCodigo && sessao.usuario.dono) pedirCodigo(); // donos e desenvolvedor entram só com e-mail: o código já vai, sem pedir senha
 });
 
 // Botões/abas marcados com data-requer somem para quem não tem a permissão (inclui gavetas e janelas abertas depois).

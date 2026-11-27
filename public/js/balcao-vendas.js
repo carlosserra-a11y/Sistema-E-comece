@@ -52,7 +52,7 @@ export function abaLista(el, { config, orcamentos, dia }) {
   }
 
   function cancelar(v, atualizar) {
-    pedirDados(`Cancelar a venda nº ${v.id}?`, 'O estoque volta para os mesmos endereços e a venda sai dos totais. Pede a sua senha.', [['motivo', 'Motivo do cancelamento', 'texto']], 'Cancelar venda', async (d, chave) => {
+    pedirDados(`Cancelar a venda nº ${v.id}?`, 'O estoque volta para os mesmos endereços e a venda sai dos totais. Pede uma confirmação sua.', [['motivo', 'Motivo do cancelamento', 'texto']], 'Cancelar venda', async (d, chave) => {
       const r = await api.idem(`/api/vendas/${v.id}/cancelar`, d, chave);
       atualizar();
       let m;

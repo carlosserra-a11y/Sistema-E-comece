@@ -76,6 +76,13 @@ export async function vincularEmailDono(cfg, db, log) {
   return true;
 }
 
+/** A conta de desenvolvedor é a ligada ao DONO_EMAIL do servidor: mesmo acesso total de um dono, com outro nome na tela. */
+export function ehDesenvolvedor(cfg, u) {
+  if (!u?.dono || !u.email_hmac || !cfg?.donoEmail) return false;
+  const e = normalizarEmail(cfg.donoEmail);
+  return !!e && chaveEmail(cfg, e.canonico) === u.email_hmac;
+}
+
 /**
  * Contas de dono adicionais (ex.: o responsável pela empresa cliente), a partir de DONOS_EXTRAS_JSON=[{"email":"...","nome":"..."}].
  * Quem controla as variáveis do servidor é o dono, então o e-mail já nasce confirmado. A conta nasce com uma senha aleatória que ninguém

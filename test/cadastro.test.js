@@ -474,3 +474,27 @@ test('dono: DONO_EMAIL tira da frente quem reservou o e-mail e respeita conta co
     assert.equal(await vincularEmailDono(sis.cfg, sis.db), false, 'não rouba o e-mail de uma conta confirmada');
   }, { env: { DONO_EMAIL: DONO } });
 });
+
+test('desenvolvedor: a conta do DONO_EMAIL entra só com o e-mail e aparece como desenvolvedor; os donos continuam donos', async () => await com(async (sis) => {
+  await vincularEmailDono(sis.cfg, sis.db);
+  const entrarSoComEmail = async (email) => {
+    const c = await visitante(sis);
+    const r = await c.post('/api/login/email', { email });
+    assert.equal(r.status, 200, r.texto);
+    assert.equal((await c.post('/api/login/codigo', { codigo: codigoDoEmail(sis, email) })).data.estagio, 'COMPLETA');
+    return c;
+  };
+  const dev = await entrarSoComEmail(DONO);
+  const eu = (await dev.get('/api/sessao')).data.usuario;
+  assert.deepEqual([eu.dono, eu.desenvolvedor], [true, true]);
+  const equipe = (await dev.get('/api/equipe')).data.itens;
+  assert.deepEqual(equipe.filter((u) => u.desenvolvedor).map((u) => u.email), [DONO]);
+  assert.deepEqual(equipe.filter((u) => u.dono && !u.desenvolvedor).map((u) => u.email).sort(), [...DONOS].sort());
+  assert.equal((await dev.get('/api/atividade')).data.pessoas.filter((p) => p.desenvolvedor).length, 1);
+  sis.relogio.t += 61_000;
+  assert.equal((await dev.post('/api/reautenticar/codigo')).status, 200);
+  assert.equal((await dev.post('/api/reautenticar', { codigo: codigoDoEmail(sis, DONO) })).status, 200, 'confirma ação sensível sem senha');
+  const dono = await entrarSoComEmail(DONOS[0]);
+  const outro = (await dono.get('/api/sessao')).data.usuario;
+  assert.deepEqual([outro.dono, outro.desenvolvedor], [true, false]);
+}, { env: { DONO_EMAIL: DONO } }));

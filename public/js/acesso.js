@@ -103,7 +103,7 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
     const s = senhaLg({ name: 'senha' });
     const lembrar = h('input', { type: 'checkbox', name: 'lembrar', checked: !!lembrado });
     const erro = h('p', { class: 'lg-erro', role: 'alert' });
-    const dica = h('div', { class: 'lg-info', hidden: true }, icone('shield', 20), h('p', null, 'Esqueceu a senha? Peça ao dono do sistema para redefinir em Equipe → Redefinir senha. Se você é o desenvolvedor, deixe a senha em branco e entre com o código que chega no seu e-mail.'));
+    const dica = h('div', { class: 'lg-info', hidden: true }, icone('shield', 20), h('p', null, 'Esqueceu a senha? Peça ao dono do sistema para redefinir em Equipe → Redefinir senha. Donos e desenvolvedor não precisam de senha: toque em “Entrar só com e-mail” e use o código que chega na caixa de entrada.'));
     const btn = h('button', { class: 'lg-preto', type: 'submit' }, 'Entrar');
     const guardar = () => gravarLocal('lembrar-email', lembrar.checked ? l.value.trim() : '');
 
@@ -117,7 +117,7 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
         guardar();
         confirmarEmail({ email: r.email, senha: null, enviado: true, modo: 'login' });
       } catch (x) {
-        erro.textContent = x.code === 'CREDENCIAIS' ? 'Este e-mail não entra só com o código. Digite a senha.' : x.message;
+        erro.textContent = x.code === 'CREDENCIAIS' ? 'Não consegui entrar só com este e-mail. Confira se está escrito certo. Sem senha entram apenas os donos e o desenvolvedor; as outras contas usam a senha.' : x.message;
         btn.disabled = false;
       }
     }
@@ -136,7 +136,9 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
           if (r.estagio === 'TROCAR_SENHA') trocarSenha(senha); else aoEntrar();
         } catch (x) {
           if (x instanceof ApiError && x.code === 'EMAIL_NAO_CONFIRMADO') return confirmarEmail({ email: l.value.trim(), senha, enviado: false });
-          erro.textContent = x.message; btn.disabled = false; s.input.select();
+          const semSenha = comCadastro && x.code === 'CREDENCIAIS' && l.value.includes('@'); // o navegador pode ter preenchido uma senha antiga
+          erro.textContent = semSenha ? `${x.message} Dono ou desenvolvedor? Toque em “Entrar só com e-mail”.` : x.message;
+          btn.disabled = false; s.input.select();
         }
       } },
       campoLg(comCadastro ? 'E-mail ou código de acesso' : 'Código de acesso', l),
@@ -147,7 +149,7 @@ export function telaAcesso(raiz, sessao, aoEntrar) {
       comCadastro ? [
         h('div', { class: 'lg-sep' }, h('span', null, 'ou')),
         h('div', { class: 'lg-sociais' },
-          h('button', { class: 'lg-social', type: 'button', onclick: pedirCodigoPorEmail }, icone('mail', 20), 'Código por e-mail'),
+          h('button', { class: 'lg-social', type: 'button', onclick: pedirCodigoPorEmail }, icone('mail', 20), 'Entrar só com e-mail'),
           h('button', { class: 'lg-social', type: 'button', onclick: criar }, icone('plus', 20), 'Criar conta')),
       ] : null));
   }
